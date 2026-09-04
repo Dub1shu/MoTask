@@ -1,11 +1,50 @@
 <Window x:Class="MoTask.App.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:res="clr-namespace:MoTask.App.Resources"
+        xmlns:vm="clr-namespace:MoTask.App.ViewModels"
+        xmlns:views="clr-namespace:MoTask.App.Views"
+        mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:BoardViewModel}"
         Title="{x:Static res:Strings.AppTitle}" Width="1280" Height="800" MinWidth="900" MinHeight="600"
         Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
-        FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}">
-  <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1" Padding="20.4,10.2" VerticalAlignment="Top">
-    <TextBlock Text="{x:Static res:Strings.Brand}" Style="{StaticResource Text.Brand}" />
-  </Border>
+        FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
+        Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
+  <DockPanel>
+    <!-- トップバー。ボード面（Brush.Bg）と区別が付くよう、ここだけ Surface を敷く。 -->
+    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"
+            BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
+            Padding="{StaticResource Pad.Bar}">
+      <StackPanel Orientation="Horizontal">
+        <TextBlock Text="{x:Static res:Strings.Brand}" Style="{StaticResource Text.Brand}" VerticalAlignment="Center" />
+        <Border Margin="{StaticResource Gap.Left.8}" BorderBrush="{StaticResource Brush.Accent}"
+                BorderThickness="0,0,0,2" Padding="{StaticResource Pad.Tab}">
+          <TextBlock Text="{x:Static res:Strings.ViewBoard}" Foreground="{StaticResource Brush.Accent.700}" FontWeight="Medium" />
+        </Border>
+      </StackPanel>
+    </Border>
+
+    <!-- 保存失敗などの非モーダルバナー -->
+    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Accent.100}" BorderBrush="{StaticResource Brush.Danger}"
+            BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}"
+            Visibility="{Binding BannerMessage, Converter={StaticResource NullToVisibility}}">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="×" ToolTip="{x:Static res:Strings.Close}"
+                Style="{StaticResource Btn.Ghost}" Command="{Binding DismissBannerCommand}" />
+        <TextBlock Text="{Binding BannerMessage}" Foreground="{StaticResource Brush.Danger}" VerticalAlignment="Center" TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+
+    <views:FilterBar x:Name="FilterBar" DockPanel.Dock="Top" />
+
+    <Grid>
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <views:BoardView Grid.Column="0" />
+      <!-- 詳細パネルは Task 19 でここに置く -->
+    </Grid>
+  </DockPanel>
 </Window>

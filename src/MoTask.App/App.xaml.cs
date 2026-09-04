@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,7 +39,9 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, Strings.AppTitle, MessageBoxButton.OK, MessageBoxImage.Error);
+            // 例外メッセージはフレームワーク由来で英語のことが多い。日本語の前置きを付けて出す。
+            MessageBox.Show(string.Format(CultureInfo.CurrentCulture, Strings.StartupFailedFormat, ex.Message),
+                Strings.AppTitle, MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
     }
@@ -49,6 +52,7 @@ public partial class App : Application
         builder.Services.AddMoTaskData(dbPath);
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddSingleton<IBoardService, BoardService>();
+        builder.Services.AddSingleton<ViewModels.BoardViewModel>();
         builder.Services.AddSingleton<MainWindow>();
         return builder.Build();
     }

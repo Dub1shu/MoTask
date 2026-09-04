@@ -1,11 +1,15 @@
 using System.Globalization;
 using MoTask.Core.Filtering;
+using MoTask.Core.Model;
 
 namespace MoTask.App.ViewModels;
 
 public sealed record ProjectOption(int? Id, string Name);
 
 public sealed record DueOption(DueFilter Value, string Name);
+
+/// <summary>列を追加するときに選ぶ種別。<c>Done</c> は1列だけなので選択肢に入れない（仕様 §5）。</summary>
+public sealed record ColumnRoleOption(ColumnRole Value, string Name);
 
 /// <summary>
 /// カードや詳細パネルに出すラベルのチップ。<paramref name="Color"/> は背景に使うランプ段の名前で、

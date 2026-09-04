@@ -34,14 +34,28 @@ public sealed partial class BoardViewModel : ObservableObject
     [ObservableProperty] private string? _bannerMessage;
     [ObservableProperty] private bool _isAddingColumn;
     [ObservableProperty] private string _newColumnName = "";
+    [ObservableProperty] private ColumnRoleOption _newColumnRole;
     [ObservableProperty] private bool _isLoaded;
+
+    /// <summary>列を追加するときに選べる種別。Done 列は1つだけなので選ばせない（仕様 §5）。</summary>
+    public IReadOnlyList<ColumnRoleOption> NewColumnRoles { get; } = new[]
+    {
+        new ColumnRoleOption(ColumnRole.Backlog, Strings.RoleBacklog),
+        new ColumnRoleOption(ColumnRole.Active, Strings.RoleActive),
+        new ColumnRoleOption(ColumnRole.Review, Strings.RoleReview),
+    };
 
     public BoardViewModel(IBoardService service, IClock clock)
     {
         _service = service;
         _clock = clock;
+        _newColumnRole = DefaultColumnRole();
         Filter.Changed += (_, _) => ApplyFilter();
     }
+
+    /// <summary>追加する列の既定の種別は「進行中」。</summary>
+    private ColumnRoleOption DefaultColumnRole()
+        => NewColumnRoles.First(r => r.Value == ColumnRole.Active);
 
     public DateOnly Today => _clock.Today;
 
@@ -161,6 +175,7 @@ public sealed partial class BoardViewModel : ObservableObject
     private void BeginAddColumn()
     {
         NewColumnName = "";
+        NewColumnRole = DefaultColumnRole();
         IsAddingColumn = true;
     }
 
@@ -168,7 +183,7 @@ public sealed partial class BoardViewModel : ObservableObject
     private async Task CommitAddColumnAsync()
     {
         if (string.IsNullOrWhiteSpace(NewColumnName)) return;
-        var result = await _service.AddColumnAsync(NewColumnName);
+        var result = await _service.AddColumnAsync(NewColumnName, NewColumnRole.Value);
         if (!await HandleAsync(result)) return;
         IsAddingColumn = false;
         NewColumnName = "";

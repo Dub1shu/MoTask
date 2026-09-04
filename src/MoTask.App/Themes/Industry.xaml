@@ -66,6 +66,46 @@
   <sys:Double x:Key="Space.6">20.4</sys:Double>
   <sys:Double x:Key="Space.8">27.2</sys:Double>
 
+  <!-- 余白（Thickness）。XAML は Double をそのまま Margin/Padding へ代入できないので、
+       上の Space トークンから組んだ Thickness をここで名前付きにしておく。
+       View 側は数値を書かず、このキーを参照する。 -->
+  <Thickness x:Key="Pad.Bar" Left="{StaticResource Space.6}" Top="{StaticResource Space.3}"
+             Right="{StaticResource Space.6}" Bottom="{StaticResource Space.3}" />
+  <Thickness x:Key="Pad.BarTight" Left="{StaticResource Space.6}" Top="{StaticResource Space.2}"
+             Right="{StaticResource Space.6}" Bottom="{StaticResource Space.2}" />
+  <Thickness x:Key="Pad.Board" Left="{StaticResource Space.6}" Top="{StaticResource Space.4}"
+             Right="{StaticResource Space.6}" Bottom="{StaticResource Space.4}" />
+  <Thickness x:Key="Pad.Section" Left="{StaticResource Space.3}" Top="{StaticResource Space.2}"
+             Right="{StaticResource Space.3}" Bottom="{StaticResource Space.2}" />
+  <Thickness x:Key="Pad.Box" Left="{StaticResource Space.3}" Top="{StaticResource Space.3}"
+             Right="{StaticResource Space.3}" Bottom="{StaticResource Space.3}" />
+  <Thickness x:Key="Pad.Tab" Left="{StaticResource Space.2}" Top="{StaticResource Space.1}"
+             Right="{StaticResource Space.2}" Bottom="{StaticResource Space.1}" />
+  <!-- チップの内側。縦の 1 は実寸: Space.1 まで開けると行の高さが膨らむ。 -->
+  <Thickness x:Key="Pad.Chip" Left="{StaticResource Space.1}" Top="1"
+             Right="{StaticResource Space.1}" Bottom="1" />
+
+  <!-- カード枠の内側。枠線の太さが変わっても内容の位置が動かないよう Pad.Box を ±1 で打ち消す。
+       選択中は枠が 1→2px なので 10.2-1、削除済みは枠が 1→0px なので 10.2+1。 -->
+  <Thickness x:Key="Pad.Card.Selected">9.2</Thickness>
+  <Thickness x:Key="Pad.Card.Deleted">11.2</Thickness>
+
+  <!-- 要素どうしの間隔。方向と Space の段で名前を付ける。 -->
+  <Thickness x:Key="Gap.Left.1" Left="{StaticResource Space.1}" />
+  <Thickness x:Key="Gap.Left.2" Left="{StaticResource Space.2}" />
+  <Thickness x:Key="Gap.Left.3" Left="{StaticResource Space.3}" />
+  <Thickness x:Key="Gap.Left.4" Left="{StaticResource Space.4}" />
+  <Thickness x:Key="Gap.Left.8" Left="{StaticResource Space.8}" />
+  <Thickness x:Key="Gap.Right.1" Right="{StaticResource Space.1}" />
+  <Thickness x:Key="Gap.Right.4" Right="{StaticResource Space.4}" />
+  <Thickness x:Key="Gap.Top.1" Top="{StaticResource Space.1}" />
+  <Thickness x:Key="Gap.Top.2" Top="{StaticResource Space.2}" />
+  <Thickness x:Key="Gap.Bottom.2" Bottom="{StaticResource Space.2}" />
+  <Thickness x:Key="Gap.Chip" Right="{StaticResource Space.1}" Bottom="{StaticResource Space.1}" />
+
+  <!-- 列の幅。列本体と「＋ 列を追加」の箱で揃える。 -->
+  <sys:Double x:Key="Size.Column">280</sys:Double>
+
   <!-- 字体。埋め込みフォントは相対 URI で指す。pack:// にはコンマが含まれ、
        FontFamily のフォールバック一覧の区切り文字と衝突するため。 -->
   <FontFamily x:Key="Font.Heading">/Fonts/#Barlow Condensed, Noto Sans JP, Yu Gothic UI</FontFamily>

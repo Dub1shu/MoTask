@@ -596,4 +596,49 @@ public class BoardViewModelTests
         Ids(_vm.Columns[0]).Should().Equal(11);
         _vm.Columns[0].CountText.Should().Be("1");
     }
+
+    // ---- 列の追加（種別は追加するときに選ぶ） ----
+
+    /// <summary>Done 列は1つだけなので、追加時の種別には出さない。</summary>
+    [Fact]
+    public void NewColumnRoles_OfferBacklogActiveAndReview_ButNeverDone()
+    {
+        _vm.NewColumnRoles.Select(r => r.Value)
+            .Should().Equal(ColumnRole.Backlog, ColumnRole.Active, ColumnRole.Review);
+        _vm.NewColumnRoles.Select(r => r.Name)
+            .Should().Equal(Strings.RoleBacklog, Strings.RoleActive, Strings.RoleReview);
+        _vm.NewColumnRole.Value.Should().Be(ColumnRole.Active, "既定は進行中");
+    }
+
+    [Fact]
+    public async Task CommitAddColumn_PassesSelectedRoleAndAppendsColumn()
+    {
+        _service.AddColumnAsync("確認待ち", ColumnRole.Review, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Ok(
+                new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review })));
+        await _vm.LoadAsync();
+        _vm.BeginAddColumnCommand.Execute(null);
+        _vm.NewColumnName = "確認待ち";
+        _vm.NewColumnRole = _vm.NewColumnRoles.Single(r => r.Value == ColumnRole.Review);
+
+        await _vm.CommitAddColumnCommand.ExecuteAsync(null);
+
+        _vm.IsAddingColumn.Should().BeFalse();
+        _vm.Columns.Select(c => c.Name).Should().Equal("未着手", "進行中", "完了", "確認待ち");
+        _vm.Columns[3].Role.Should().Be(ColumnRole.Review);
+    }
+
+    /// <summary>選び直したあとでも、次に開いたときは名前が空・種別が既定に戻る。</summary>
+    [Fact]
+    public void BeginAddColumn_ResetsNameAndRole()
+    {
+        _vm.NewColumnName = "書きかけ";
+        _vm.NewColumnRole = _vm.NewColumnRoles.Single(r => r.Value == ColumnRole.Backlog);
+
+        _vm.BeginAddColumnCommand.Execute(null);
+
+        _vm.IsAddingColumn.Should().BeTrue();
+        _vm.NewColumnName.Should().BeEmpty();
+        _vm.NewColumnRole.Value.Should().Be(ColumnRole.Active);
+    }
 }

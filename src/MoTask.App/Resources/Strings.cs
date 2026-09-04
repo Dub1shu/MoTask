@@ -66,4 +66,5 @@ public static class Strings
     public static string DbOpenFailedFormat => Get(nameof(DbOpenFailedFormat));
     public static string DbRecreatedFormat => Get(nameof(DbRecreatedFormat));
     public static string DbRecreateFailedFormat => Get(nameof(DbRecreateFailedFormat));
+    public static string StartupFailedFormat => Get(nameof(StartupFailedFormat));
 }

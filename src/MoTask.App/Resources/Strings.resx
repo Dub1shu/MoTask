@@ -66,4 +66,6 @@
 {0}</value></data>
   <data name="DbRecreateFailedFormat" xml:space="preserve"><value>データベースを作り直せませんでした。終了します。
 {0}</value></data>
+  <data name="StartupFailedFormat" xml:space="preserve"><value>起動できませんでした。
+{0}</value></data>
 </root>

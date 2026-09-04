@@ -1,0 +1,129 @@
+<UserControl x:Class="MoTask.App.Views.ColumnView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:res="clr-namespace:MoTask.App.Resources"
+             xmlns:model="clr-namespace:MoTask.Core.Model;assembly=MoTask.Core"
+             xmlns:vm="clr-namespace:MoTask.App.ViewModels"
+             xmlns:views="clr-namespace:MoTask.App.Views"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ColumnViewModel}">
+  <Border Width="{StaticResource Size.Column}" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1">
+    <DockPanel>
+      <!-- ヘッダー（Task 18 で列ドラッグのハンドルにする）。
+           Background は塗りではなくヒットテストのため: 透明でないと余白でドラッグを掴めない。 -->
+      <Border x:Name="Header" DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
+              Padding="{StaticResource Pad.Section}" Background="Transparent">
+        <DockPanel>
+          <Button DockPanel.Dock="Right" Content="⋯" ToolTip="{x:Static res:Strings.Column}"
+                  Style="{StaticResource Btn.Ghost}" Click="MenuButton_Click">
+            <Button.ContextMenu>
+              <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
+                <MenuItem Header="{x:Static res:Strings.Rename}" Command="{Binding BeginRenameCommand}" />
+                <MenuItem Header="{x:Static res:Strings.ChangeRole}"
+                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}">
+                  <MenuItem Header="{x:Static res:Strings.RoleBacklog}" Command="{Binding SetRoleCommand}"
+                            CommandParameter="{x:Static model:ColumnRole.Backlog}" />
+                  <MenuItem Header="{x:Static res:Strings.RoleActive}" Command="{Binding SetRoleCommand}"
+                            CommandParameter="{x:Static model:ColumnRole.Active}" />
+                  <MenuItem Header="{x:Static res:Strings.RoleReview}" Command="{Binding SetRoleCommand}"
+                            CommandParameter="{x:Static model:ColumnRole.Review}" />
+                </MenuItem>
+                <MenuItem Header="{x:Static res:Strings.SetWip}" Command="{Binding BeginEditWipCommand}" />
+                <MenuItem Header="{x:Static res:Strings.ClearWip}" Command="{Binding ClearWipCommand}" />
+                <Separator />
+                <MenuItem Header="{x:Static res:Strings.DeleteColumn}" Command="{Binding DeleteColumnCommand}"
+                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
+              </ContextMenu>
+            </Button.ContextMenu>
+          </Button>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Heading}" VerticalAlignment="Center"
+                       Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibilityInverse}}" />
+            <TextBox Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}" MinWidth="120"
+                     Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}}"
+                     KeyDown="RenameBox_KeyDown" LostFocus="RenameBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
+            <TextBlock Text="{Binding CountText}" Margin="{StaticResource Gap.Left.2}" VerticalAlignment="Center">
+              <TextBlock.Style>
+                <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
+                  <Style.Triggers>
+                    <DataTrigger Binding="{Binding IsOverWip}" Value="True">
+                      <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                      <Setter Property="FontWeight" Value="Bold" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </TextBlock.Style>
+            </TextBlock>
+            <TextBox Text="{Binding WipText, UpdateSourceTrigger=PropertyChanged}" Width="48"
+                     Margin="{StaticResource Gap.Left.2}"
+                     Visibility="{Binding IsEditingWip, Converter={StaticResource BoolToVisibility}}"
+                     KeyDown="WipBox_KeyDown" LostFocus="WipBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <!-- インライン作成 -->
+      <Border DockPanel.Dock="Bottom" Padding="{StaticResource Pad.Section}">
+        <Grid>
+          <Button Content="{x:Static res:Strings.AddTaskInline}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
+                  Command="{Binding BeginAddTaskCommand}"
+                  Visibility="{Binding IsAddingTask, Converter={StaticResource BoolToVisibilityInverse}}" />
+          <TextBox Text="{Binding NewTaskTitle, UpdateSourceTrigger=PropertyChanged}"
+                   Visibility="{Binding IsAddingTask, Converter={StaticResource BoolToVisibility}}"
+                   KeyDown="NewTaskBox_KeyDown" LostFocus="NewTaskBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
+        </Grid>
+      </Border>
+
+      <!-- カード一覧（Task 18 で D&D を付ける）。Background は既定の白を消して列を塗りなしに保つため。 -->
+      <ListBox x:Name="CardList" ItemsSource="{Binding Cards}" SelectedItem="{Binding SelectedCard}"
+               Background="Transparent" BorderThickness="0" Padding="{StaticResource Pad.Section}"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                  <Grid>
+                    <!-- カードは塗りなし。Background は透明のままヒットテストのために置く。 -->
+                    <Border x:Name="Frame" Background="Transparent" BorderBrush="{StaticResource Brush.Divider}"
+                            BorderThickness="1" Padding="{StaticResource Pad.Box}" SnapsToDevicePixels="True">
+                      <ContentPresenter />
+                    </Border>
+                    <Rectangle x:Name="Dashed" Stroke="{StaticResource Brush.Neutral.500}" StrokeThickness="1"
+                               StrokeDashArray="3 2" Visibility="Collapsed" IsHitTestVisible="False" />
+                  </Grid>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.Accent.100}" />
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                      <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                      <Setter TargetName="Frame" Property="BorderThickness" Value="2" />
+                      <Setter TargetName="Frame" Property="Padding" Value="{StaticResource Pad.Card.Selected}" />
+                    </Trigger>
+                    <DataTrigger Binding="{Binding IsDeleted}" Value="True">
+                      <Setter TargetName="Frame" Property="BorderThickness" Value="0" />
+                      <Setter TargetName="Frame" Property="Padding" Value="{StaticResource Pad.Card.Deleted}" />
+                      <Setter TargetName="Frame" Property="Opacity" Value="0.55" />
+                      <Setter TargetName="Dashed" Property="Visibility" Value="Visible" />
+                    </DataTrigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </ListBox.ItemContainerStyle>
+        <ListBox.ItemTemplate>
+          <DataTemplate>
+            <views:TaskCardView />
+          </DataTemplate>
+        </ListBox.ItemTemplate>
+      </ListBox>
+    </DockPanel>
+  </Border>
+</UserControl>
