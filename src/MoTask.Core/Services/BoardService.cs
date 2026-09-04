@@ -165,10 +165,7 @@ public sealed class BoardService : IBoardService
         _history.Add(new HistoryEntry { Task = task, TaskId = task.Id, At = now, Kind = HistoryKind.Deleted });
 
         // 削除済みタスクが Position の枠を占有しないよう、残った未削除タスクを詰め直す
-        if (column is not null)
-        {
-            Renumber(Ordered(column).Where(t => !t.IsDeleted).ToList());
-        }
+        if (column is not null) RenumberColumn(column);
 
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
         return Result.Ok();
@@ -187,12 +184,7 @@ public sealed class BoardService : IBoardService
 
         // 復元後は列の末尾に置き、未削除タスクを再採番する（元の位置には戻さない）
         var column = await _boards.GetColumnAsync(task.ColumnId, ct).ConfigureAwait(false);
-        if (column is not null)
-        {
-            var visible = Ordered(column).Where(t => !t.IsDeleted && t.Id != task.Id).ToList();
-            visible.Add(task);
-            Renumber(visible);
-        }
+        if (column is not null) RenumberColumn(column, moveToEnd: task);
 
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
         return Result.Ok();
@@ -381,8 +373,29 @@ public sealed class BoardService : IBoardService
             ? new[] { string.Format(Messages.WipExceededFormat, column.Name, column.WipLimit) }
             : Array.Empty<string>();
 
-    /// <summary>列のタスクを Position 順に並べたリストを返す（削除済みも含む）。</summary>
-    private static List<TaskItem> Ordered(Column column) => column.Tasks.OrderBy(t => t.Position).ToList();
+    /// <summary>
+    /// 列のタスクを Position 順に並べたリストを返す（削除済みも含む）。
+    /// Position が並んだときの決着は Id で付ける。表示側の
+    /// <c>ColumnViewModel.SyncCardsFromModel</c> と同じ規則にしておかないと、同じ列を
+    /// Core と表示で別の順序に見て、ドロップ位置が1つずれたまま保存されてしまう。
+    /// </summary>
+    private static List<TaskItem> Ordered(Column column)
+        => column.Tasks.OrderBy(t => t.Position).ThenBy(t => t.Id).ToList();
+
+    /// <summary>
+    /// 列全体の Position を 0 から振り直す。未削除タスクを Position 順に詰め、削除済みはその後ろへ回す。
+    /// 削除済みを後ろへ送るのは、列内の Position を必ず一意に保つため（削除済みが古い Position を
+    /// 抱えたままだと、繰り上がった生存タスクと重複する）。
+    /// </summary>
+    /// <param name="moveToEnd">未削除タスクの中で末尾に置きたいタスク（復元したタスク）。</param>
+    private static void RenumberColumn(Column column, TaskItem? moveToEnd = null)
+    {
+        var ordered = Ordered(column);
+        var renumbered = ordered.Where(t => !t.IsDeleted && !ReferenceEquals(t, moveToEnd)).ToList();
+        if (moveToEnd is { IsDeleted: false }) renumbered.Add(moveToEnd);
+        renumbered.AddRange(ordered.Where(t => t.IsDeleted));
+        Renumber(renumbered);
+    }
 
     /// <summary>渡された順序どおりに Position を 0 から振り直す。</summary>
     private static void Renumber(List<TaskItem> tasks)

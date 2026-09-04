@@ -30,17 +30,42 @@ public sealed class CardDropHandler : IDropTarget
 
     public void Drop(IDropInfo dropInfo)
     {
-        if (dropInfo.Data is not TaskCardViewModel card) return;
-        if (dropInfo.TargetCollection is not ObservableCollection<TaskCardViewModel> cards) return;
+        // ここで受けないドロップは DragOver と同じく NotHandled を立てて親へ返す。Gong の
+        // DropTarget_Drop は最後に e.Handled = !dropInfo.NotHandled を書くので、立てずに抜けると
+        // カード一覧が Drop ルーティングイベントを握ってしまい、列の並び替え（親 ColumnsHost の
+        // ColumnDropHandler）まで届かない。カード一覧は列のほぼ全面を覆うので、列ヘッダーを
+        // 別の列へ落とすと何も起きなくなる。
+        if (dropInfo.Data is not TaskCardViewModel card)
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
+        if (dropInfo.TargetCollection is not ObservableCollection<TaskCardViewModel> cards)
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
         var target = _board.Columns.FirstOrDefault(c => ReferenceEquals(c.Cards, cards));
-        if (target is null) return;
+        if (target is null)
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
 
         var position = DropPositionCalculator.ToPosition(target.Cards, target.AllCards, card, dropInfo.InsertIndex);
-        if (position is null) return;
+        if (position is null)
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
 
         // 裁定6: 同じ列の今の位置へ落としただけなら、保存を往復させない。
         var source = _board.Columns.FirstOrDefault(c => c.AllCards.Contains(card));
-        if (ReferenceEquals(source, target) && DropPositionCalculator.IsNoOp(target.AllCards, card, position.Value)) return;
+        if (ReferenceEquals(source, target) && DropPositionCalculator.IsNoOp(target.AllCards, card, position.Value))
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
 
         // Drop は Task を返せないので board 側に観測させる。discard にすると保存の失敗が消える。
         _board.RunGuarded(() => _board.MoveCardAsync(card, target, position.Value));

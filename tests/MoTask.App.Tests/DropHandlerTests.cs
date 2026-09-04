@@ -18,7 +18,8 @@ namespace MoTask.App.Tests;
 public class DropHandlerTests
 {
     private readonly IBoardService _service = Substitute.For<IBoardService>();
-    private readonly Board _board = TestBoards.Sample();
+    /// <summary>GetBoardAsync は毎回この値を読むので、LoadAsync の前なら差し替えられる。</summary>
+    private Board _board = TestBoards.Sample();
     private readonly BoardViewModel _vm;
 
     public DropHandlerTests()
@@ -72,6 +73,28 @@ public class DropHandlerTests
         await _service.Received(1).MoveTaskAsync(10, 1, 1, Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// 削除済みカードを含む列（表示 3 枚 / AllCards 4 枚）で、表示上の挿入位置が
+    /// AllCards 上の position に読み替えられて渡ること。ここがずれると、画面が見せた場所とは
+    /// 別の場所に保存される。
+    /// </summary>
+    [Fact]
+    public async Task CardDrop_WithHiddenDeletedCard_TranslatesVisibleIndexToAllCardsPosition()
+    {
+        _board = TestBoards.WithDeletedCard();
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.Cards.Select(c => c.Id).Should().Equal(10, 13, 14);
+        column.AllCards.Select(c => c.Id).Should().Equal(10, 11, 13, 14);
+        var handler = new CardDropHandler(_vm);
+
+        // 14 を、表示上の 10 と 13 のあいだ（表示 index 1）へ落とす。
+        handler.Drop(Info(column.Cards[2], column.Cards, 1));
+
+        // 14 を除いた AllCards は [10, 11(削除済み), 13] なので、13 の直前は index 2。
+        await _service.Received(1).MoveTaskAsync(14, 1, 2, Arg.Any<CancellationToken>());
+    }
+
     /// <summary>裁定6: 何も変わらないドロップは保存へ行かない。</summary>
     [Theory]
     [InlineData(0)]   // 自分の上
@@ -80,13 +103,34 @@ public class DropHandlerTests
     {
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
+        var info = Info(card, _vm.Columns[0].Cards, insertIndex);
         var handler = new CardDropHandler(_vm);
 
-        handler.Drop(Info(card, _vm.Columns[0].Cards, insertIndex));
+        handler.Drop(info);
 
         await _service.DidNotReceive()
             .MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         _vm.BannerMessage.Should().BeNull();
+        info.Received().NotHandled = true;   // 何もしなかったのに Drop を握らない
+    }
+
+    /// <summary>
+    /// 列のドラッグはカード列で握らずに親へ返す。DragOver だけでなく Drop も同じで、
+    /// Gong は NotHandled を立てないと e.Handled = true にしてしまう。カード一覧は列のほぼ
+    /// 全面を覆うので、握ると列ヘッダーを別の列へ落としても何も起きない。
+    /// </summary>
+    [Fact]
+    public async Task CardDrop_WithColumnData_LeavesEventForTheParent()
+    {
+        await _vm.LoadAsync();
+        var info = Info(_vm.Columns[0], _vm.Columns[0].Cards, 0);
+        var handler = new CardDropHandler(_vm);
+
+        handler.Drop(info);
+
+        info.Received().NotHandled = true;
+        await _service.DidNotReceive()
+            .MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>裁定3: Drop は待てないが、保存の失敗を握りつぶしてはいけない。</summary>
@@ -137,10 +181,27 @@ public class DropHandlerTests
     public async Task ColumnDrop_AtOwnPosition_DoesNotTouchTheService()
     {
         await _vm.LoadAsync();
+        var info = Info(_vm.Columns[1], _vm.Columns, 1);
         var handler = new ColumnDropHandler(_vm);
 
-        handler.Drop(Info(_vm.Columns[1], _vm.Columns, 1));
+        handler.Drop(info);
 
+        await _service.DidNotReceive()
+            .ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
+        info.Received().NotHandled = true;
+    }
+
+    /// <summary>受け付けないドロップは Drop でも握らずに返す（DragOver と同じ扱い）。</summary>
+    [Fact]
+    public async Task ColumnDrop_WithCardData_LeavesEventForTheParent()
+    {
+        await _vm.LoadAsync();
+        var info = Info(_vm.Columns[0].Cards[0], _vm.Columns, 0);
+        var handler = new ColumnDropHandler(_vm);
+
+        handler.Drop(info);
+
+        info.Received().NotHandled = true;
         await _service.DidNotReceive()
             .ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
     }

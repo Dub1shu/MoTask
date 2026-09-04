@@ -29,13 +29,28 @@ public sealed class ColumnDropHandler : IDropTarget
 
     public void Drop(IDropInfo dropInfo)
     {
-        if (dropInfo.Data is not ColumnViewModel moving) return;
-        if (dropInfo.TargetCollection is not ObservableCollection<ColumnViewModel>) return;
+        // DragOver と同じく、受けないドロップは NotHandled を立てて返す（Gong は立てないと
+        // e.Handled = true にしてしまう）。ここは最上位の drop target なので実害は小さいが、
+        // 「受けなかったのに握る」状態を残さない。
+        if (dropInfo.Data is not ColumnViewModel moving)
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
+        if (dropInfo.TargetCollection is not ObservableCollection<ColumnViewModel>)
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
 
         var current = _board.Columns.ToList();
         var order = DropPositionCalculator.Reorder(current, moving, dropInfo.InsertIndex);
         // 裁定6 と同じ理由: 並びが変わらないドロップは保存を往復させない。
-        if (order.SequenceEqual(current)) return;
+        if (order.SequenceEqual(current))
+        {
+            dropInfo.NotHandled = true;
+            return;
+        }
 
         _board.RunGuarded(() => _board.ReorderColumnsAsync(order));
     }

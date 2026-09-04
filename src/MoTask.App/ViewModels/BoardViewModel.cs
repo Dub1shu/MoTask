@@ -326,12 +326,10 @@ public sealed partial class BoardViewModel : ObservableObject
         var result = await GuardAsync(operation);
         if (!await HandleAsync(result)) return false;
         var column = ColumnOf(card);
-        if (column is not null)
-        {
-            card.Refresh(ProjectName, Today);
-            column.RefreshHeader();
-            column.ApplyFilter(Filter.ToFilter(), Today);
-        }
+        // 削除も復元も列の Position を振り直す（削除は繰り上げ、復元は末尾送り）ので、
+        // カード1枚を Refresh するだけでは AllCards の並びがモデルから外れる。外れると
+        // 次のドロップ位置が AllCards 上で数えられてモデルの別の場所へ保存される（無言でずれる）。
+        if (column is not null) RefreshColumn(column);
         AfterTaskChanged();
         return true;
     }

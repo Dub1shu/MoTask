@@ -66,6 +66,32 @@ public class BoardServiceMoveTests
         _store.SaveCount.Should().Be(1);
     }
 
+    /// <summary>
+    /// 保険: Position が重複している列でも、Core は表示側（<c>ColumnViewModel.SyncCardsFromModel</c> =
+    /// Position, Id 順）と同じ順序で挿入位置を数える。Tasks コレクションの並び順で決着させると、
+    /// 画面が見せた場所と別の場所に保存される。重複は今の実装では作られないが、
+    /// 旧版が書いた DB を開いたときには残っている。
+    /// </summary>
+    [Fact]
+    public async Task Move_WithTiedPositions_CountsInTheSameOrderAsTheUi()
+    {
+        // a を後から backlog へ動かすことで、コレクション順（b, a）を Id 順（a, b）とわざとずらす。
+        var a = _store.SeedTask(_active, "a");
+        var b = _store.SeedTask(_backlog, "b");
+        await _service.MoveTaskAsync(a.Id, _backlog.Id, position: 0);
+        _backlog.Tasks.Select(t => t.Title).Should().Equal("b", "a");
+
+        b.Position = a.Position;   // 旧版が残した重複を再現する
+        var c = _store.SeedTask(_backlog, "c");
+
+        // 画面は [a, b, c] と見えている。c を先頭へ落とせば [c, a, b] になるはず。
+        var result = await _service.MoveTaskAsync(c.Id, _backlog.Id, position: 0);
+
+        result.IsSuccess.Should().BeTrue();
+        TitlesInOrder(_backlog).Should().Equal("c", "a", "b");
+        Positions(_backlog).Should().Equal(0, 1, 2);
+    }
+
     [Fact]
     public async Task Move_PositionOutOfRange_IsClamped()
     {

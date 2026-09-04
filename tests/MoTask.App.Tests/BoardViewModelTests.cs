@@ -1,4 +1,4 @@
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using FluentAssertions;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
@@ -193,12 +193,7 @@ public class BoardViewModelTests
         var active = _board.Columns[1];
         _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(_ =>
         {
-            var task = backlog.Tasks.Single(t => t.Id == 10);
-            backlog.Tasks.Remove(task);
-            active.Tasks.Insert(0, task);
-            task.ColumnId = 2;
-            for (var i = 0; i < backlog.Tasks.Count; i++) backlog.Tasks[i].Position = i;
-            for (var i = 0; i < active.Tasks.Count; i++) active.Tasks[i].Position = i;
+            TestBoards.Move(backlog, active, taskId: 10, position: 0);
             return Task.FromResult(Result.Ok());
         });
         await _vm.LoadAsync();
@@ -210,6 +205,9 @@ public class BoardViewModelTests
         ok.Should().BeTrue();
         _vm.BannerMessage.Should().BeNull();
         Ids(_vm.Columns[0]).Should().Equal(11);
+        // 実サービスは移動先のコレクションへ末尾に足すので、コレクション順は Position 順と一致しない。
+        // 表示は Position を読むので、どちらでも [10, 12] にならなければならない。
+        active.Tasks.Select(t => t.Id).Should().Equal(12, 10);
         Ids(_vm.Columns[1]).Should().Equal(10, 12);
         _vm.Columns[1].IsOverWip.Should().BeTrue();
         _vm.Columns[1].CountText.Should().Be("2 / 1");
@@ -217,6 +215,53 @@ public class BoardViewModelTests
         _vm.Columns[1].SelectedCard.Should().BeSameAs(card);
         await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
     }
+
+    /// <summary>
+    /// 削除済みを表示したまま復元すると、BoardService はそのタスクを列の末尾へ動かす。表示の
+    /// AllCards をモデルから組み直さないと、画面はカードを元のスロットに残したまま DB だけが動く。
+    /// 次のドラッグは AllCards 上の index で数えられて別の場所に保存され、例外もバナーも出ない。
+    /// </summary>
+    [Fact]
+    public async Task RestoreTask_RebuildsAllCardsInModelPositionOrder()
+    {
+        var backlog = TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
+        _service.RestoreTaskAsync(11, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            TestBoards.Restore(backlog, 11);
+            return Task.FromResult(Result.Ok());
+        });
+        _vm.Filter.ShowDeleted = true;
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.AllCards.Select(c => c.Id).Should().Equal(10, 11, 13, 14);
+
+        await _vm.RestoreTaskAsync(column.AllCards.Single(c => c.Id == 11));
+
+        column.AllCards.Select(c => c.Id).Should().Equal(10, 13, 14, 11);
+        column.AllCards.Select(c => c.Model.Position).Should().Equal(0, 1, 2, 3);
+        Ids(column).Should().Equal(10, 13, 14, 11);
+    }
+
+    /// <summary>削除も同じ: 生存カードが繰り上がり、削除済みが後ろへ回る並びを表示も追う。</summary>
+    [Fact]
+    public async Task DeleteTask_RebuildsAllCardsInModelPositionOrder()
+    {
+        var backlog = TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
+        _service.DeleteTaskAsync(13, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            TestBoards.SoftDelete(backlog, 13, new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc));
+            return Task.FromResult(Result.Ok());
+        });
+        _vm.Filter.ShowDeleted = true;
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+
+        await _vm.DeleteTaskAsync(column.AllCards.Single(c => c.Id == 13));
+
+        column.AllCards.Select(c => c.Id).Should().Equal(10, 14, 11, 13);
+        column.AllCards.Select(c => c.Model.Position).Should().Equal(0, 1, 2, 3);
+    }
+
 
     [Fact]
     public async Task SelectCard_SyncsColumnSelection_AndCloseClearsIt()

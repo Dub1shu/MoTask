@@ -21,6 +21,10 @@ dotnet run --project src/MoTask.App
 
 ```bash
 dotnet test MoTask.sln
+
+# dotnet-ef はローカルツール（.config/dotnet-tools.json）なので、
+# クローン直後は先に復元が必要です。
+dotnet tool restore
 dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migrations
 ```
 
@@ -28,7 +32,7 @@ dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migration
 
 ## 手動確認チェックリスト
 
-自動テスト（Core / Data / App、164 本）ではカバーできない項目です。リリース前、
+自動テスト（Core / Data / App、173 本）ではカバーできない項目です。リリース前、
 または D&D・フォント・詳細パネル周りを変更した後に、上から順に確認してください。
 
 ### 1. 列の並び替え（ドラッグ＆ドロップ）
@@ -41,10 +45,21 @@ dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migration
 - [ ] 列を別の位置にドロップすると並びが変わり、再起動しても保たれる。
 - [ ] 列ヘッダーを別の列の上に運んでいる間、その列のカード一覧が誤ってドロップを
       横取りしない（カードの並びが変わらない）。
-- [ ] もし列ヘッダーのドラッグがそもそも始まらない場合は、フォールバック実装への
-      切り替えが必要です。手順は
-      `.superpowers/sdd/2026-09-04-motask-kanban-v1/task-18-report.md` の
-      「Step 5 か Step 6 か」節を参照（`ColumnView.xaml` の属性を数個差し替えるだけ）。
+- [ ] もし列ヘッダーのドラッグがそもそも始まらない場合は、フォールバック実装
+      （列の `ItemsControl` 自体を drag source にする方式）へ切り替えます。XAML の属性を
+      3 か所差し替えるだけで、`ColumnDropHandler` と `DropPositionCalculator` は
+      そのまま使えます。
+
+      1. `src/MoTask.App/Views/ColumnView.xaml` の `<Border x:Name="Header" ...>` から
+         `dd:DragDrop.IsDragSource="True"` と `dd:DragDrop.UseDefaultDragAdorner="True"`
+         の 2 属性を外す。
+      2. `src/MoTask.App/Views/BoardView.xaml` の
+         `<ItemsControl x:Name="ColumnsHost" ...>` に `dd:DragDrop.IsDragSource="True"`
+         を足す（`dd:DragDrop.IsDropTarget="True"` はそのまま残す）。
+      3. `src/MoTask.App/Views/ColumnView.xaml` の `<ListBox x:Name="CardList" ...>` と、
+         その下の「インライン作成」の `<Border DockPanel.Dock="Bottom" ...>` に
+         `dd:DragDrop.DragSourceIgnore="True"` を足す。これがないと、カードや入力欄を
+         掴んだつもりが列のドラッグになる。
 
 ### 2. カードのドラッグ＆ドロップ
 
