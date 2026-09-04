@@ -151,11 +151,52 @@ public sealed class BoardService : IBoardService
         return Result.Ok(columnChanged ? WipWarnings(target) : Array.Empty<string>());
     }, ct);
 
-    public Task<Result> DeleteTaskAsync(int taskId, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result> DeleteTaskAsync(int taskId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var task = await _boards.GetTaskAsync(taskId, ct).ConfigureAwait(false);
+        if (task is null) return Result.Fail(Messages.TaskNotFound);
+        if (task.IsDeleted) return Result.Fail(Messages.TaskAlreadyDeleted);
 
-    public Task<Result> RestoreTaskAsync(int taskId, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        var column = await _boards.GetColumnAsync(task.ColumnId, ct).ConfigureAwait(false);
+
+        var now = _clock.UtcNow;
+        task.DeletedAt = now;
+        task.UpdatedAt = now;
+        _history.Add(new HistoryEntry { Task = task, TaskId = task.Id, At = now, Kind = HistoryKind.Deleted });
+
+        // 削除済みタスクが Position の枠を占有しないよう、残った未削除タスクを詰め直す
+        if (column is not null)
+        {
+            Renumber(Ordered(column).Where(t => !t.IsDeleted).ToList());
+        }
+
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> RestoreTaskAsync(int taskId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var task = await _boards.GetTaskAsync(taskId, ct).ConfigureAwait(false);
+        if (task is null) return Result.Fail(Messages.TaskNotFound);
+        if (!task.IsDeleted) return Result.Fail(Messages.TaskNotDeleted);
+
+        var now = _clock.UtcNow;
+        task.DeletedAt = null;
+        task.UpdatedAt = now;
+        _history.Add(new HistoryEntry { Task = task, TaskId = task.Id, At = now, Kind = HistoryKind.Restored });
+
+        // 復元後は列の末尾に置き、未削除タスクを再採番する（元の位置には戻さない）
+        var column = await _boards.GetColumnAsync(task.ColumnId, ct).ConfigureAwait(false);
+        if (column is not null)
+        {
+            var visible = Ordered(column).Where(t => !t.IsDeleted && t.Id != task.Id).ToList();
+            visible.Add(task);
+            Renumber(visible);
+        }
+
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
 
     public Task<Result> SetTaskLabelsAsync(int taskId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default) => RunAsync(async () =>
     {
