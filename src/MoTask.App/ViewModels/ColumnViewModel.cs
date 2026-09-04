@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
+using MoTask.Core;
 using MoTask.Core.Filtering;
 using MoTask.Core.Model;
 
@@ -78,11 +79,15 @@ public sealed partial class ColumnViewModel : ObservableObject
     {
         // TaskItem は Equals を上書きしないので、既定の HashSet がそのまま参照一致になる。
         var visible = filter.Apply(AllCards.Select(c => c.Model), today).ToHashSet();
+        // Cards は ListBox の ItemsSource なので、Clear が発火する Reset で Selector は選択を解除し、
+        // null を SelectedCard へ書き戻す。絞り込んだ後もまだ表示されるカードの選択はここで戻す。
+        var selected = SelectedCard;
         Cards.Clear();
         foreach (var card in AllCards)
         {
             if (visible.Contains(card.Model)) Cards.Add(card);
         }
+        if (selected is not null && Cards.Contains(selected)) SelectedCard = selected;
     }
 
     partial void OnSelectedCardChanged(TaskCardViewModel? value)
@@ -126,12 +131,12 @@ public sealed partial class ColumnViewModel : ObservableObject
         IsRenaming = true;
     }
 
+    /// <summary>成功したときだけ閉じる。却下されたら理由を読みながら直せるよう入力を残す。</summary>
     [RelayCommand]
     private async Task CommitRenameAsync()
     {
         if (!IsRenaming) return;
-        IsRenaming = false;
-        await _board.RenameColumnAsync(this, RenameText);
+        if (await _board.RenameColumnAsync(this, RenameText)) IsRenaming = false;
     }
 
     [RelayCommand]
@@ -147,13 +152,32 @@ public sealed partial class ColumnViewModel : ObservableObject
         IsEditingWip = true;
     }
 
+    /// <summary>
+    /// 空欄は「制限なし」。数字でない入力は打ち間違いとして拒否し、黙って制限を消さない。
+    /// 成功したときだけ閉じる。
+    /// </summary>
     [RelayCommand]
     private async Task CommitWipAsync()
     {
         if (!IsEditingWip) return;
-        IsEditingWip = false;
-        int? limit = int.TryParse(WipText, NumberStyles.Integer, CultureInfo.CurrentCulture, out var n) ? n : null;
-        await _board.SetWipLimitAsync(this, limit);
+
+        var text = WipText.Trim();
+        int? limit;
+        if (text.Length == 0)
+        {
+            limit = null;
+        }
+        else if (int.TryParse(text, NumberStyles.Integer, CultureInfo.CurrentCulture, out var n))
+        {
+            limit = n;
+        }
+        else
+        {
+            _board.ShowBanner(Messages.WipLimitMustBePositive);
+            return;
+        }
+
+        if (await _board.SetWipLimitAsync(this, limit)) IsEditingWip = false;
     }
 
     [RelayCommand]

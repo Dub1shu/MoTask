@@ -51,13 +51,13 @@ public sealed partial class BoardViewModel : ObservableObject
     /// <summary>起動時と、保存の失敗からの復帰時にだけ呼ぶ。</summary>
     public async Task ReloadAsync()
     {
-        var board = await _service.GetBoardAsync();
+        // 照会は例外を Result にしてくれないので、必ずここで包む（さもないと DB エラーでプロセスが落ちる）。
+        var board = await GuardAsync(() => _service.GetBoardAsync());
         if (!board.IsSuccess)
         {
             ShowFailure(board);
             return;
         }
-        // 照会は Result を返さず例外を握らないので、必ずここで包む（さもないと DB エラーでプロセスが落ちる）。
         var projects = await QueryAsync(() => _service.GetProjectsAsync());
         if (!projects.IsSuccess)
         {
@@ -336,6 +336,9 @@ public sealed partial class BoardViewModel : ObservableObject
         return false;
     }
 
+    /// <summary>ViewModel 側で弾いた入力の理由をバナーに出す（サービスを呼ぶ前の拒否）。</summary>
+    public void ShowBanner(string message) => BannerMessage = message;
+
     private void ShowFailure(Result result) => BannerMessage = result.Error;
 
     /// <summary>
@@ -355,7 +358,23 @@ public sealed partial class BoardViewModel : ObservableObject
         {
             return Result.Ok(await query());
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Result.Fail<T>($"{Messages.SaveFailed}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Result を返す照会を包む。BoardService が握るのは SaveChanges の PersistenceException だけなので、
+    /// 読み取り段で出る生の例外（SqliteException など）は Result にならずそのまま抜けてくる。
+    /// </summary>
+    private static async Task<Result<T>> GuardAsync<T>(Func<Task<Result<T>>> query)
+    {
+        try
+        {
+            return await query();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return Result.Fail<T>($"{Messages.SaveFailed}: {ex.Message}");
         }
@@ -364,6 +383,12 @@ public sealed partial class BoardViewModel : ObservableObject
     /// <summary>楽観的に動かしたカードをモデルの並びへ戻す。</summary>
     private void RollbackMove(ColumnViewModel source, ColumnViewModel target, TaskCardViewModel card, bool wasSelected)
     {
+        // 先に card を元の列へ戻す。SyncCardsFromModel が同じ VM を再利用する条件は
+        // 「その列の AllCards に同じ id があり Model も同一インスタンス」なので、戻さずに組み直すと
+        // source は id を作り直し target は落とし、card がどの列にも属さない孤児になる。
+        target.AllCards.Remove(card);
+        if (!source.AllCards.Contains(card)) source.AllCards.Add(card);
+
         RefreshColumn(source);
         if (!ReferenceEquals(source, target)) RefreshColumn(target);
         if (wasSelected) SelectCard(card);

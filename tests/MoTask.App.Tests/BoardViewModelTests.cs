@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using FluentAssertions;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
@@ -124,6 +125,7 @@ public class BoardViewModelTests
         _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail("だめ")));
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
+        _vm.SelectCard(card);
 
         var ok = await _vm.MoveCardAsync(card, _vm.Columns[1], 0);
 
@@ -132,6 +134,38 @@ public class BoardViewModelTests
         Ids(_vm.Columns[0]).Should().Equal(10, 11);
         Ids(_vm.Columns[1]).Should().Equal(12);
         await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+
+        // 巻き戻しは同じカード VM を元の列へ戻す。作り直すと選択が孤児 VM を指してしまう。
+        _vm.Columns[0].Cards[0].Should().BeSameAs(card);
+        _vm.Columns[0].AllCards.Should().Contain(card);
+        _vm.SelectedCard.Should().BeSameAs(card);
+        _vm.Columns[0].SelectedCard.Should().BeSameAs(card);
+    }
+
+    /// <summary>
+    /// 却下された移動のあとも、選択中のカードは盤面に属したままでなければならない。
+    /// 孤児になっていると ColumnOf が null になり、保存は通るのに表示が更新されない。
+    /// </summary>
+    [Fact]
+    public async Task MoveCard_WhenRejected_LeavesSelectedCardUsable()
+    {
+        var backlog = _board.Columns[0];
+        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail("だめ")));
+        _service.DeleteTaskAsync(10, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+            return Task.FromResult(Result.Ok());
+        });
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+        _vm.SelectCard(card);
+        await _vm.MoveCardAsync(card, _vm.Columns[1], 0);
+
+        await _vm.DeleteSelectedCommand.ExecuteAsync(null);
+
+        card.IsDeleted.Should().BeTrue();
+        Ids(_vm.Columns[0]).Should().Equal(11);
+        _vm.Columns[0].CountText.Should().Be("1");
     }
 
     /// <summary>裁定2: 保存に失敗したときだけメモリ上の状態が信用できないので読み直す。</summary>
@@ -317,6 +351,57 @@ public class BoardViewModelTests
             Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 2, 1, 3 })), Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// Cards は ListBox の ItemsSource なので、Clear の Reset で Selector が選択を解除し null を
+    /// 書き戻す。バインドの無いテストではその書き戻しを模倣して、絞り込み後も残るカードの選択が
+    /// 戻ることを確かめる。
+    /// </summary>
+    [Fact]
+    public async Task Filter_KeepsSelection_WhenSelectedCardStaysVisible()
+    {
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.Cards.CollectionChanged += (_, e) =>
+        {
+            if (e.Action == NotifyCollectionChangedAction.Reset) column.SelectedCard = null;
+        };
+        var card = column.Cards[0];
+        _vm.SelectCard(card);
+
+        _vm.Filter.SearchText = "請求";   // card は絞り込み後も残る
+
+        Ids(column).Should().Equal(10);
+        column.SelectedCard.Should().BeSameAs(card);
+    }
+
+    /// <summary>裁定R1: GetBoardAsync も読み取り段の生の例外を素通しするので、呼び出し側で包む。</summary>
+    [Fact]
+    public async Task Load_WhenBoardQueryThrows_ShowsBannerInsteadOfCrashing()
+    {
+        _service.GetBoardAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<Board>>(new InvalidOperationException("no such table: Boards")));
+
+        await _vm.LoadAsync();
+
+        _vm.BannerMessage.Should().Be(SaveFailure("no such table: Boards"));
+        _vm.IsLoaded.Should().BeFalse();
+        _vm.Columns.Should().BeEmpty();
+    }
+
+    /// <summary>裁定R2: 取り消しは保存の失敗ではない。バナーにも出さず、リロードも誘発しない。</summary>
+    [Fact]
+    public async Task Load_WhenQueryIsCancelled_IsNotTreatedAsSaveFailure()
+    {
+        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<IReadOnlyList<Project>>(new OperationCanceledException()));
+
+        Func<Task> load = () => _vm.LoadAsync();
+
+        await load.Should().ThrowAsync<OperationCanceledException>();
+        _vm.BannerMessage.Should().BeNull();
+        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+    }
+
     /// <summary>裁定1: Result を返さない照会が投げても落とさず、保存失敗と同じバナーに出す。</summary>
     [Fact]
     public async Task Load_WhenProjectsQueryThrows_ShowsBannerInsteadOfCrashing()
@@ -371,6 +456,125 @@ public class BoardViewModelTests
         _vm.ProjectName(100).Should().Be("顧客A対応");
         _vm.ProjectName(null).Should().BeNull();
         _vm.Today.Should().Be(new DateOnly(2026, 9, 4));
+    }
+
+    // ---- 列ヘッダーのインライン編集（裁定R3・R4） ----
+
+    /// <summary>裁定R4: 却下されたら理由を読みながら直せるよう、入力もエディタも残す。</summary>
+    [Fact]
+    public async Task CommitRename_WhenRejected_KeepsEditorAndText()
+    {
+        _service.RenameColumnAsync(1, "   ", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Fail(Messages.ColumnNameRequired)));
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.BeginRenameCommand.Execute(null);
+        column.RenameText = "   ";
+
+        await column.CommitRenameCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(Messages.ColumnNameRequired);
+        column.IsRenaming.Should().BeTrue();
+        column.RenameText.Should().Be("   ");
+        column.Name.Should().Be("未着手");
+    }
+
+    [Fact]
+    public async Task CommitRename_WhenAccepted_ClosesEditor()
+    {
+        _service.RenameColumnAsync(1, "積み残し", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            _board.Columns[0].Name = "積み残し";
+            return Task.FromResult(Result.Ok());
+        });
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.BeginRenameCommand.Execute(null);
+        column.RenameText = "積み残し";
+
+        await column.CommitRenameCommand.ExecuteAsync(null);
+
+        column.IsRenaming.Should().BeFalse();
+        column.Name.Should().Be("積み残し");
+    }
+
+    /// <summary>裁定R3: 打ち間違いで WIP 制限が黙って消えないこと。サービスも呼ばない。</summary>
+    [Fact]
+    public async Task CommitWip_NonNumericText_KeepsLimitAndEditor()
+    {
+        await _vm.LoadAsync();
+        var column = _vm.Columns[1];   // WIP 1
+        column.BeginEditWipCommand.Execute(null);
+        column.WipText = "いち";
+
+        await column.CommitWipCommand.ExecuteAsync(null);
+
+        await _service.DidNotReceive().SetWipLimitAsync(Arg.Any<int>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        _vm.BannerMessage.Should().Be(Messages.WipLimitMustBePositive);
+        column.WipLimit.Should().Be(1);
+        column.CountText.Should().Be("1 / 1");
+        column.IsEditingWip.Should().BeTrue();
+        column.WipText.Should().Be("いち");
+    }
+
+    /// <summary>空欄は従来どおり「制限なし」の意味。</summary>
+    [Fact]
+    public async Task CommitWip_EmptyText_ClearsLimit()
+    {
+        _service.SetWipLimitAsync(2, null, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            _board.Columns[1].WipLimit = null;
+            return Task.FromResult(Result.Ok());
+        });
+        await _vm.LoadAsync();
+        var column = _vm.Columns[1];
+        column.BeginEditWipCommand.Execute(null);
+        column.WipText = "";
+
+        await column.CommitWipCommand.ExecuteAsync(null);
+
+        column.WipLimit.Should().BeNull();
+        column.CountText.Should().Be("1");
+        column.IsEditingWip.Should().BeFalse();
+    }
+
+    /// <summary>裁定R4: サービスに却下された WIP 値も入力に残す。</summary>
+    [Fact]
+    public async Task CommitWip_WhenRejected_KeepsEditorAndText()
+    {
+        _service.SetWipLimitAsync(2, 0, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Fail(Messages.WipLimitMustBePositive)));
+        await _vm.LoadAsync();
+        var column = _vm.Columns[1];
+        column.BeginEditWipCommand.Execute(null);
+        column.WipText = "0";
+
+        await column.CommitWipCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(Messages.WipLimitMustBePositive);
+        column.IsEditingWip.Should().BeTrue();
+        column.WipText.Should().Be("0");
+        column.WipLimit.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CommitWip_WhenAccepted_ClosesEditor()
+    {
+        _service.SetWipLimitAsync(2, 3, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            _board.Columns[1].WipLimit = 3;
+            return Task.FromResult(Result.Ok());
+        });
+        await _vm.LoadAsync();
+        var column = _vm.Columns[1];
+        column.BeginEditWipCommand.Execute(null);
+        column.WipText.Should().Be("1", "編集開始時は今の制限が入る");
+        column.WipText = "3";
+
+        await column.CommitWipCommand.ExecuteAsync(null);
+
+        column.IsEditingWip.Should().BeFalse();
+        column.CountText.Should().Be("1 / 3");
     }
 
     [Fact]
