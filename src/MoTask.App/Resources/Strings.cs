@@ -58,6 +58,7 @@ public static class Strings
     public static string FieldProject => Get(nameof(FieldProject));
     public static string FieldDueDate => Get(nameof(FieldDueDate));
     public static string FieldLabels => Get(nameof(FieldLabels));
+    public static string FieldUnknown => Get(nameof(FieldUnknown));
     public static string CardDueFormat => Get(nameof(CardDueFormat));
     public static string ColumnCountFormat => Get(nameof(ColumnCountFormat));
     public static string ColumnCountWithLimitFormat => Get(nameof(ColumnCountWithLimitFormat));

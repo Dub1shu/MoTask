@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using MoTask.App.Resources;
 using MoTask.Core.Model;
 
@@ -17,8 +18,7 @@ public static class HistoryFormatter
         {
             HistoryKind.Created => string.Format(Strings.HistoryCreatedFormat, Name(entry.ToColumnId)),
             HistoryKind.Moved => string.Format(Strings.HistoryMovedFormat, Name(entry.FromColumnId), Name(entry.ToColumnId)),
-            HistoryKind.Edited => string.Format(Strings.HistoryEditedFormat,
-                string.Join(Strings.HistoryFieldJoiner, HistoryDetail.Deserialize(entry.Detail).Keys.Select(FieldName))),
+            HistoryKind.Edited => FormatEdited(entry.Detail),
             HistoryKind.Deleted => Strings.HistoryDeleted,
             HistoryKind.Restored => Strings.HistoryRestored,
             _ => Strings.HistoryUnknown,
@@ -28,6 +28,25 @@ public static class HistoryFormatter
         string Name(int? id) => id is int i ? columnName(i) : Strings.UnknownColumn;
     }
 
+    /// <summary>
+    /// 壊れた、あるいは将来のスキーマとずれた Detail は JsonException を投げうる（HistoryDetail.Deserialize）。
+    /// 1件の壊れた履歴行のために呼び出し元（LoadHistoryAsync 経由の PendingSave）を fault させないよう、
+    /// ここで受け止めて日本語のフォールバック文言を返す。
+    /// </summary>
+    private static string FormatEdited(string detail)
+    {
+        IReadOnlyDictionary<string, FieldChange> changes;
+        try
+        {
+            changes = HistoryDetail.Deserialize(detail);
+        }
+        catch (JsonException)
+        {
+            return Strings.HistoryUnknown;
+        }
+        return string.Format(Strings.HistoryEditedFormat, string.Join(Strings.HistoryFieldJoiner, changes.Keys.Select(FieldName)));
+    }
+
     public static string FieldName(string key) => key switch
     {
         "Title" => Strings.FieldTitle,
@@ -35,6 +54,6 @@ public static class HistoryFormatter
         "Project" => Strings.FieldProject,
         "DueDate" => Strings.FieldDueDate,
         "Labels" => Strings.FieldLabels,
-        _ => key,
+        _ => Strings.FieldUnknown,
     };
 }

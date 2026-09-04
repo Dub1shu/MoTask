@@ -57,6 +57,26 @@ public class TaskDetailViewModelTests
         await _service.DidNotReceive().UpdateTaskAsync(Arg.Any<TaskUpdate>(), Arg.Any<CancellationToken>());
     }
 
+    /// <summary>
+    /// F1: 壊れた Detail JSON を持つ履歴行が1件あるだけで、コンストラクタが代入する PendingSave が
+    /// 例外を握ったまま fault してはいけない（GetHistoryAsync の DB 失敗と同じくバナーではなく
+    /// フォールバック文言で表に出す）。
+    /// </summary>
+    [Fact]
+    public async Task Open_WithCorruptHistoryDetail_DoesNotFaultAndShowsFallback()
+    {
+        _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(new[]
+            {
+                new HistoryEntry { TaskId = 10, At = DateTime.UtcNow, Kind = HistoryKind.Edited, Detail = "{not valid json" },
+            }));
+
+        var detail = await OpenAsync(10); // PendingSave が fault していればここで例外が飛ぶ
+
+        detail.PendingSave.IsFaulted.Should().BeFalse();
+        detail.History.Should().ContainSingle().Which.Should().EndWith(MoTask.App.Resources.Strings.HistoryUnknown);
+    }
+
     [Fact]
     public async Task ChangingTitle_SavesExactlyOnce()
     {
