@@ -10,19 +10,42 @@ namespace MoTask.Data;
 /// </summary>
 public static class DatabaseRecovery
 {
-    /// <summary>壊れた DB をバックアップして削除する。戻り値はバックアップ先のパス（元ファイルが無ければ作成されない）。</summary>
+    /// <summary>
+    /// 壊れた DB をバックアップして削除する。戻り値はバックアップ先のパス（元ファイルが無ければ作成されない）。
+    /// 同一秒内に複数回呼ばれるなどして基本名が衝突する場合は、既存のバックアップを上書きせず
+    /// 連番を付けた別名にする。
+    /// </summary>
     public static string BackupAndReset(string dbPath, DateTime now)
     {
         // プールされたコネクションがファイルハンドルを保持したままだとコピーが失敗しうるため、
         // コピー前にも解放しておく（削除時にも SqliteFileCleanup が再度クリアするが無害）。
         SqliteConnection.ClearAllPools();
 
-        var backup = $"{dbPath}.bak-{now:yyyyMMdd-HHmmss}";
+        var backup = NextAvailableBackupPath(dbPath, now);
         if (File.Exists(dbPath))
         {
-            File.Copy(dbPath, backup, overwrite: true);
+            // overwrite: false により、衝突時に既存バックアップを黙って潰すことはあり得ない。
+            File.Copy(dbPath, backup, overwrite: false);
         }
         SqliteFileCleanup.DeleteDatabaseFiles(dbPath);
         return backup;
+    }
+
+    private static string NextAvailableBackupPath(string dbPath, DateTime now)
+    {
+        var basePath = $"{dbPath}.bak-{now:yyyyMMdd-HHmmss}";
+        if (!File.Exists(basePath))
+        {
+            return basePath;
+        }
+
+        for (var i = 2; ; i++)
+        {
+            var candidate = $"{basePath}-{i}";
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
     }
 }

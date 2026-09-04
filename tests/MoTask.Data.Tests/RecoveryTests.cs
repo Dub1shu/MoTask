@@ -38,5 +38,26 @@ public class RecoveryTests : IDisposable
         File.Exists(backup).Should().BeFalse("元ファイルが無ければバックアップは作られない");
     }
 
+    [Fact]
+    public void BackupAndReset_CalledTwiceWithSameTimestamp_DoesNotOverwritePreviousBackup()
+    {
+        var now = new DateTime(2026, 9, 4, 8, 40, 5);
+
+        File.WriteAllText(_db.Path, "broken-1");
+        var backup1 = DatabaseRecovery.BackupAndReset(_db.Path, now);
+
+        File.WriteAllText(_db.Path, "broken-2");
+        var backup2 = DatabaseRecovery.BackupAndReset(_db.Path, now);
+
+        backup1.Should().NotBe(backup2, "同一秒に2回呼ばれても既存のバックアップを黙って上書きしてはいけない");
+        File.Exists(backup1).Should().BeTrue();
+        File.Exists(backup2).Should().BeTrue();
+        File.ReadAllText(backup1).Should().Be("broken-1", "1回目のバックアップ内容が2回目で上書きされていないこと");
+        File.ReadAllText(backup2).Should().Be("broken-2");
+
+        File.Delete(backup1);
+        File.Delete(backup2);
+    }
+
     public void Dispose() => _db.Dispose();
 }
