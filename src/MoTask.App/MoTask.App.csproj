@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>MoTask.App</RootNamespace>
+    <AssemblyName>MoTask</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" />
+    <PackageReference Include="gong-wpf-dragdrop" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MoTask.Core\MoTask.Core.csproj" />
+    <ProjectReference Include="..\MoTask.Data\MoTask.Data.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Resource Include="Fonts\*.ttf" />
+  </ItemGroup>
+</Project>
