@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using MoTask.App.ViewModels;
 using MoTask.Core;
@@ -124,6 +125,64 @@ public class TaskDetailViewModelTests
 
         // int.MaxValue は移動先の件数（1）に丸められてから BoardService へ渡る
         await _service.Received(1).MoveTaskAsync(10, 2, 1, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// 詳細パネルを開いたままカードをボード側で動かす（＝カードのドラッグ＆ドロップ）と、
+    /// 履歴は自分の操作で動かしたときと同じように更新されなければならない。
+    /// </summary>
+    [Fact]
+    public async Task MovingCardFromTheBoard_RefreshesHistory()
+    {
+        var backlog = _board.Columns[0];
+        var done = _board.Columns[2];
+        var history = new List<HistoryEntry>
+        {
+            new() { TaskId = 10, At = new DateTime(2026, 9, 4, 8, 40, 0, DateTimeKind.Utc), Kind = HistoryKind.Created, ToColumnId = 1 },
+        };
+        _service.GetHistoryAsync(10, Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<HistoryEntry>>(history.OrderByDescending(e => e.At).ToList()));
+        _service.MoveTaskAsync(10, 3, Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            TestBoards.Move(backlog, done, taskId: 10, position: 0);
+            history.Add(new HistoryEntry
+            {
+                TaskId = 10, At = new DateTime(2026, 9, 4, 9, 15, 0, DateTimeKind.Utc),
+                Kind = HistoryKind.Moved, FromColumnId = 1, ToColumnId = 3,
+            });
+            return Task.FromResult(Result.Ok());
+        });
+        var detail = await OpenAsync(10);
+        detail.History.Should().ContainSingle();
+
+        await _vm.MoveCardAsync(detail.Card, _vm.Columns[2], 0);
+        await detail.PendingSave;
+
+        detail.SelectedColumn!.Id.Should().Be(3);
+        detail.History.Should().HaveCount(2);
+        detail.History[0].Should().EndWith("未着手 → 完了");
+    }
+
+    /// <summary>完了列に入るまでは完了日時の行を出さない。</summary>
+    [Fact]
+    public async Task CompletedAtText_IsNull_WhileTheTaskIsNotDone()
+    {
+        var detail = await OpenAsync(10);
+
+        detail.CompletedAtText.Should().BeNull();
+    }
+
+    /// <summary>完了日時は履歴と同じ時計（UTC を現地時刻へ）で、同じ書式で出す。</summary>
+    [Fact]
+    public async Task CompletedAtText_ShowsTheLocalCompletionTime()
+    {
+        var completed = new DateTime(2026, 9, 4, 23, 41, 29, DateTimeKind.Utc);
+        _board.Columns[0].Tasks.Single(t => t.Id == 10).CompletedAt = completed;
+        var detail = await OpenAsync(10);
+
+        var expected = TimeZoneInfo.ConvertTimeFromUtc(completed, TimeZoneInfo.Local)
+            .ToString(MoTask.App.Resources.Strings.HistoryTimestampFormat, CultureInfo.InvariantCulture);
+        detail.CompletedAtText.Should().Be(expected);
     }
 
     [Fact]

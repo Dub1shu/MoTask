@@ -24,6 +24,7 @@ public sealed partial class TaskDetailViewModel : ObservableObject
     [ObservableProperty] private DateTime? _dueDate;
     [ObservableProperty] private ColumnViewModel? _selectedColumn;
     [ObservableProperty] private bool _isDeleted;
+    [ObservableProperty] private string? _completedAtText;
     [ObservableProperty] private bool _hasTitleError;
     [ObservableProperty] private string _newProjectName = "";
     [ObservableProperty] private string _newLabelName = "";
@@ -65,6 +66,8 @@ public sealed partial class TaskDetailViewModel : ObservableObject
             DueDate = m.DueDate?.ToDateTime(TimeOnly.MinValue);
             SelectedColumn = _board.Columns.FirstOrDefault(c => c.Id == m.ColumnId);
             IsDeleted = m.IsDeleted;
+            // 完了列を出ると CompletedAt は null に戻るので、行ごと消える
+            CompletedAtText = m.CompletedAt is DateTime completed ? HistoryFormatter.Timestamp(completed) : null;
 
             Labels.Clear();
             foreach (var l in _board.Labels.OrderBy(l => l.Name))

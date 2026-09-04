@@ -236,7 +236,7 @@ public sealed partial class BoardViewModel : ObservableObject
         RefreshColumn(source);
         if (!ReferenceEquals(source, target)) RefreshColumn(target);
         if (wasSelected) SelectCard(card);
-        AfterTaskChanged();
+        await AfterTaskChangedAsync();
         return true;
     }
 
@@ -330,7 +330,7 @@ public sealed partial class BoardViewModel : ObservableObject
         // カード1枚を Refresh するだけでは AllCards の並びがモデルから外れる。外れると
         // 次のドロップ位置が AllCards 上で数えられてモデルの別の場所へ保存される（無言でずれる）。
         if (column is not null) RefreshColumn(column);
-        AfterTaskChanged();
+        await AfterTaskChangedAsync();
         return true;
     }
 
@@ -473,8 +473,19 @@ public sealed partial class BoardViewModel : ObservableObject
         column.ApplyFilter(Filter.ToFilter(), Today);
     }
 
-    /// <summary>タスク変更後、開いている詳細パネルの表示をモデルの最新値へ合わせる。</summary>
-    private void AfterTaskChanged() => Detail?.Refresh();
+    /// <summary>
+    /// タスク変更後、開いている詳細パネルの表示をモデルの最新値へ合わせる。
+    /// 履歴も読み直すこと: <see cref="TaskDetailViewModel.Refresh"/> はモデルの各項目しか見ないので、
+    /// これが無いと詳細パネル自身の操作でだけ履歴が伸び、カードをドラッグして動かしたり
+    /// ボードで Delete したりしたときは古いまま残る。
+    /// </summary>
+    private async Task AfterTaskChangedAsync()
+    {
+        var detail = Detail;
+        if (detail is null) return;
+        detail.Refresh();
+        await detail.LoadHistoryAsync();
+    }
 
     private void ApplyFilter()
     {

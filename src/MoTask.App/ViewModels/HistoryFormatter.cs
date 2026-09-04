@@ -10,9 +10,7 @@ public static class HistoryFormatter
 {
     public static string Format(HistoryEntry entry, Func<int, string> columnName, TimeZoneInfo? timeZone = null)
     {
-        var utc = DateTime.SpecifyKind(entry.At, DateTimeKind.Utc);
-        var local = TimeZoneInfo.ConvertTimeFromUtc(utc, timeZone ?? TimeZoneInfo.Local);
-        var stamp = local.ToString(Strings.HistoryTimestampFormat, CultureInfo.InvariantCulture);
+        var stamp = Timestamp(entry.At, timeZone);
 
         var body = entry.Kind switch
         {
@@ -26,6 +24,16 @@ public static class HistoryFormatter
         return $"{stamp} {body}";
 
         string Name(int? id) => id is int i ? columnName(i) : Strings.UnknownColumn;
+    }
+
+    /// <summary>
+    /// DB は UTC で持つので現地時刻へ直してから「9/4 8:40」の形にする。完了日時も同じ時計・
+    /// 同じ書式で出すため、履歴と共有する。
+    /// </summary>
+    public static string Timestamp(DateTime utc, TimeZoneInfo? timeZone = null)
+    {
+        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), timeZone ?? TimeZoneInfo.Local);
+        return local.ToString(Strings.HistoryTimestampFormat, CultureInfo.InvariantCulture);
     }
 
     /// <summary>

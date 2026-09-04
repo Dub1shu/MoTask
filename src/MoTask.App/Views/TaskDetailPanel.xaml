@@ -72,6 +72,12 @@
           <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Field.Label}" />
           <DatePicker SelectedDate="{Binding DueDate}" />
 
+          <!-- 完了日時は読み取り専用。完了列を出ると CompletedAtText が null になり、ラベルごと消える -->
+          <TextBlock Text="{x:Static res:Strings.CompletedAt}" Style="{StaticResource Field.Label}"
+                     Visibility="{Binding CompletedAtText, Converter={StaticResource NullToVisibility}}" />
+          <TextBlock Text="{Binding CompletedAtText}" Style="{StaticResource Text.Small}"
+                     Visibility="{Binding CompletedAtText, Converter={StaticResource NullToVisibility}}" />
+
           <TextBlock Text="{x:Static res:Strings.Column}" Style="{StaticResource Field.Label}" />
           <ComboBox ItemsSource="{Binding Columns}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedColumn}" />
 
