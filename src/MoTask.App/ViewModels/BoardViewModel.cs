@@ -30,6 +30,7 @@ public sealed partial class BoardViewModel : ObservableObject
     public IReadOnlyList<Label> Labels { get; private set; } = Array.Empty<Label>();
 
     [ObservableProperty] private TaskCardViewModel? _selectedCard;
+    [ObservableProperty] private TaskDetailViewModel? _detail;
     [ObservableProperty] private string? _bannerMessage;
     [ObservableProperty] private bool _isAddingColumn;
     [ObservableProperty] private string _newColumnName = "";
@@ -126,6 +127,11 @@ public sealed partial class BoardViewModel : ObservableObject
         {
             _syncingSelection = false;
         }
+    }
+
+    partial void OnSelectedCardChanged(TaskCardViewModel? value)
+    {
+        Detail = value is null ? null : new TaskDetailViewModel(value, this);
     }
 
     [RelayCommand]
@@ -417,10 +423,8 @@ public sealed partial class BoardViewModel : ObservableObject
         column.ApplyFilter(Filter.ToFilter(), Today);
     }
 
-    /// <summary>Task 16 で詳細パネルの Refresh を呼ぶ差し込み口。</summary>
-    private void AfterTaskChanged()
-    {
-    }
+    /// <summary>タスク変更後、開いている詳細パネルの表示をモデルの最新値へ合わせる。</summary>
+    private void AfterTaskChanged() => Detail?.Refresh();
 
     private void ApplyFilter()
     {

@@ -50,6 +50,9 @@ public static class Strings
     public static string HistoryEditedFormat => Get(nameof(HistoryEditedFormat));
     public static string HistoryDeleted => Get(nameof(HistoryDeleted));
     public static string HistoryRestored => Get(nameof(HistoryRestored));
+    public static string HistoryUnknown => Get(nameof(HistoryUnknown));
+    public static string HistoryTimestampFormat => Get(nameof(HistoryTimestampFormat));
+    public static string HistoryFieldJoiner => Get(nameof(HistoryFieldJoiner));
     public static string FieldTitle => Get(nameof(FieldTitle));
     public static string FieldDescription => Get(nameof(FieldDescription));
     public static string FieldProject => Get(nameof(FieldProject));

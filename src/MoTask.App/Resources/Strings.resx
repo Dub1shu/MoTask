@@ -44,6 +44,9 @@
   <data name="HistoryEditedFormat" xml:space="preserve"><value>{0} を変更</value></data>
   <data name="HistoryDeleted" xml:space="preserve"><value>削除</value></data>
   <data name="HistoryRestored" xml:space="preserve"><value>復元</value></data>
+  <data name="HistoryUnknown" xml:space="preserve"><value>不明な変更</value></data>
+  <data name="HistoryTimestampFormat" xml:space="preserve"><value>M/d H:mm</value></data>
+  <data name="HistoryFieldJoiner" xml:space="preserve"><value>、</value></data>
   <data name="FieldTitle" xml:space="preserve"><value>タイトル</value></data>
   <data name="FieldDescription" xml:space="preserve"><value>説明</value></data>
   <data name="FieldProject" xml:space="preserve"><value>プロジェクト</value></data>
