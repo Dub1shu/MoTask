@@ -3,4 +3,13 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>MoTask.Core</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Messages.resx sits next to Messages.cs with the same base name, so MSBuild's
+         dependent-file detection would otherwise embed it under the .cs file's namespace
+         (MoTask.Core.Messages) instead of the folder-based one. Pin the logical name to
+         match the ResourceManager base name used in Messages.cs. -->
+    <EmbeddedResource Update="Resources\Messages.resx">
+      <LogicalName>MoTask.Core.Resources.Messages.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

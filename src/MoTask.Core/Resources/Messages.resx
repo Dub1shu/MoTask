@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="TitleRequired" xml:space="preserve"><value>タイトルを入力してください</value></data>
+  <data name="TaskNotFound" xml:space="preserve"><value>タスクが見つかりません</value></data>
+  <data name="ColumnNotFound" xml:space="preserve"><value>列が見つかりません</value></data>
+  <data name="BoardNotFound" xml:space="preserve"><value>ボードが見つかりません</value></data>
+  <data name="ProjectNotFound" xml:space="preserve"><value>プロジェクトが見つかりません</value></data>
+  <data name="LabelNotFound" xml:space="preserve"><value>ラベルが見つかりません</value></data>
+  <data name="TaskAlreadyDeleted" xml:space="preserve"><value>このタスクはすでに削除されています</value></data>
+  <data name="TaskNotDeleted" xml:space="preserve"><value>このタスクは削除されていません</value></data>
+  <data name="ColumnNameRequired" xml:space="preserve"><value>列の名前を入力してください</value></data>
+  <data name="DoneColumnCannotChangeRole" xml:space="preserve"><value>完了の列の種別は変更できません</value></data>
+  <data name="CannotAssignDoneRole" xml:space="preserve"><value>完了の種別は他の列に設定できません</value></data>
+  <data name="DoneColumnCannotBeDeleted" xml:space="preserve"><value>完了の列は削除できません</value></data>
+  <data name="ColumnHasTasks" xml:space="preserve"><value>タスクが残っている列は削除できません（削除済みのタスクも含みます）</value></data>
+  <data name="ReorderMustIncludeAllColumns" xml:space="preserve"><value>並び替えにはすべての列を含めてください</value></data>
+  <data name="WipLimitMustBePositive" xml:space="preserve"><value>WIP 制限は 1 以上の整数にしてください</value></data>
+  <data name="ProjectNameRequired" xml:space="preserve"><value>プロジェクト名を入力してください</value></data>
+  <data name="LabelNameRequired" xml:space="preserve"><value>ラベル名を入力してください</value></data>
+  <data name="WipExceededFormat" xml:space="preserve"><value>{0} の WIP 制限 {1} を超えています</value></data>
+  <data name="SaveFailed" xml:space="preserve"><value>保存に失敗しました</value></data>
+</root>
