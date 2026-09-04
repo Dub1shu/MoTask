@@ -15,7 +15,8 @@ public sealed class RampBrushConverter : IValueConverter
     {
         var name = value as string ?? Label.DefaultColor;
         var parts = name.Split('-');
-        var key = parts.Length == 2 && parts[1].Length > 0
+        // Label.Color は自由入力なので "-300" のように色名が空の値も来る。parts[0][0] を読む前に弾く。
+        var key = parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0
             ? $"Brush.{char.ToUpperInvariant(parts[0][0])}{parts[0][1..]}.{parts[1]}"
             : FallbackKey;
         return FindBrush(key) ?? FindBrush(FallbackKey) ?? DependencyProperty.UnsetValue;

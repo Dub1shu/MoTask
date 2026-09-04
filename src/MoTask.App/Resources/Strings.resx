@@ -49,6 +49,9 @@
   <data name="FieldProject" xml:space="preserve"><value>プロジェクト</value></data>
   <data name="FieldDueDate" xml:space="preserve"><value>期限</value></data>
   <data name="FieldLabels" xml:space="preserve"><value>ラベル</value></data>
+  <data name="CardDueFormat" xml:space="preserve"><value>{0}/{1}</value></data>
+  <data name="ColumnCountFormat" xml:space="preserve"><value>{0}</value></data>
+  <data name="ColumnCountWithLimitFormat" xml:space="preserve"><value>{0} / {1}</value></data>
   <data name="UnknownColumn" xml:space="preserve"><value>（不明な列）</value></data>
   <data name="DbOpenFailedFormat" xml:space="preserve"><value>データベースを開けませんでした。
 {0}

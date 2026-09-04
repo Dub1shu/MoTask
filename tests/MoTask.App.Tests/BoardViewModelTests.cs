@@ -1,0 +1,395 @@
+using FluentAssertions;
+using MoTask.App.Resources;
+using MoTask.App.ViewModels;
+using MoTask.Core;
+using MoTask.Core.Abstractions;
+using MoTask.Core.Model;
+using MoTask.Core.Services;
+using NSubstitute;
+using Xunit;
+
+namespace MoTask.App.Tests;
+
+public class BoardViewModelTests
+{
+    private readonly IBoardService _service = Substitute.For<IBoardService>();
+    private readonly Label _urgent = TestBoards.Urgent();
+    private readonly Board _board;
+    private readonly BoardViewModel _vm;
+
+    public BoardViewModelTests()
+    {
+        _board = TestBoards.Sample(_urgent);
+        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(_board)));
+        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Project>>(new[] { TestBoards.ProjectA() }));
+        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<Label>>(new[] { _urgent }));
+        _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>()));
+        _vm = new BoardViewModel(_service, new TestClock());
+    }
+
+    private static int[] Ids(ColumnViewModel c) => c.Cards.Select(x => x.Id).ToArray();
+
+    /// <summary>BoardService が永続化の失敗を伝えるときの文言。検証による却下と区別される。</summary>
+    private static string SaveFailure(string detail) => $"{Messages.SaveFailed}: {detail}";
+
+    [Fact]
+    public async Task Load_BuildsColumnsAndCards()
+    {
+        await _vm.LoadAsync();
+
+        _vm.Columns.Select(c => c.Name).Should().Equal("未着手", "進行中", "完了");
+        Ids(_vm.Columns[0]).Should().Equal(10, 11);
+        Ids(_vm.Columns[1]).Should().Equal(12);
+        _vm.Columns[1].CountText.Should().Be("1 / 1");
+        _vm.Columns[1].IsOverWip.Should().BeFalse();
+        _vm.Columns[2].IsDone.Should().BeTrue();
+        var a = _vm.Columns[0].Cards[0];
+        a.ProjectName.Should().Be("顧客A対応");
+        a.DueText.Should().Be("9/8");
+        a.Labels.Select(l => l.Name).Should().Equal("至急");
+        _vm.Filter.Projects.Select(p => p.Name).Should().Equal("すべてのプロジェクト", "顧客A対応");
+        _vm.Filter.Labels.Select(l => l.Name).Should().Equal("至急");
+    }
+
+    [Fact]
+    public async Task Load_ColumnWithoutWipLimit_ShowsBareCount()
+    {
+        await _vm.LoadAsync();
+
+        _vm.Columns[0].CountText.Should().Be("2");
+    }
+
+    /// <summary>裁定6: チップの文字色は段の濃さから選ぶ。accent-500 は明るい段なので濃い文字。</summary>
+    [Fact]
+    public async Task Load_LabelChip_PicksReadableTextColorForItsRampStep()
+    {
+        await _vm.LoadAsync();
+
+        var chip = _vm.Columns[0].Cards[0].Labels[0];
+        chip.Color.Should().Be("accent-500");
+        chip.TextColor.Should().Be("neutral-900");
+        _vm.Filter.Labels[0].TextColor.Should().Be("neutral-900");
+    }
+
+    [Fact]
+    public async Task Filter_SearchText_ChangesVisibleCards()
+    {
+        await _vm.LoadAsync();
+
+        _vm.Filter.SearchText = "求人";
+
+        Ids(_vm.Columns[0]).Should().Equal(11);
+        Ids(_vm.Columns[1]).Should().BeEmpty();
+        _vm.Columns[0].AllCards.Should().HaveCount(2, "フィルタは全件リストを減らさない");
+
+        _vm.Filter.SearchText = "";
+        Ids(_vm.Columns[0]).Should().Equal(10, 11);
+    }
+
+    [Fact]
+    public async Task Filter_ProjectAndLabel_Combine()
+    {
+        await _vm.LoadAsync();
+
+        _vm.Filter.SelectedProject = _vm.Filter.Projects[1];
+        Ids(_vm.Columns[0]).Should().Equal(10);
+
+        _vm.Filter.SelectedProject = _vm.Filter.Projects[0];
+        _vm.Filter.Labels[0].IsSelected = true;
+        Ids(_vm.Columns[0]).Should().Equal(10);
+    }
+
+    [Fact]
+    public async Task Filter_ShowDeleted_TogglesDeletedCards()
+    {
+        _board.Columns[0].Tasks[1].DeletedAt = DateTime.UtcNow;
+        await _vm.LoadAsync();
+
+        Ids(_vm.Columns[0]).Should().Equal(10);
+        _vm.Filter.ShowDeleted = true;
+        Ids(_vm.Columns[0]).Should().Equal(10, 11);
+        _vm.Columns[0].Cards[1].IsDeleted.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// 裁定2: 検証で却下されただけならボードは読み直さない。モデルは動いていないので、
+    /// 楽観的に動かした表示を両列の組み直しで元に戻す。
+    /// </summary>
+    [Fact]
+    public async Task MoveCard_WhenRejected_RollsBackWithoutReloading()
+    {
+        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail("だめ")));
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+
+        var ok = await _vm.MoveCardAsync(card, _vm.Columns[1], 0);
+
+        ok.Should().BeFalse();
+        _vm.BannerMessage.Should().Be("だめ");
+        Ids(_vm.Columns[0]).Should().Equal(10, 11);
+        Ids(_vm.Columns[1]).Should().Equal(12);
+        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>裁定2: 保存に失敗したときだけメモリ上の状態が信用できないので読み直す。</summary>
+    [Fact]
+    public async Task MoveCard_WhenSaveFails_RollsBackAndReloads()
+    {
+        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Fail(SaveFailure("ディスクがいっぱいです"))));
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+
+        var ok = await _vm.MoveCardAsync(card, _vm.Columns[1], 0);
+
+        ok.Should().BeFalse();
+        _vm.BannerMessage.Should().Be(SaveFailure("ディスクがいっぱいです"));
+        Ids(_vm.Columns[0]).Should().Equal(10, 11);
+        Ids(_vm.Columns[1]).Should().Equal(12);
+        await _service.Received(2).GetBoardAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MoveCard_WhenServiceSucceeds_ReflectsModel()
+    {
+        var backlog = _board.Columns[0];
+        var active = _board.Columns[1];
+        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            var task = backlog.Tasks.Single(t => t.Id == 10);
+            backlog.Tasks.Remove(task);
+            active.Tasks.Insert(0, task);
+            task.ColumnId = 2;
+            for (var i = 0; i < backlog.Tasks.Count; i++) backlog.Tasks[i].Position = i;
+            for (var i = 0; i < active.Tasks.Count; i++) active.Tasks[i].Position = i;
+            return Task.FromResult(Result.Ok());
+        });
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+        _vm.SelectCard(card);
+
+        var ok = await _vm.MoveCardAsync(card, _vm.Columns[1], 0);
+
+        ok.Should().BeTrue();
+        _vm.BannerMessage.Should().BeNull();
+        Ids(_vm.Columns[0]).Should().Equal(11);
+        Ids(_vm.Columns[1]).Should().Equal(10, 12);
+        _vm.Columns[1].IsOverWip.Should().BeTrue();
+        _vm.Columns[1].CountText.Should().Be("2 / 1");
+        _vm.SelectedCard.Should().BeSameAs(card);
+        _vm.Columns[1].SelectedCard.Should().BeSameAs(card);
+        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SelectCard_SyncsColumnSelection_AndCloseClearsIt()
+    {
+        await _vm.LoadAsync();
+        var a = _vm.Columns[0].Cards[0];
+        var c = _vm.Columns[1].Cards[0];
+
+        _vm.SelectCard(a);
+        _vm.SelectedCard.Should().BeSameAs(a);
+        _vm.Columns[0].SelectedCard.Should().BeSameAs(a);
+
+        _vm.Columns[1].SelectedCard = c;   // ListBox からの選択
+        _vm.SelectedCard.Should().BeSameAs(c);
+        _vm.Columns[0].SelectedCard.Should().BeNull();
+
+        _vm.CloseDetailCommand.Execute(null);
+        _vm.SelectedCard.Should().BeNull();
+        _vm.Columns[1].SelectedCard.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task NewTask_OpensInlineEditorOnSelectedOrFirstColumn()
+    {
+        await _vm.LoadAsync();
+
+        _vm.NewTaskCommand.Execute(null);
+        _vm.Columns[0].IsAddingTask.Should().BeTrue();
+
+        _vm.Columns[0].CancelAddTaskCommand.Execute(null);
+        _vm.SelectCard(_vm.Columns[1].Cards[0]);
+        _vm.NewTaskCommand.Execute(null);
+        _vm.Columns[1].IsAddingTask.Should().BeTrue();
+        _vm.Columns[0].IsAddingTask.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CommitAddTask_EmptyTitle_DoesNotCallService_AndStaysOpen()
+    {
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.BeginAddTaskCommand.Execute(null);
+        column.NewTaskTitle = "   ";
+
+        await column.CommitAddTaskCommand.ExecuteAsync(null);
+
+        await _service.DidNotReceive().CreateTaskAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        column.IsAddingTask.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CommitAddTask_AddsCardAndSelectsIt()
+    {
+        var backlog = _board.Columns[0];
+        _service.CreateTaskAsync(1, "新規", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            var task = new TaskItem { Id = 99, Title = "新規", ColumnId = 1, Position = backlog.Tasks.Count };
+            backlog.Tasks.Add(task);
+            return Task.FromResult(Result.Ok(task));
+        });
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.BeginAddTaskCommand.Execute(null);
+        column.NewTaskTitle = "新規";
+
+        await column.CommitAddTaskCommand.ExecuteAsync(null);
+
+        Ids(column).Should().Equal(10, 11, 99);
+        _vm.SelectedCard!.Id.Should().Be(99);
+        column.IsAddingTask.Should().BeFalse();
+    }
+
+    /// <summary>裁定2: 空タイトルの却下は入力途中の編集も既存の列 VM も壊さない。</summary>
+    [Fact]
+    public async Task CommitAddTask_WhenServiceRejects_KeepsEditorAndColumnInstances()
+    {
+        _service.CreateTaskAsync(1, "新規", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Fail<TaskItem>(Messages.TitleRequired)));
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];
+        column.BeginAddTaskCommand.Execute(null);
+        column.NewTaskTitle = "新規";
+
+        await column.CommitAddTaskCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(Messages.TitleRequired);
+        column.IsAddingTask.Should().BeTrue();
+        column.NewTaskTitle.Should().Be("新規");
+        _vm.Columns[0].Should().BeSameAs(column, "検証の却下では列 VM を作り直さない");
+        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteColumn_WhenServiceFails_ShowsReasonAndKeepsColumn()
+    {
+        _service.DeleteColumnAsync(1, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail(Messages.ColumnHasTasks)));
+        await _vm.LoadAsync();
+
+        await _vm.Columns[0].DeleteColumnCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(Messages.ColumnHasTasks);
+        _vm.Columns.Should().HaveCount(3);
+    }
+
+    /// <summary>列の並び替えも楽観的に動かすので、却下されたらモデルの順序に戻す。</summary>
+    [Fact]
+    public async Task ReorderColumns_WhenRejected_RestoresModelOrder()
+    {
+        _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Fail(Messages.ReorderMustIncludeAllColumns)));
+        await _vm.LoadAsync();
+
+        var ok = await _vm.ReorderColumnsAsync(new[] { _vm.Columns[1], _vm.Columns[0], _vm.Columns[2] });
+
+        ok.Should().BeFalse();
+        _vm.BannerMessage.Should().Be(Messages.ReorderMustIncludeAllColumns);
+        _vm.Columns.Select(c => c.Name).Should().Equal("未着手", "進行中", "完了");
+    }
+
+    [Fact]
+    public async Task ReorderColumns_WhenServiceSucceeds_KeepsNewOrder()
+    {
+        _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Ok()));
+        await _vm.LoadAsync();
+
+        var ok = await _vm.ReorderColumnsAsync(new[] { _vm.Columns[1], _vm.Columns[0], _vm.Columns[2] });
+
+        ok.Should().BeTrue();
+        _vm.Columns.Select(c => c.Name).Should().Equal("進行中", "未着手", "完了");
+        await _service.Received(1).ReorderColumnsAsync(
+            Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 2, 1, 3 })), Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>裁定1: Result を返さない照会が投げても落とさず、保存失敗と同じバナーに出す。</summary>
+    [Fact]
+    public async Task Load_WhenProjectsQueryThrows_ShowsBannerInsteadOfCrashing()
+    {
+        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<IReadOnlyList<Project>>(new PersistenceException("database is locked")));
+
+        await _vm.LoadAsync();
+
+        _vm.BannerMessage.Should().Be(SaveFailure("database is locked"));
+        _vm.IsLoaded.Should().BeFalse();
+        _vm.Columns.Should().BeEmpty();
+    }
+
+    /// <summary>裁定1: 履歴の照会も同じ。詳細パネルは空の履歴を受け取る。</summary>
+    [Fact]
+    public async Task GetHistory_WhenQueryThrows_ShowsBannerAndReturnsEmpty()
+    {
+        _service.GetHistoryAsync(10, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<IReadOnlyList<HistoryEntry>>(new PersistenceException("no such table")));
+        await _vm.LoadAsync();
+
+        var history = await _vm.GetHistoryAsync(10);
+
+        history.Should().BeEmpty();
+        _vm.BannerMessage.Should().Be(SaveFailure("no such table"));
+    }
+
+    /// <summary>裁定1: ラベル作成後の再取得が投げても落とさない。</summary>
+    [Fact]
+    public async Task CreateLabel_WhenReloadOfLabelsThrows_ShowsBanner()
+    {
+        _service.CreateLabelAsync("新ラベル", Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Ok(new Label { Id = 201, Name = "新ラベル" })));
+        await _vm.LoadAsync();
+        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<IReadOnlyList<Label>>(new PersistenceException("io error")));
+
+        var label = await _vm.CreateLabelAsync("新ラベル");
+
+        label.Should().BeNull();
+        _vm.BannerMessage.Should().Be(SaveFailure("io error"));
+    }
+
+    [Fact]
+    public async Task ColumnAndProjectNames_ResolveFromLoadedBoard()
+    {
+        await _vm.LoadAsync();
+
+        _vm.ColumnName(2).Should().Be("進行中");
+        _vm.ColumnName(999).Should().Be(Strings.UnknownColumn);
+        _vm.ProjectName(100).Should().Be("顧客A対応");
+        _vm.ProjectName(null).Should().BeNull();
+        _vm.Today.Should().Be(new DateOnly(2026, 9, 4));
+    }
+
+    [Fact]
+    public async Task DeleteTask_RefreshesCardAndColumnCount()
+    {
+        var backlog = _board.Columns[0];
+        _service.DeleteTaskAsync(10, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+            return Task.FromResult(Result.Ok());
+        });
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+        _vm.SelectCard(card);
+
+        await _vm.DeleteSelectedCommand.ExecuteAsync(null);
+
+        card.IsDeleted.Should().BeTrue();
+        Ids(_vm.Columns[0]).Should().Equal(11);
+        _vm.Columns[0].CountText.Should().Be("1");
+    }
+}

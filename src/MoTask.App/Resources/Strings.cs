@@ -55,6 +55,9 @@ public static class Strings
     public static string FieldProject => Get(nameof(FieldProject));
     public static string FieldDueDate => Get(nameof(FieldDueDate));
     public static string FieldLabels => Get(nameof(FieldLabels));
+    public static string CardDueFormat => Get(nameof(CardDueFormat));
+    public static string ColumnCountFormat => Get(nameof(ColumnCountFormat));
+    public static string ColumnCountWithLimitFormat => Get(nameof(ColumnCountWithLimitFormat));
     public static string UnknownColumn => Get(nameof(UnknownColumn));
     public static string DbOpenFailedFormat => Get(nameof(DbOpenFailedFormat));
     public static string DbRecreatedFormat => Get(nameof(DbRecreatedFormat));
