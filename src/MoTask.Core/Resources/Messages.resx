@@ -23,4 +23,9 @@
   <data name="LabelNameRequired" xml:space="preserve"><value>ラベル名を入力してください</value></data>
   <data name="WipExceededFormat" xml:space="preserve"><value>{0} の WIP 制限 {1} を超えています</value></data>
   <data name="SaveFailed" xml:space="preserve"><value>保存に失敗しました</value></data>
+  <data name="DefaultBoardName" xml:space="preserve"><value>マイボード</value></data>
+  <data name="DefaultColumnBacklog" xml:space="preserve"><value>未着手</value></data>
+  <data name="DefaultColumnActive" xml:space="preserve"><value>進行中</value></data>
+  <data name="DefaultColumnReview" xml:space="preserve"><value>確認待ち</value></data>
+  <data name="DefaultColumnDone" xml:space="preserve"><value>完了</value></data>
 </root>
