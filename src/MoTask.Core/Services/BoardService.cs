@@ -325,14 +325,38 @@ public sealed class BoardService : IBoardService
 
     // ---------- 分類 ----------
 
-    public Task<Result<Project>> CreateProjectAsync(string name, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result<Project>> CreateProjectAsync(string name, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        name = name.Trim();
+        if (name.Length == 0) return Result.Fail<Project>(Messages.ProjectNameRequired);
 
-    public Task<Result> ArchiveProjectAsync(int projectId, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        var project = new Project { Name = name };
+        _boards.AddProject(project);
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok(project);
+    }, ct);
 
-    public Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result> ArchiveProjectAsync(int projectId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var project = await _boards.GetProjectAsync(projectId, ct).ConfigureAwait(false);
+        if (project is null) return Result.Fail(Messages.ProjectNotFound);
+        if (project.Archived) return Result.Ok();
+
+        project.Archived = true;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        name = name.Trim();
+        if (name.Length == 0) return Result.Fail<Label>(Messages.LabelNameRequired);
+
+        var label = new Label { Name = name, Color = string.IsNullOrWhiteSpace(color) ? Label.DefaultColor : color.Trim() };
+        _boards.AddLabel(label);
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok(label);
+    }, ct);
 
     // ---------- 共通 ----------
 
