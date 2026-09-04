@@ -18,4 +18,12 @@
   <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Strings.resx sits next to Strings.cs with the same base name, so MSBuild's
+         dependent-file detection would otherwise derive the manifest name from the .cs
+         file instead of the folder. Pin it to the ResourceManager base name in Strings.cs. -->
+    <EmbeddedResource Update="Resources\Strings.resx">
+      <LogicalName>MoTask.App.Resources.Strings.resources</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

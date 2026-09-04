@@ -1,0 +1,176 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:conv="clr-namespace:MoTask.App.Converters">
+
+  <conv:RampBrushConverter x:Key="RampBrush" />
+  <conv:DueStatusBrushConverter x:Key="DueStatusBrush" />
+  <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+  <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityInverse" Invert="True" />
+  <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
+
+  <!-- キーボードフォーカス: 2px のアクセント枠 -->
+  <Style x:Key="Focus.Ring">
+    <Setter Property="Control.Template">
+      <Setter.Value>
+        <ControlTemplate>
+          <Rectangle Margin="-2" Stroke="{StaticResource Brush.Accent}" StrokeThickness="2" SnapsToDevicePixels="True" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- 文字 -->
+  <Style x:Key="Text.Heading" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource Font.Heading}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.H5}" />
+  </Style>
+  <Style x:Key="Text.Brand" TargetType="TextBlock" BasedOn="{StaticResource Text.Heading}">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.H4}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Accent.700}" />
+  </Style>
+  <Style x:Key="Text.Small" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+  </Style>
+  <Style x:Key="Text.Caption" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+  </Style>
+  <Style x:Key="Text.Label" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+    <Setter Property="FontWeight" Value="Medium" />
+  </Style>
+
+  <!-- Button 既定 = secondary（塗りなし・1px 枠）。
+       状態色は ControlTemplate.Triggers ではなく Style.Triggers に置く。こうすると
+       Btn.Primary が同じテンプレートを BasedOn で受け継いだまま、状態色だけ差し替えられる。 -->
+  <Style TargetType="Button">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="10.2,5" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.100}" />
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.200}" />
+      </Trigger>
+      <Trigger Property="IsEnabled" Value="False">
+        <Setter Property="Opacity" Value="0.45" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <!-- 唯一の塗りあり: primary -->
+  <Style x:Key="Btn.Primary" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Bg}" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.600}" />
+      </Trigger>
+      <Trigger Property="IsPressed" Value="True">
+        <Setter Property="Background" Value="{StaticResource Brush.Accent.700}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
+  <Style x:Key="Btn.Ghost" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Accent.700}" />
+    <Setter Property="Padding" Value="6.8,3.4" />
+  </Style>
+
+  <!-- TextBox -->
+  <Style TargetType="TextBox">
+    <Setter Property="Background" Value="{StaticResource Brush.Bg}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="6.8,5" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="CaretBrush" Value="{StaticResource Brush.Accent}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource Brush.Accent.300}" />
+    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+            <ScrollViewer x:Name="PART_ContentHost" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Neutral.600}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ラベル／フィルタ用チップ -->
+  <Style x:Key="Chip.Toggle" TargetType="ToggleButton">
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Bd" Background="Transparent" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
+                  Padding="6.8,2" SnapsToDevicePixels="True">
+            <ContentPresenter VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Accent.100}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.Accent.200}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Accent.400}" />
+              <Setter Property="Foreground" Value="{StaticResource Brush.Accent.900}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- 既定テンプレートのまま字体だけ揃えるもの -->
+  <Style TargetType="ComboBox">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="Padding" Value="6.8,4" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+  </Style>
+  <Style TargetType="CheckBox">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+  </Style>
+  <Style TargetType="DatePicker">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+  </Style>
+  <Style TargetType="ContextMenu">
+    <Setter Property="FontFamily" Value="{StaticResource Font.Body}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+  </Style>
+</ResourceDictionary>

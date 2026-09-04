@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AppTitle" xml:space="preserve"><value>MoTask</value></data>
+  <data name="Brand" xml:space="preserve"><value>TASKS</value></data>
+  <data name="ViewBoard" xml:space="preserve"><value>ボード</value></data>
+  <data name="FilterAllProjects" xml:space="preserve"><value>すべてのプロジェクト</value></data>
+  <data name="DueAll" xml:space="preserve"><value>期限: すべて</value></data>
+  <data name="DueToday" xml:space="preserve"><value>期限: 今日</value></data>
+  <data name="DueThisWeek" xml:space="preserve"><value>期限: 今週</value></data>
+  <data name="DueOverdue" xml:space="preserve"><value>期限切れ</value></data>
+  <data name="Search" xml:space="preserve"><value>検索</value></data>
+  <data name="ShowDeleted" xml:space="preserve"><value>削除済みを表示</value></data>
+  <data name="NewTask" xml:space="preserve"><value>＋ タスク</value></data>
+  <data name="AddColumn" xml:space="preserve"><value>＋ 列を追加</value></data>
+  <data name="AddTaskInline" xml:space="preserve"><value>＋ 追加</value></data>
+  <data name="Rename" xml:space="preserve"><value>改名</value></data>
+  <data name="ChangeRole" xml:space="preserve"><value>種別を変更</value></data>
+  <data name="SetWip" xml:space="preserve"><value>WIP 制限を設定</value></data>
+  <data name="ClearWip" xml:space="preserve"><value>WIP 制限をなくす</value></data>
+  <data name="DeleteColumn" xml:space="preserve"><value>列を削除</value></data>
+  <data name="RoleBacklog" xml:space="preserve"><value>未着手</value></data>
+  <data name="RoleActive" xml:space="preserve"><value>進行中</value></data>
+  <data name="RoleReview" xml:space="preserve"><value>確認待ち</value></data>
+  <data name="RoleDone" xml:space="preserve"><value>完了</value></data>
+  <data name="Delete" xml:space="preserve"><value>削除</value></data>
+  <data name="Restore" xml:space="preserve"><value>復元</value></data>
+  <data name="Close" xml:space="preserve"><value>閉じる</value></data>
+  <data name="Deleted" xml:space="preserve"><value>削除済み</value></data>
+  <data name="Description" xml:space="preserve"><value>説明</value></data>
+  <data name="Project" xml:space="preserve"><value>プロジェクト</value></data>
+  <data name="Labels" xml:space="preserve"><value>ラベル</value></data>
+  <data name="DueDate" xml:space="preserve"><value>期限</value></data>
+  <data name="Column" xml:space="preserve"><value>列</value></data>
+  <data name="History" xml:space="preserve"><value>履歴</value></data>
+  <data name="NoProject" xml:space="preserve"><value>（なし）</value></data>
+  <data name="NewProjectHint" xml:space="preserve"><value>新しいプロジェクト名を入力して Enter</value></data>
+  <data name="NewLabelHint" xml:space="preserve"><value>新しいラベル名を入力して Enter</value></data>
+  <data name="HistoryCreatedFormat" xml:space="preserve"><value>{0} に作成</value></data>
+  <data name="HistoryMovedFormat" xml:space="preserve"><value>{0} → {1}</value></data>
+  <data name="HistoryEditedFormat" xml:space="preserve"><value>{0} を変更</value></data>
+  <data name="HistoryDeleted" xml:space="preserve"><value>削除</value></data>
+  <data name="HistoryRestored" xml:space="preserve"><value>復元</value></data>
+  <data name="FieldTitle" xml:space="preserve"><value>タイトル</value></data>
+  <data name="FieldDescription" xml:space="preserve"><value>説明</value></data>
+  <data name="FieldProject" xml:space="preserve"><value>プロジェクト</value></data>
+  <data name="FieldDueDate" xml:space="preserve"><value>期限</value></data>
+  <data name="FieldLabels" xml:space="preserve"><value>ラベル</value></data>
+  <data name="UnknownColumn" xml:space="preserve"><value>（不明な列）</value></data>
+  <data name="DbOpenFailedFormat" xml:space="preserve"><value>データベースを開けませんでした。
+{0}
+
+バックアップを作成して新しく作り直しますか？
+「いいえ」を選ぶと終了します。</value></data>
+  <data name="DbRecreatedFormat" xml:space="preserve"><value>以前のデータベースを次の場所に保存し、新しく作成しました。
+{0}</value></data>
+  <data name="DbRecreateFailedFormat" xml:space="preserve"><value>データベースを作り直せませんでした。終了します。
+{0}</value></data>
+</root>
