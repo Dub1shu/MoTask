@@ -71,8 +71,47 @@ public sealed class BoardService : IBoardService
     public Task<Result> UpdateTaskAsync(TaskUpdate update, CancellationToken ct = default)
         => throw new NotImplementedException();
 
-    public Task<Result> MoveTaskAsync(int taskId, int toColumnId, int position, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result> MoveTaskAsync(int taskId, int toColumnId, int position, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var task = await _boards.GetTaskAsync(taskId, ct).ConfigureAwait(false);
+        if (task is null) return Result.Fail(Messages.TaskNotFound);
+
+        var source = await _boards.GetColumnAsync(task.ColumnId, ct).ConfigureAwait(false);
+        var target = await _boards.GetColumnAsync(toColumnId, ct).ConfigureAwait(false);
+        if (source is null || target is null) return Result.Fail(Messages.ColumnNotFound);
+
+        var columnChanged = source.Id != target.Id;
+
+        // 移動タスクを除いた順序リストを作り、そこへ挿入して再採番する
+        var sourceTasks = Ordered(source).Where(t => t.Id != task.Id).ToList();
+        var targetTasks = columnChanged ? Ordered(target).ToList() : sourceTasks;
+        position = Math.Clamp(position, 0, targetTasks.Count);
+        targetTasks.Insert(position, task);
+
+        if (columnChanged)
+        {
+            source.Tasks.Remove(task);
+            target.Tasks.Add(task);
+            task.ColumnId = target.Id;
+            Renumber(sourceTasks);
+        }
+        Renumber(targetTasks);
+
+        if (columnChanged)
+        {
+            var now = _clock.UtcNow;
+            task.UpdatedAt = now;
+            task.CompletedAt = target.Role == ColumnRole.Done ? now : null;
+            _history.Add(new HistoryEntry
+            {
+                Task = task, TaskId = task.Id, At = now, Kind = HistoryKind.Moved,
+                FromColumnId = source.Id, ToColumnId = target.Id,
+            });
+        }
+
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok(columnChanged ? WipWarnings(target) : Array.Empty<string>());
+    }, ct);
 
     public Task<Result> DeleteTaskAsync(int taskId, CancellationToken ct = default)
         => throw new NotImplementedException();
@@ -120,6 +159,15 @@ public sealed class BoardService : IBoardService
         => column.IsOverWip
             ? new[] { string.Format(Messages.WipExceededFormat, column.Name, column.WipLimit) }
             : Array.Empty<string>();
+
+    /// <summary>列のタスクを Position 順に並べたリストを返す（削除済みも含む）。</summary>
+    private static List<TaskItem> Ordered(Column column) => column.Tasks.OrderBy(t => t.Position).ToList();
+
+    /// <summary>渡された順序どおりに Position を 0 から振り直す。</summary>
+    private static void Renumber(List<TaskItem> tasks)
+    {
+        for (var i = 0; i < tasks.Count; i++) tasks[i].Position = i;
+    }
 
     private async Task<T> GateAsync<T>(Func<Task<T>> action, CancellationToken ct)
     {
