@@ -44,7 +44,8 @@
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <views:BoardView Grid.Column="0" />
-      <!-- 詳細パネルは Task 19 でここに置く -->
+      <views:TaskDetailPanel Grid.Column="1" Width="360" DataContext="{Binding Detail}"
+                             Visibility="{Binding DataContext.Detail, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibility}}" />
     </Grid>
   </DockPanel>
 </Window>

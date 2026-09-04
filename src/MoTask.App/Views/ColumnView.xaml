@@ -18,7 +18,7 @@
               dd:DragDrop.IsDragSource="True" dd:DragDrop.UseDefaultDragAdorner="True">
         <DockPanel>
           <!-- ヘッダー内の操作部品の上で押したときは列を掴まない（メニュー・改名・WIP の入力）。 -->
-          <Button DockPanel.Dock="Right" Content="⋯" ToolTip="{x:Static res:Strings.Column}"
+          <Button DockPanel.Dock="Right" Content="⋯" ToolTip="{x:Static res:Strings.ColumnMenu}"
                   Style="{StaticResource Btn.Ghost}" Click="MenuButton_Click"
                   dd:DragDrop.DragSourceIgnore="True">
             <Button.ContextMenu>
@@ -35,7 +35,7 @@
                 </MenuItem>
                 <MenuItem Header="{x:Static res:Strings.SetWip}" Command="{Binding BeginEditWipCommand}" />
                 <MenuItem Header="{x:Static res:Strings.ClearWip}" Command="{Binding ClearWipCommand}" />
-                <Separator />
+                <Separator Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
                 <MenuItem Header="{x:Static res:Strings.DeleteColumn}" Command="{Binding DeleteColumnCommand}"
                           Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
               </ContextMenu>

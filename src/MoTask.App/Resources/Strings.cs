@@ -41,6 +41,7 @@ public static class Strings
     public static string Labels => Get(nameof(Labels));
     public static string DueDate => Get(nameof(DueDate));
     public static string Column => Get(nameof(Column));
+    public static string ColumnMenu => Get(nameof(ColumnMenu));
     public static string History => Get(nameof(History));
     public static string NoProject => Get(nameof(NoProject));
     public static string NewProjectHint => Get(nameof(NewProjectHint));

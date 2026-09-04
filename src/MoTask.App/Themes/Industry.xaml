@@ -100,8 +100,16 @@
   <Thickness x:Key="Gap.Right.4" Right="{StaticResource Space.4}" />
   <Thickness x:Key="Gap.Top.1" Top="{StaticResource Space.1}" />
   <Thickness x:Key="Gap.Top.2" Top="{StaticResource Space.2}" />
+  <Thickness x:Key="Gap.Top.4" Top="{StaticResource Space.4}" />
+  <Thickness x:Key="Gap.Bottom.1" Bottom="{StaticResource Space.1}" />
   <Thickness x:Key="Gap.Bottom.2" Bottom="{StaticResource Space.2}" />
   <Thickness x:Key="Gap.Chip" Right="{StaticResource Space.1}" Bottom="{StaticResource Space.1}" />
+  <!-- 詳細パネルのフィールドラベル: 前の項目との間を広め、直後の入力欄との間を詰める。 -->
+  <Thickness x:Key="Gap.FieldLabel" Top="{StaticResource Space.4}" Bottom="{StaticResource Space.1}" />
+  <!-- ヒント文（「新規〜を入力して Enter」）の間隔。下の 2 は実寸: Pad.Chip 同様、
+       Space 刻みだと直後の入力欄まで開きすぎるため。 -->
+  <Thickness x:Key="Gap.ProjectHint" Top="{StaticResource Space.2}" Bottom="2" />
+  <Thickness x:Key="Gap.LabelHint" Top="{StaticResource Space.1}" Bottom="2" />
 
   <!-- 列の幅。列本体と「＋ 列を追加」の箱で揃える。 -->
   <sys:Double x:Key="Size.Column">280</sys:Double>

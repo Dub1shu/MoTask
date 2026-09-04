@@ -35,6 +35,7 @@
   <data name="Labels" xml:space="preserve"><value>ラベル</value></data>
   <data name="DueDate" xml:space="preserve"><value>期限</value></data>
   <data name="Column" xml:space="preserve"><value>列</value></data>
+  <data name="ColumnMenu" xml:space="preserve"><value>列のメニュー</value></data>
   <data name="History" xml:space="preserve"><value>履歴</value></data>
   <data name="NoProject" xml:space="preserve"><value>（なし）</value></data>
   <data name="NewProjectHint" xml:space="preserve"><value>新しいプロジェクト名を入力して Enter</value></data>

@@ -1,0 +1,90 @@
+<UserControl x:Class="MoTask.App.Views.TaskDetailPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:res="clr-namespace:MoTask.App.Resources"
+             xmlns:vm="clr-namespace:MoTask.App.ViewModels"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:TaskDetailViewModel}">
+  <UserControl.Resources>
+    <Style x:Key="Field.Label" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
+      <Setter Property="Margin" Value="{StaticResource Gap.FieldLabel}" />
+    </Style>
+  </UserControl.Resources>
+  <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
+          Background="{StaticResource Brush.Bg}">
+    <DockPanel>
+      <DockPanel DockPanel.Dock="Top">
+        <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource Btn.Ghost}" Command="{Binding CloseCommand}"
+                ToolTip="{x:Static res:Strings.Close}" />
+        <TextBlock Text="{Binding SelectedColumn.Name}" Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+      </DockPanel>
+
+      <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
+        <Button Content="{x:Static res:Strings.Delete}" Command="{Binding DeleteCommand}"
+                Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibilityInverse}}" />
+        <Button Content="{x:Static res:Strings.Restore}" Style="{StaticResource Btn.Primary}" Command="{Binding RestoreCommand}"
+                Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
+        <TextBlock Text="{x:Static res:Strings.Deleted}" Foreground="{StaticResource Brush.Danger}" Margin="{StaticResource Gap.Left.3}"
+                   VerticalAlignment="Center" Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
+      </StackPanel>
+
+      <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+          <!-- タイトル: フォーカスアウトで保存、Esc で取り消し -->
+          <TextBox Text="{Binding Title, UpdateSourceTrigger=LostFocus}" Margin="{StaticResource Gap.Top.2}"
+                   FontFamily="{StaticResource Font.Heading}" FontSize="{StaticResource FontSize.H4}" FontWeight="SemiBold"
+                   KeyDown="EditBox_KeyDown">
+            <TextBox.Style>
+              <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding HasTitleError}" Value="True">
+                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBox.Style>
+          </TextBox>
+
+          <TextBlock Text="{x:Static res:Strings.Description}" Style="{StaticResource Field.Label}" />
+          <TextBox Text="{Binding Description, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" TextWrapping="Wrap"
+                   MinHeight="80" VerticalScrollBarVisibility="Auto" KeyDown="EditBox_KeyDown" />
+
+          <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Field.Label}" />
+          <ComboBox ItemsSource="{Binding Projects}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedProject}" />
+          <TextBlock Text="{x:Static res:Strings.NewProjectHint}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.ProjectHint}" />
+          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" KeyDown="NewProjectBox_KeyDown" />
+
+          <TextBlock Text="{x:Static res:Strings.Labels}" Style="{StaticResource Field.Label}" />
+          <ItemsControl ItemsSource="{Binding Labels}">
+            <ItemsControl.ItemsPanel>
+              <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <ToggleButton Content="{Binding Name}" IsChecked="{Binding IsSelected}" Style="{StaticResource Chip.Toggle}" Margin="{StaticResource Gap.Chip}" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+          <TextBlock Text="{x:Static res:Strings.NewLabelHint}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.LabelHint}" />
+          <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" KeyDown="NewLabelBox_KeyDown" />
+
+          <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Field.Label}" />
+          <DatePicker SelectedDate="{Binding DueDate}" />
+
+          <TextBlock Text="{x:Static res:Strings.Column}" Style="{StaticResource Field.Label}" />
+          <ComboBox ItemsSource="{Binding Columns}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedColumn}" />
+
+          <TextBlock Text="{x:Static res:Strings.History}" Style="{StaticResource Field.Label}" />
+          <ItemsControl ItemsSource="{Binding History}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <TextBlock Text="{Binding}" Style="{StaticResource Text.Small}" Margin="{StaticResource Gap.Bottom.1}" TextWrapping="Wrap" />
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+  </Border>
+</UserControl>
