@@ -225,23 +225,103 @@ public sealed class BoardService : IBoardService
 
     // ---------- 列 ----------
 
-    public Task<Result<Column>> AddColumnAsync(string name, ColumnRole role = ColumnRole.Active, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result<Column>> AddColumnAsync(string name, ColumnRole role = ColumnRole.Active, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        name = name.Trim();
+        if (name.Length == 0) return Result.Fail<Column>(Messages.ColumnNameRequired);
+        if (role == ColumnRole.Done) return Result.Fail<Column>(Messages.CannotAssignDoneRole);
 
-    public Task<Result> RenameColumnAsync(int columnId, string name, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
+        if (board is null) return Result.Fail<Column>(Messages.BoardNotFound);
 
-    public Task<Result> SetColumnRoleAsync(int columnId, ColumnRole role, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        var column = new Column
+        {
+            BoardId = board.Id,
+            Name = name,
+            Role = role,
+            Order = board.Columns.Count == 0 ? 0 : board.Columns.Max(c => c.Order) + 1,
+        };
+        board.Columns.Add(column);
+        _boards.AddColumn(column);
 
-    public Task<Result> ReorderColumnsAsync(IReadOnlyList<int> orderedColumnIds, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok(column);
+    }, ct);
 
-    public Task<Result> SetWipLimitAsync(int columnId, int? wipLimit, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result> RenameColumnAsync(int columnId, string name, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        name = name.Trim();
+        if (name.Length == 0) return Result.Fail(Messages.ColumnNameRequired);
+        var column = await _boards.GetColumnAsync(columnId, ct).ConfigureAwait(false);
+        if (column is null) return Result.Fail(Messages.ColumnNotFound);
+        if (column.Name == name) return Result.Ok();
 
-    public Task<Result> DeleteColumnAsync(int columnId, CancellationToken ct = default)
-        => throw new NotImplementedException();
+        column.Name = name;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> SetColumnRoleAsync(int columnId, ColumnRole role, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var column = await _boards.GetColumnAsync(columnId, ct).ConfigureAwait(false);
+        if (column is null) return Result.Fail(Messages.ColumnNotFound);
+        if (column.Role == ColumnRole.Done) return Result.Fail(Messages.DoneColumnCannotChangeRole);
+        if (role == ColumnRole.Done) return Result.Fail(Messages.CannotAssignDoneRole);
+        if (column.Role == role) return Result.Ok();
+
+        column.Role = role;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> ReorderColumnsAsync(IReadOnlyList<int> orderedColumnIds, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
+        if (board is null) return Result.Fail(Messages.BoardNotFound);
+
+        var existing = board.Columns.Select(c => c.Id).ToHashSet();
+        var requested = orderedColumnIds.ToHashSet();
+        if (orderedColumnIds.Count != existing.Count || !requested.SetEquals(existing))
+        {
+            return Result.Fail(Messages.ReorderMustIncludeAllColumns);
+        }
+
+        for (var i = 0; i < orderedColumnIds.Count; i++)
+        {
+            board.Columns.First(c => c.Id == orderedColumnIds[i]).Order = i;
+        }
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> SetWipLimitAsync(int columnId, int? wipLimit, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        if (wipLimit is int limit && limit < 1) return Result.Fail(Messages.WipLimitMustBePositive);
+        var column = await _boards.GetColumnAsync(columnId, ct).ConfigureAwait(false);
+        if (column is null) return Result.Fail(Messages.ColumnNotFound);
+
+        column.WipLimit = wipLimit;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok(WipWarnings(column));
+    }, ct);
+
+    public Task<Result> DeleteColumnAsync(int columnId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
+        if (board is null) return Result.Fail(Messages.BoardNotFound);
+        var column = board.Columns.FirstOrDefault(c => c.Id == columnId);
+        if (column is null) return Result.Fail(Messages.ColumnNotFound);
+        if (column.Role == ColumnRole.Done) return Result.Fail(Messages.DoneColumnCannotBeDeleted);
+        if (column.Tasks.Count > 0) return Result.Fail(Messages.ColumnHasTasks);
+
+        board.Columns.Remove(column);
+        _boards.RemoveColumn(column);
+        var remaining = board.Columns.OrderBy(c => c.Order).ToList();
+        for (var i = 0; i < remaining.Count; i++) remaining[i].Order = i;
+
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
 
     // ---------- 分類 ----------
 
