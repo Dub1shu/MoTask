@@ -68,8 +68,46 @@ public sealed class BoardService : IBoardService
         return Result.Ok(task, WipWarnings(column));
     }, ct);
 
-    public Task<Result> UpdateTaskAsync(TaskUpdate update, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result> UpdateTaskAsync(TaskUpdate update, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var title = update.Title.Trim();
+        if (title.Length == 0) return Result.Fail(Messages.TitleRequired);
+
+        var task = await _boards.GetTaskAsync(update.TaskId, ct).ConfigureAwait(false);
+        if (task is null) return Result.Fail(Messages.TaskNotFound);
+
+        var description = update.Description ?? "";
+        var changes = new Dictionary<string, FieldChange>();
+
+        if (task.Title != title) changes["Title"] = new FieldChange(task.Title, title);
+        if (task.Description != description) changes["Description"] = new FieldChange(task.Description, description);
+        if (task.ProjectId != update.ProjectId)
+        {
+            Project? newProject = null;
+            if (update.ProjectId is int pid)
+            {
+                newProject = await _boards.GetProjectAsync(pid, ct).ConfigureAwait(false);
+                if (newProject is null) return Result.Fail(Messages.ProjectNotFound);
+            }
+            var oldProject = task.ProjectId is int oid ? await _boards.GetProjectAsync(oid, ct).ConfigureAwait(false) : null;
+            changes["Project"] = new FieldChange(oldProject?.Name, newProject?.Name);
+        }
+        if (task.DueDate != update.DueDate)
+        {
+            changes["DueDate"] = new FieldChange(FormatDate(task.DueDate), FormatDate(update.DueDate));
+        }
+
+        if (changes.Count == 0) return Result.Ok();
+
+        task.Title = title;
+        task.Description = description;
+        task.ProjectId = update.ProjectId;
+        task.DueDate = update.DueDate;
+        AddEditedHistory(task, changes);
+
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
 
     public Task<Result> MoveTaskAsync(int taskId, int toColumnId, int position, CancellationToken ct = default) => RunAsync(async () =>
     {
@@ -119,8 +157,30 @@ public sealed class BoardService : IBoardService
     public Task<Result> RestoreTaskAsync(int taskId, CancellationToken ct = default)
         => throw new NotImplementedException();
 
-    public Task<Result> SetTaskLabelsAsync(int taskId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default)
-        => throw new NotImplementedException();
+    public Task<Result> SetTaskLabelsAsync(int taskId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var task = await _boards.GetTaskAsync(taskId, ct).ConfigureAwait(false);
+        if (task is null) return Result.Fail(Messages.TaskNotFound);
+
+        var all = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+        var wanted = labelIds.Distinct().OrderBy(id => id).ToList();
+        var newLabels = wanted.Select(id => all.FirstOrDefault(l => l.Id == id)).ToList();
+        if (newLabels.Any(l => l is null)) return Result.Fail(Messages.LabelNotFound);
+
+        var current = task.Labels.Select(l => l.Id).OrderBy(id => id).ToList();
+        if (current.SequenceEqual(wanted)) return Result.Ok();
+
+        var changes = new Dictionary<string, FieldChange>
+        {
+            ["Labels"] = new FieldChange(JoinNames(task.Labels), JoinNames(newLabels!)),
+        };
+        task.Labels.Clear();
+        task.Labels.AddRange(newLabels!);
+        AddEditedHistory(task, changes);
+
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
 
     // ---------- 列 ----------
 
@@ -154,6 +214,22 @@ public sealed class BoardService : IBoardService
         => throw new NotImplementedException();
 
     // ---------- 共通 ----------
+
+    private void AddEditedHistory(TaskItem task, Dictionary<string, FieldChange> changes)
+    {
+        var now = _clock.UtcNow;
+        task.UpdatedAt = now;
+        _history.Add(new HistoryEntry
+        {
+            Task = task, TaskId = task.Id, At = now, Kind = HistoryKind.Edited,
+            Detail = HistoryDetail.Serialize(changes),
+        });
+    }
+
+    private static string? FormatDate(DateOnly? date) => date?.ToString("yyyy-MM-dd");
+
+    private static string JoinNames(IEnumerable<Label> labels)
+        => string.Join(", ", labels.OrderBy(l => l.Name).Select(l => l.Name));
 
     private static string[] WipWarnings(Column column)
         => column.IsOverWip
