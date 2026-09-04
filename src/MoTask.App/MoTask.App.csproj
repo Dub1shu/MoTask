@@ -17,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
+    <Content Include="Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup>
     <!-- Strings.resx sits next to Strings.cs with the same base name, so MSBuild's
