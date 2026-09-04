@@ -446,6 +446,68 @@ public class BoardViewModelTests
         _vm.BannerMessage.Should().Be(SaveFailure("io error"));
     }
 
+    /// <summary>
+    /// 裁定5: 更新系も読み取り段の生の例外を素通ししない。BoardService が Result に変えるのは
+    /// SaveChanges の PersistenceException だけなので、包まないと AsyncRelayCommand の内部
+    /// async void まで届いてプロセスごと落ちる。
+    /// </summary>
+    [Fact]
+    public async Task DeleteTask_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
+    {
+        _service.DeleteTaskAsync(10, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result>(new InvalidOperationException("no such table: Tasks")));
+        await _vm.LoadAsync();
+        _vm.SelectCard(_vm.Columns[0].Cards[0]);
+
+        await _vm.DeleteSelectedCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(SaveFailure("no such table: Tasks"));
+    }
+
+    /// <summary>裁定5: 列の更新（RunColumnChangeAsync）も同じ。</summary>
+    [Fact]
+    public async Task SetWipLimit_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
+    {
+        _service.SetWipLimitAsync(2, 3, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result>(new InvalidOperationException("database is locked")));
+        await _vm.LoadAsync();
+        var column = _vm.Columns[1];
+        column.BeginEditWipCommand.Execute(null);
+        column.WipText = "3";
+
+        await column.CommitWipCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(SaveFailure("database is locked"));
+    }
+
+    /// <summary>裁定5: 列の追加も同じ。</summary>
+    [Fact]
+    public async Task CommitAddColumn_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
+    {
+        _service.AddColumnAsync("確認待ち", ColumnRole.Review, Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<Result<Column>>(new InvalidOperationException("disk I/O error")));
+        await _vm.LoadAsync();
+        _vm.BeginAddColumnCommand.Execute(null);
+        _vm.NewColumnName = "確認待ち";
+        _vm.NewColumnRole = _vm.NewColumnRoles.Single(r => r.Value == ColumnRole.Review);
+
+        await _vm.CommitAddColumnCommand.ExecuteAsync(null);
+
+        _vm.BannerMessage.Should().Be(SaveFailure("disk I/O error"));
+        _vm.Columns.Should().HaveCount(3);
+    }
+
+    /// <summary>裁定3: 待てない入口（D&amp;D）から始めた操作でも、失敗はバナーに出て消えない。</summary>
+    [Fact]
+    public async Task RunGuarded_WhenOperationThrows_ShowsBanner()
+    {
+        await _vm.LoadAsync();
+
+        _vm.RunGuarded(() => throw new InvalidOperationException("boom"));
+
+        _vm.BannerMessage.Should().Be(SaveFailure("boom"));
+    }
+
     [Fact]
     public async Task ColumnAndProjectNames_ResolveFromLoadedBoard()
     {

@@ -183,7 +183,7 @@ public sealed partial class BoardViewModel : ObservableObject
     private async Task CommitAddColumnAsync()
     {
         if (string.IsNullOrWhiteSpace(NewColumnName)) return;
-        var result = await _service.AddColumnAsync(NewColumnName, NewColumnRole.Value);
+        var result = await GuardAsync(() => _service.AddColumnAsync(NewColumnName, NewColumnRole.Value));
         if (!await HandleAsync(result)) return;
         IsAddingColumn = false;
         NewColumnName = "";
@@ -199,7 +199,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     public async Task<bool> CreateTaskAsync(ColumnViewModel column, string title)
     {
-        var result = await _service.CreateTaskAsync(column.Id, title);
+        var result = await GuardAsync(() => _service.CreateTaskAsync(column.Id, title));
         if (!await HandleAsync(result)) return false;
         RefreshColumn(column);
         var card = column.AllCards.FirstOrDefault(c => c.Id == result.Value!.Id);
@@ -222,7 +222,7 @@ public sealed partial class BoardViewModel : ObservableObject
         source.ApplyFilter(filter, Today);
         target.ApplyFilter(filter, Today);
 
-        var result = await _service.MoveTaskAsync(card.Id, target.Id, position);
+        var result = await GuardAsync(() => _service.MoveTaskAsync(card.Id, target.Id, position));
         if (!result.IsSuccess)
         {
             ShowFailure(result);
@@ -254,7 +254,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     public async Task<Project?> CreateProjectAsync(string name)
     {
-        var result = await _service.CreateProjectAsync(name);
+        var result = await GuardAsync(() => _service.CreateProjectAsync(name));
         if (!await HandleAsync(result)) return null;
         var projects = await QueryAsync(() => _service.GetProjectsAsync());
         if (!projects.IsSuccess)
@@ -270,7 +270,7 @@ public sealed partial class BoardViewModel : ObservableObject
     public async Task<Label?> CreateLabelAsync(string name)
     {
         var color = LabelColors[Labels.Count % LabelColors.Length];
-        var result = await _service.CreateLabelAsync(name, color);
+        var result = await GuardAsync(() => _service.CreateLabelAsync(name, color));
         if (!await HandleAsync(result)) return null;
         var labels = await QueryAsync(() => _service.GetLabelsAsync());
         if (!labels.IsSuccess)
@@ -296,7 +296,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     public async Task<bool> DeleteColumnAsync(ColumnViewModel column)
     {
-        var result = await _service.DeleteColumnAsync(column.Id);
+        var result = await GuardAsync(() => _service.DeleteColumnAsync(column.Id));
         if (!await HandleAsync(result)) return false;
         Columns.Remove(column);
         return true;
@@ -310,7 +310,7 @@ public sealed partial class BoardViewModel : ObservableObject
             var current = Columns.IndexOf(order[i]);
             if (current >= 0 && current != i) Columns.Move(current, i);
         }
-        var result = await _service.ReorderColumnsAsync(order.Select(c => c.Id).ToList());
+        var result = await GuardAsync(() => _service.ReorderColumnsAsync(order.Select(c => c.Id).ToList()));
         if (result.IsSuccess) return true;
 
         ShowFailure(result);
@@ -323,7 +323,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     private async Task<bool> RunTaskChangeAsync(TaskCardViewModel card, Func<Task<Result>> operation)
     {
-        var result = await operation();
+        var result = await GuardAsync(operation);
         if (!await HandleAsync(result)) return false;
         var column = ColumnOf(card);
         if (column is not null)
@@ -338,7 +338,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     private async Task<bool> RunColumnChangeAsync(ColumnViewModel column, Func<Task<Result>> operation)
     {
-        var result = await operation();
+        var result = await GuardAsync(operation);
         if (!await HandleAsync(result)) return false;
         column.RefreshHeader();
         return true;
@@ -386,18 +386,55 @@ public sealed partial class BoardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Result を返す照会を包む。BoardService が握るのは SaveChanges の PersistenceException だけなので、
-    /// 読み取り段で出る生の例外（SqliteException など）は Result にならずそのまま抜けてくる。
+    /// Result を返す照会・更新を包む。BoardService が握るのは SaveChanges の PersistenceException だけなので、
+    /// 読み取り段で出る生の例外（SqliteException など）は Result にならずそのまま抜けてくる。素通しすると
+    /// AsyncRelayCommand の内部 async void まで届いてプロセスが落ちる（仕様 §8）。
     /// </summary>
-    private static async Task<Result<T>> GuardAsync<T>(Func<Task<Result<T>>> query)
+    private static async Task<Result<T>> GuardAsync<T>(Func<Task<Result<T>>> operation)
     {
         try
         {
-            return await query();
+            return await operation();
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return Result.Fail<T>($"{Messages.SaveFailed}: {ex.Message}");
+        }
+    }
+
+    /// <summary>値を返さない更新用の <see cref="GuardAsync{T}"/>。</summary>
+    private static async Task<Result> GuardAsync(Func<Task<Result>> operation)
+    {
+        try
+        {
+            return await operation();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Result.Fail($"{Messages.SaveFailed}: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 待てない同期の入口（D&amp;D の <c>IDropTarget.Drop</c> は Task を返せない）から非同期操作を始める。
+    /// 単に discard すると失敗が誰にも観測されないので、ここで受けてバナーへ回す（仕様 §8）。
+    /// </summary>
+    public void RunGuarded(Func<Task> operation) => _ = ObserveAsync(operation);
+
+    /// <summary>例外を投げないので、呼び出し側の discard が失敗を握りつぶすことにならない。</summary>
+    private async Task ObserveAsync(Func<Task> operation)
+    {
+        try
+        {
+            await operation();
+        }
+        catch (OperationCanceledException)
+        {
+            // 取り消しは失敗ではない。誰も待っていないのでここで終わらせる。
+        }
+        catch (Exception ex)
+        {
+            BannerMessage = $"{Messages.SaveFailed}: {ex.Message}";
         }
     }
 

@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:dd="urn:gong-wpf-dragdrop"
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:model="clr-namespace:MoTask.Core.Model;assembly=MoTask.Core"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
@@ -10,13 +11,16 @@
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ColumnViewModel}">
   <Border Width="{StaticResource Size.Column}" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1">
     <DockPanel>
-      <!-- ヘッダー（Task 18 で列ドラッグのハンドルにする）。
+      <!-- ヘッダーは列ドラッグのハンドル（DragHandler はコードビハインドで挿す）。
            Background は塗りではなくヒットテストのため: 透明でないと余白でドラッグを掴めない。 -->
       <Border x:Name="Header" DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
-              Padding="{StaticResource Pad.Section}" Background="Transparent">
+              Padding="{StaticResource Pad.Section}" Background="Transparent"
+              dd:DragDrop.IsDragSource="True" dd:DragDrop.UseDefaultDragAdorner="True">
         <DockPanel>
+          <!-- ヘッダー内の操作部品の上で押したときは列を掴まない（メニュー・改名・WIP の入力）。 -->
           <Button DockPanel.Dock="Right" Content="⋯" ToolTip="{x:Static res:Strings.Column}"
-                  Style="{StaticResource Btn.Ghost}" Click="MenuButton_Click">
+                  Style="{StaticResource Btn.Ghost}" Click="MenuButton_Click"
+                  dd:DragDrop.DragSourceIgnore="True">
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                 <MenuItem Header="{x:Static res:Strings.Rename}" Command="{Binding BeginRenameCommand}" />
@@ -42,6 +46,7 @@
                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibilityInverse}}" />
             <TextBox Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}" MinWidth="120"
                      Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}}"
+                     dd:DragDrop.DragSourceIgnore="True"
                      KeyDown="RenameBox_KeyDown" LostFocus="RenameBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
             <TextBlock Text="{Binding CountText}" Margin="{StaticResource Gap.Left.2}" VerticalAlignment="Center">
               <TextBlock.Style>
@@ -58,6 +63,7 @@
             <TextBox Text="{Binding WipText, UpdateSourceTrigger=PropertyChanged}" Width="48"
                      Margin="{StaticResource Gap.Left.2}"
                      Visibility="{Binding IsEditingWip, Converter={StaticResource BoolToVisibility}}"
+                     dd:DragDrop.DragSourceIgnore="True"
                      KeyDown="WipBox_KeyDown" LostFocus="WipBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
           </StackPanel>
         </DockPanel>
@@ -75,10 +81,13 @@
         </Grid>
       </Border>
 
-      <!-- カード一覧（Task 18 で D&D を付ける）。Background は既定の白を消して列を塗りなしに保つため。 -->
+      <!-- カード一覧。DropHandler はコードビハインドで挿す（ViewModel は D&D を知らない）。
+           Background は既定の白を消して列を塗りなしに保つため。 -->
       <ListBox x:Name="CardList" ItemsSource="{Binding Cards}" SelectedItem="{Binding SelectedCard}"
                Background="Transparent" BorderThickness="0" Padding="{StaticResource Pad.Section}"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}"
+               dd:DragDrop.IsDragSource="True" dd:DragDrop.IsDropTarget="True"
+               dd:DragDrop.UseDefaultDragAdorner="True">
         <ListBox.ItemContainerStyle>
           <Style TargetType="ListBoxItem">
             <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
