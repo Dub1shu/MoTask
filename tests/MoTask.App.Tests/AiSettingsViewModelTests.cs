@@ -19,7 +19,7 @@ public class AiSettingsViewModelTests
 
     public AiSettingsViewModelTests()
     {
-        _store.Load().Returns(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 30));
+        _store.Load().Returns(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 30, AiSettings.DefaultPermissionMode, null));
         _jobs.GetPermissionRulesAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IReadOnlyList<AiPermissionRule>>(_rules.ToList()));
         _jobs.DeletePermissionRuleAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci =>
         {
@@ -60,7 +60,7 @@ public class AiSettingsViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        _store.Received(1).Save(new AiSettings(@"D:\ai", 4, null, null, 25));
+        _store.Received(1).Save(new AiSettings(@"D:\ai", 4, null, null, 25, AiSettings.DefaultPermissionMode, null));
         vm.StatusMessage.Should().Be(Strings.SettingsSaved);
         vm.ErrorMessage.Should().BeNull();
     }
@@ -110,7 +110,7 @@ public class AiSettingsViewModelTests
         vm.SaveCommand.Execute(null);
 
         vm.ErrorMessage.Should().BeNull();
-        _store.Received(1).Save(new AiSettings(@"C:\work", 20, @"C:\tools\claude.exe", "claude-sonnet-5", 30));
+        _store.Received(1).Save(new AiSettings(@"C:\work", 20, @"C:\tools\claude.exe", "claude-sonnet-5", 30, AiSettings.DefaultPermissionMode, null));
     }
 
     [Fact]

@@ -9,6 +9,8 @@ public enum AiJobStatus
     Succeeded = 4,
     Failed = 5,
     Cancelled = 6,
+    /// <summary>Stop フックが来て、人の入力を待っている。</summary>
+    WaitingForInput = 7,
 }
 
 public static class AiJobStatusExtensions

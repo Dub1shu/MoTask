@@ -93,7 +93,9 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             return;
         }
 
-        _store.Save(new AiSettings(dir, maxConcurrent, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model), maxTurns));
+        var current = _store.Load();
+        _store.Save(new AiSettings(dir, maxConcurrent, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model), maxTurns,
+            current.PermissionMode, current.TerminalCommandTemplate));
         ErrorMessage = null;
         StatusMessage = Strings.SettingsSaved;
     }

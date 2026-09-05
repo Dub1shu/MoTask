@@ -18,6 +18,17 @@ public class AiModelTests
     }
 
     [Fact]
+    public void AiJobStatus_KeepsTheExistingNumbers()
+    {
+        ((int)AiJobStatus.Pending).Should().Be(0);
+        ((int)AiJobStatus.Running).Should().Be(1);
+        ((int)AiJobStatus.Succeeded).Should().Be(4);
+        ((int)AiJobStatus.Failed).Should().Be(5);
+        ((int)AiJobStatus.Cancelled).Should().Be(6);
+        ((int)AiJobStatus.WaitingForInput).Should().Be(7);
+    }
+
+    [Fact]
     public void AiJobStatus_IsTerminal_ForSucceededFailedCancelled()
     {
         AiJobStatus.Succeeded.IsTerminal().Should().BeTrue();

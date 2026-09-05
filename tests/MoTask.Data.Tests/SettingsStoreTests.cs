@@ -20,7 +20,7 @@ public class SettingsStoreTests : IDisposable
     public void Save_ThenLoad_RoundTrips_AndCreatesTheDirectory()
     {
         var store = new JsonAiSettingsStore(PathOf("settings.json"));
-        var settings = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20);
+        var settings = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20, AiSettings.DefaultPermissionMode, null);
 
         store.Save(settings);
 
@@ -52,8 +52,8 @@ public class SettingsStoreTests : IDisposable
     public void Save_CalledAgain_ReplacesThePreviousFile_AndRoundTrips()
     {
         var store = new JsonAiSettingsStore(PathOf("settings.json"));
-        var first = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20);
-        var second = new AiSettings(@"C:\other", 4, null, null, 30);
+        var first = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20, AiSettings.DefaultPermissionMode, null);
+        var second = new AiSettings(@"C:\other", 4, null, null, 30, AiSettings.DefaultPermissionMode, null);
 
         store.Save(first);
         store.Save(second);
@@ -66,10 +66,36 @@ public class SettingsStoreTests : IDisposable
     {
         var store = new JsonAiSettingsStore(PathOf("settings.json"));
 
-        store.Save(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20));
+        store.Save(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20, AiSettings.DefaultPermissionMode, null));
 
         Directory.GetFiles(_dir).Should().Equal(PathOf("settings.json"));
         File.Exists(PathOf("settings.json.tmp")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Load_FallsBackWhenPermissionModeIsUnknown()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, """{"PermissionMode":"すきなように","TerminalCommandTemplate":"pwsh -c {command}"}""");
+
+        var settings = new JsonAiSettingsStore(path).Load();
+
+        settings.PermissionMode.Should().Be("auto");
+        settings.TerminalCommandTemplate.Should().Be("pwsh -c {command}");
+    }
+
+    [Fact]
+    public void Save_RoundTripsPermissionModeAndTemplate()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        var store = new JsonAiSettingsStore(path);
+
+        store.Save(AiSettings.Default() with { PermissionMode = "plan", TerminalCommandTemplate = "wt -d {cwd} {command}" });
+
+        var loaded = new JsonAiSettingsStore(path).Load();
+        loaded.PermissionMode.Should().Be("plan");
+        loaded.TerminalCommandTemplate.Should().Be("wt -d {cwd} {command}");
     }
 
     public void Dispose()
