@@ -114,19 +114,10 @@
             <!-- 最新ジョブの状態・結果・成果物・進行状況 -->
             <StackPanel Visibility="{Binding HasJob, Converter={StaticResource BoolToVisibility}}" Margin="{StaticResource Gap.Top.2}">
               <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
-                            Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}">
-                  <Button Content="{x:Static res:Strings.AiReopenTerminal}" Command="{Binding ReopenTerminalCommand}" Margin="{StaticResource Gap.Right.4}" />
-                  <Button Content="{x:Static res:Strings.AiComplete}" Command="{Binding CompleteCommand}" Style="{StaticResource Btn.Primary}" Margin="{StaticResource Gap.Right.4}" />
-                  <Button Content="{x:Static res:Strings.AiStopTracking}" Command="{Binding StopTrackingCommand}" />
-                </StackPanel>
                 <TextBlock Text="{Binding StatusText}" FontWeight="Medium" VerticalAlignment="Center" />
               </DockPanel>
               <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap"
                          Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
-
-              <TextBlock Text="{x:Static res:Strings.AiStopTrackingHint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
-                         Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
 
               <TextBlock Text="{x:Static res:Strings.AiResult}" Style="{StaticResource Field.Label}"
                          Visibility="{Binding ResultText, Converter={StaticResource NullToVisibility}}" />
@@ -156,12 +147,24 @@
                   </Style>
                 </TextBlock.Style>
               </TextBlock>
-              <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.1}">
+              <!-- 操作（仕様 §11）。MoTask は端末のプロセスを所有しないので、殺すボタンは無い -->
+              <TextBlock Text="{x:Static res:Strings.AiSection}" Style="{StaticResource Field.Label}" />
+              <WrapPanel>
                 <Button Content="{x:Static res:Strings.AiOpenJobFolder}" Command="{Binding OpenJobFolderCommand}"
                         Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}" />
                 <Button Content="{x:Static res:Strings.AiOpenWorkingDirectory}" Command="{Binding OpenWorkingDirectoryCommand}"
-                        Style="{StaticResource Btn.Ghost}" />
-              </StackPanel>
+                        Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}" />
+                <Button Content="{x:Static res:Strings.AiReopenTerminal}" Command="{Binding ReopenTerminalCommand}"
+                        Margin="{StaticResource Gap.Right.4}"
+                        Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="{x:Static res:Strings.AiComplete}" Command="{Binding CompleteCommand}"
+                        Style="{StaticResource Btn.Primary}" Margin="{StaticResource Gap.Right.4}"
+                        Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+                <Button Content="{x:Static res:Strings.AiStopTracking}" Command="{Binding StopTrackingCommand}"
+                        Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+              </WrapPanel>
+              <TextBlock Text="{x:Static res:Strings.AiStopTrackingHint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                         Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
 
               <TextBlock Text="{x:Static res:Strings.AiProgress}" Style="{StaticResource Field.Label}" />
               <ItemsControl ItemsSource="{Binding Log}">

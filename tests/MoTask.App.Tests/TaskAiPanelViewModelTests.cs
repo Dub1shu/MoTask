@@ -400,4 +400,46 @@ public class TaskAiPanelViewModelTests
         var ai = await OpenAsync(11);
         ai.CanStart.Should().BeFalse();
     }
+
+    /// <summary>ジョブが 1 件走っている状態のパネル。既存の OpenAsync と同じ手順で開く。</summary>
+    private async Task<TaskAiPanelViewModel> PanelWithRunningJobAsync()
+    {
+        _jobs.Add(new AiJob
+        {
+            Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running,
+            WorkingDirectory = @"C:\w", JobFolder = @"C:\w\jobs\0001-a",
+        });
+        return await OpenAsync();
+    }
+
+    [Fact]
+    public async Task Panel_OffersTheControlsWhileTheJobIsTracked()
+    {
+        var panel = await PanelWithRunningJobAsync();
+
+        panel.CanControl.Should().BeTrue();
+        panel.CanStart.Should().BeFalse("追跡中は新しい依頼を受けない");
+        panel.JobFolder.Should().Be(@"C:\w\jobs\0001-a");
+    }
+
+    [Fact]
+    public async Task OpenJobFolder_OpensTheFolderOfTheCurrentJob()
+    {
+        var panel = await PanelWithRunningJobAsync();
+
+        panel.OpenJobFolderCommand.Execute(null);
+
+        _opened.Should().ContainSingle().Which.Should().Be(@"C:\w\jobs\0001-a");
+    }
+
+    [Fact]
+    public async Task Panel_ListsTheArtifactsTheServiceReports()
+    {
+        _ai.GetArtifactsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<IReadOnlyList<string>>(new[] { @"C:\w\jobs\0001-a\artifacts\report.md" }));
+
+        var panel = await PanelWithRunningJobAsync();
+
+        panel.Artifacts.Should().ContainSingle().Which.FileName.Should().Be("report.md");
+    }
 }
