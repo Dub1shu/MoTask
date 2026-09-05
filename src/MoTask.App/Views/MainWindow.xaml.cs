@@ -42,6 +42,7 @@ public partial class MainWindow : Window
     }
 
     private bool _shutdownReady;
+    private bool _shuttingDown;
 
     /// <summary>
     /// 仕様 §9: 終了時は保留中の承認へ deny を返し、子プロセスを畳んで Suspended にしてから閉じる。
@@ -52,6 +53,9 @@ public partial class MainWindow : Window
     {
         if (_shutdownReady) return;
         e.Cancel = true;
+        if (_shuttingDown) return; // 中断を待つ間にもう一度閉じられても、畳み直さない
+        _shuttingDown = true;
+
         try
         {
             await _aiJobs.SuspendAllAsync();
@@ -60,8 +64,18 @@ public partial class MainWindow : Window
         {
             // 畳めなくても終了は止めない（プロセスは OS が回収する）
         }
+
         _shutdownReady = true;
-        Close();
+        // 実行中のジョブが無いと SuspendAllAsync は同期で完了し、ここはまだ Closing のスタックの中。
+        // その最中の Close() は WPF が拒むので、キューへ載せ直して Closing を抜けてから閉じる。
+        try
+        {
+            await Dispatcher.InvokeAsync(Close);
+        }
+        catch (TaskCanceledException)
+        {
+            // Dispatcher が先に畳まれた＝もう閉じる相手が居ない
+        }
     }
 
     /// <summary>
