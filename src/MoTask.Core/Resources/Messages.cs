@@ -59,4 +59,5 @@ public static class Messages
     public static string JobFolderFailedFormat => Get(nameof(JobFolderFailedFormat));
     public static string TerminalLaunchFailedFormat => Get(nameof(TerminalLaunchFailedFormat));
     public static string TerminalStartPromptFormat => Get(nameof(TerminalStartPromptFormat));
+    public static string EventsFileGoneFormat => Get(nameof(EventsFileGoneFormat));
 }
