@@ -17,7 +17,6 @@ public sealed class MoTaskDbContext : DbContext
     public DbSet<HistoryEntry> History => Set<HistoryEntry>();
     public DbSet<AiJob> AiJobs => Set<AiJob>();
     public DbSet<AiJobEvent> AiJobEvents => Set<AiJobEvent>();
-    public DbSet<AiPermissionRule> AiPermissionRules => Set<AiPermissionRule>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -96,15 +95,6 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.Payload).IsRequired().HasDefaultValue("");
             e.HasIndex(x => new { x.JobId, x.Seq }).IsUnique();
             e.HasOne<AiJob>().WithMany().HasForeignKey(x => x.JobId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        b.Entity<AiPermissionRule>(e =>
-        {
-            e.ToTable("AiPermissionRules");
-            e.Property(x => x.Scope).HasConversion<string>().HasMaxLength(16);
-            e.Property(x => x.Decision).HasConversion<string>().HasMaxLength(16);
-            e.Property(x => x.ToolName).IsRequired();
-            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

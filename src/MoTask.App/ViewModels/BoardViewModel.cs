@@ -149,7 +149,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     // ---------- AI ジョブ ----------
 
-    /// <summary>未完了ジョブ（Running / AwaitingApproval / Suspended）からカードのバッジを組み直す。</summary>
+    /// <summary>未完了ジョブ（Pending / Running / WaitingForInput）からカードのバッジを組み直す。</summary>
     private async Task ApplyAiStatesAsync()
     {
         var jobs = await QueryAsync(() => AiJobs.GetUnfinishedJobsAsync());
@@ -167,7 +167,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     private AiJobSnapshot Snapshot(AiJob job)
         => new(job.Id, job.TaskId, job.Kind, job.Status, job.NumTurns ?? AiJobs.TurnCountOf(job.Id),
-            job.TotalCostUsd, job.ErrorMessage, job.WorkingDirectory);
+            job.ErrorMessage, job.WorkingDirectory, job.JobFolder);
 
     /// <summary>UI スレッドで呼ばれる。バッジ・バナー・詳細パネル、完了時の列移動の反映。</summary>
     private void OnJobChanged(AiJobChangedEventArgs e)
@@ -214,11 +214,26 @@ public sealed partial class BoardViewModel : ObservableObject
         return true;
     }
 
-    public async Task<bool> StopAiJobAsync(int jobId)
-        => await HandleAsync(await GuardAsync(() => AiJobs.StopJobAsync(jobId)));
+    /// <summary>端末を × で閉じてしまったジョブを、人の手で閉じる。</summary>
+    public async Task<bool> CompleteAiJobAsync(int jobId)
+        => await HandleAsync(await GuardAsync(() => AiJobs.CompleteJobAsync(jobId)));
 
-    public async Task<bool> ResumeAiJobAsync(int jobId)
-        => await HandleAsync(await GuardAsync(() => AiJobs.ResumeJobAsync(jobId)));
+    /// <summary>追跡をやめる。端末のプロセスは殺さない。</summary>
+    public async Task<bool> StopTrackingAiJobAsync(int jobId)
+        => await HandleAsync(await GuardAsync(() => AiJobs.StopTrackingAsync(jobId)));
+
+    /// <summary>--resume で端末を開き直す。</summary>
+    public async Task<bool> ReopenAiTerminalAsync(int jobId)
+        => await HandleAsync(await GuardAsync(() => AiJobs.ReopenTerminalAsync(jobId)));
+
+    /// <summary>失敗しても空を返す（一覧が出ないだけ）。</summary>
+    public async Task<IReadOnlyList<string>> QueryAiArtifactsAsync(int jobId)
+    {
+        var artifacts = await QueryAsync(() => AiJobs.GetArtifactsAsync(jobId));
+        if (artifacts.IsSuccess) return artifacts.Value!;
+        ShowFailure(artifacts);
+        return Array.Empty<string>();
+    }
 
     /// <summary>失敗したら空を返し、理由はバナーに出す（GetHistoryAsync と同じ流儀）。</summary>
     public async Task<IReadOnlyList<AiJob>> QueryAiJobsAsync(int taskId)

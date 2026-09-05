@@ -1,3 +1,4 @@
+using System.IO;
 using FluentAssertions;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
@@ -14,8 +15,12 @@ public class AiJobEventFormatterTests
     private static AiJobEvent Event(AiJobEventKind kind, string payload, string? tool = null)
         => new() { JobId = 1, Seq = 1, At = At, Kind = kind, ToolName = tool, Payload = payload };
 
-    private static string[] Bash => ClaudeCodeParserTests.Fixture("stream-bash.jsonl");
-    private static string[] Deny => ClaudeCodeParserTests.Fixture("stream-deny.jsonl");
+    /// <summary>作り替え前に実機で採った stream-json。古い行の表示が壊れていないことをここで押さえる。</summary>
+    private static string[] Fixture(string name)
+        => File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "Fixtures", name));
+
+    private static string[] Bash => Fixture("stream-bash.jsonl");
+    private static string[] Deny => Fixture("stream-deny.jsonl");
 
     [Fact]
     public void Timestamp_UsesHistoryFormat_InLocalTime()
@@ -116,33 +121,6 @@ public class AiJobEventFormatterTests
     }
 
     [Fact]
-    public void Artifacts_ComeFromWriteAndEditToolUses_Deduplicated()
-    {
-        // "zzz"/"sample2"/"aaa" 順（出現順）はアルファベット順（aaa/sample2/zzz）とは逆になるよう
-        // 選んである。実装が並べ替え（例: パス文字列でソート）に退行したら本テストが検出する。
-        const string writeFirst = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\work\\zzz\\first.txt","content":"x"}}]}}""";
-        const string writeLast = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\work\\aaa\\last.txt","content":"x"}}]}}""";
-        const string edit = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"C:\\work\\sample2\\hello.txt","old_string":"a","new_string":"b"}}]}}""";
-        const string read = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"C:\\work\\other.txt"}}]}}""";
-        var events = new[]
-        {
-            Event(AiJobEventKind.ToolUse, writeFirst, "Write"),
-            Event(AiJobEventKind.ToolUse, Deny[3], "Write"),
-            Event(AiJobEventKind.ToolUse, read, "Read"),
-            Event(AiJobEventKind.ToolUse, edit, "Edit"),
-            Event(AiJobEventKind.ToolUse, writeLast, "Write"),
-            Event(AiJobEventKind.ToolUse, Bash[2], "Bash"),
-        };
-
-        AiJobEventFormatter.ArtifactPaths(events).Should().Equal(
-            @"C:\work\zzz\first.txt",
-            @"C:\work\sample2\hello.txt",
-            @"C:\work\aaa\last.txt");
-        AiJobEventFormatter.ArtifactPathOf(events[2]).Should().BeNull();
-        AiJobEventFormatter.ArtifactPathOf(events[5]).Should().BeNull();
-    }
-
-    [Fact]
     public void ResultText_ComesFromTheLastResult()
     {
         // Result イベントを 2 件用意し、後の方の result が採用されることを検証する（1 件だけでは
@@ -236,21 +214,9 @@ public class AiJobEventFormatterTests
     // ---- 堅牢性: 想定外の入力でも例外を投げない ----
 
     [Fact]
-    public void EmptyEventList_ArtifactPathsAndResultText_ReturnEmptyOrNull()
+    public void EmptyEventList_ResultText_ReturnsNull()
     {
-        var none = Array.Empty<AiJobEvent>();
-        AiJobEventFormatter.ArtifactPaths(none).Should().BeEmpty();
-        AiJobEventFormatter.ResultText(none).Should().BeNull();
-    }
-
-    [Fact]
-    public void ArtifactPathOf_MissingOrNonStringFilePath_ReturnsNullWithoutThrowing()
-    {
-        const string missing = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"content":"data"}}]}}""";
-        const string notAString = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":123}}]}}""";
-
-        AiJobEventFormatter.ArtifactPathOf(Event(AiJobEventKind.ToolUse, missing, "Write")).Should().BeNull();
-        AiJobEventFormatter.ArtifactPathOf(Event(AiJobEventKind.ToolUse, notAString, "Write")).Should().BeNull();
+        AiJobEventFormatter.ResultText(Array.Empty<AiJobEvent>()).Should().BeNull();
     }
 
     [Fact]

@@ -34,9 +34,7 @@ public partial class App : Application
                 return;
             }
 
-            // 承認 MCP サーバは 1 つだけ。ジョブ開始前に立っていればよい。
-            _host.Services.GetRequiredService<ApprovalMcpServer>().Start();
-            // 前回クラッシュして Running のまま残ったジョブは、プロセスが無いので Suspended に戻す
+            // 前回閉じたあとも端末は走り続けている。未完了ジョブの events.jsonl に追いつく（仕様 §8）
             await _host.Services.GetRequiredService<IAiJobService>().RecoverOnStartupAsync();
 
             var window = _host.Services.GetRequiredService<MainWindow>();
@@ -63,10 +61,11 @@ public partial class App : Application
         builder.Services.AddMoTaskData(dbPath); // OperationGate / リポジトリ / 設定ストアもここで登録される
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddSingleton<IBoardService, BoardService>();
-        builder.Services.AddSingleton<IPermissionPolicy, PermissionPolicy>();
-        builder.Services.AddSingleton<IPermissionPrompt, WpfPermissionPrompt>();
-        builder.Services.AddSingleton<ApprovalMcpServer>();
-        builder.Services.AddSingleton<IAgentRunner, ClaudeCodeRunner>();
+        // 端末で claude を起こす／ジョブフォルダを作る／events.jsonl を追う
+        builder.Services.AddSingleton<ISessionLauncher, TerminalLauncher>();
+        builder.Services.AddSingleton<IJobFolder, JobFolder>();
+        builder.Services.AddSingleton<JobEventWatcher>();
+        builder.Services.AddSingleton<IJobEventSource>(sp => sp.GetRequiredService<JobEventWatcher>());
         builder.Services.AddSingleton<IAiJobService, AiJobService>();
         builder.Services.AddSingleton<ViewModels.BoardViewModel>();
         builder.Services.AddSingleton<MainWindow>();

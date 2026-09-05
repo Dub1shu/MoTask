@@ -34,9 +34,6 @@
         <TextBlock Text="{x:Static res:Strings.SettingsDefaultWorkingDirectory}" Style="{StaticResource Settings.Label}" />
         <TextBox Text="{Binding DefaultWorkingDirectory, UpdateSourceTrigger=PropertyChanged}" />
 
-        <TextBlock Text="{x:Static res:Strings.SettingsMaxConcurrent}" Style="{StaticResource Settings.Label}" />
-        <TextBox Text="{Binding MaxConcurrentText, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" />
-
         <TextBlock Text="{x:Static res:Strings.SettingsClaudePath}" Style="{StaticResource Settings.Label}" />
         <TextBox Text="{Binding ClaudeExecutablePath, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -48,38 +45,6 @@
 
         <TextBlock Text="{x:Static res:Strings.SettingsTerminalTemplate}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
         <TextBox Text="{Binding TerminalCommandTemplate, UpdateSourceTrigger=PropertyChanged}" />
-
-        <TextBlock Text="{x:Static res:Strings.SettingsMaxTurns}" Style="{StaticResource Settings.Label}" />
-        <TextBox Text="{Binding MaxTurnsText, UpdateSourceTrigger=PropertyChanged}" Width="80" HorizontalAlignment="Left" />
-
-        <TextBlock Text="{x:Static res:Strings.SettingsRules}" Style="{StaticResource Settings.Label}" />
-        <ItemsControl ItemsSource="{Binding Rules}">
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}">
-                <DockPanel>
-                  <Button DockPanel.Dock="Right" Content="{x:Static res:Strings.SettingsDeleteRule}" Style="{StaticResource Btn.Ghost}"
-                          Command="{Binding DataContext.DeleteRuleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                          CommandParameter="{Binding}" />
-                  <TextBlock Text="{Binding Text}" TextWrapping="Wrap" VerticalAlignment="Center" />
-                </DockPanel>
-              </Border>
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
-        <TextBlock Text="{x:Static res:Strings.SettingsNoRules}">
-          <TextBlock.Style>
-            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
-              <Setter Property="Visibility" Value="Collapsed" />
-              <Setter Property="Margin" Value="{StaticResource Pad.BarTight}" />
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding Rules.Count}" Value="0">
-                  <Setter Property="Visibility" Value="Visible" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </TextBlock.Style>
-        </TextBlock>
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

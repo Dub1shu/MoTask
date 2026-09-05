@@ -27,10 +27,8 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
             if (dto is null) return defaults;
             return new AiSettings(
                 string.IsNullOrWhiteSpace(dto.DefaultWorkingDirectory) ? defaults.DefaultWorkingDirectory : dto.DefaultWorkingDirectory,
-                dto.MaxConcurrentJobs is > 0 ? dto.MaxConcurrentJobs.Value : defaults.MaxConcurrentJobs,
                 string.IsNullOrWhiteSpace(dto.ClaudeExecutablePath) ? null : dto.ClaudeExecutablePath,
                 string.IsNullOrWhiteSpace(dto.Model) ? null : dto.Model,
-                dto.MaxTurns is > 0 ? dto.MaxTurns.Value : defaults.MaxTurns,
                 // 知らない値が入っていたら既定へ。CLI に弾かれる値を渡さない。
                 dto.PermissionMode is { Length: > 0 } mode && AiSettings.PermissionModes.Contains(mode)
                     ? mode
@@ -50,10 +48,8 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
         var dto = new Dto
         {
             DefaultWorkingDirectory = settings.DefaultWorkingDirectory,
-            MaxConcurrentJobs = settings.MaxConcurrentJobs,
             ClaudeExecutablePath = settings.ClaudeExecutablePath,
             Model = settings.Model,
-            MaxTurns = settings.MaxTurns,
             PermissionMode = settings.PermissionMode,
             TerminalCommandTemplate = settings.TerminalCommandTemplate,
         };
@@ -79,13 +75,12 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
         }
     }
 
+    /// <summary>知らないキー（廃止した MaxConcurrentJobs / MaxTurns など）は黙って捨てられる。</summary>
     private sealed class Dto
     {
         public string? DefaultWorkingDirectory { get; set; }
-        public int? MaxConcurrentJobs { get; set; }
         public string? ClaudeExecutablePath { get; set; }
         public string? Model { get; set; }
-        public int? MaxTurns { get; set; }
         public string? PermissionMode { get; set; }
         public string? TerminalCommandTemplate { get; set; }
     }

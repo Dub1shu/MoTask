@@ -17,7 +17,7 @@ public sealed class AiJob
     public string JobFolder { get; set; } = "";
     public DateTime? StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
+    /// <summary>Stop フックを数えたターン数（仕様 §9）。費用はフックに来ないので持たない。</summary>
     public int? NumTurns { get; set; }
-    public decimal? TotalCostUsd { get; set; }
     public string? ErrorMessage { get; set; }
 }

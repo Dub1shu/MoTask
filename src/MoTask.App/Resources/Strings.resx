@@ -78,37 +78,11 @@
 {0}</value></data>
   <data name="StartupFailedFormat" xml:space="preserve"><value>起動できませんでした。
 {0}</value></data>
-  <data name="PermissionTitle" xml:space="preserve"><value>AI の操作を承認</value></data>
-  <data name="PermissionToolFormat" xml:space="preserve"><value>ツール: {0}</value></data>
-  <data name="PermissionTask" xml:space="preserve"><value>タスク</value></data>
-  <data name="PermissionWorkingDirectory" xml:space="preserve"><value>作業フォルダ</value></data>
-  <data name="PermissionAllow" xml:space="preserve"><value>許可</value></data>
-  <data name="PermissionDeny" xml:space="preserve"><value>拒否</value></data>
-  <data name="PermissionAllowAlways" xml:space="preserve"><value>今後も許可</value></data>
-  <data name="PermissionDenyAlways" xml:space="preserve"><value>今後も拒否</value></data>
-  <data name="PermissionRememberFormat" xml:space="preserve"><value>「今後も」で記憶する条件: {0}</value></data>
-  <data name="PermissionRememberToolOnly" xml:space="preserve"><value>{0} のすべての呼び出し</value></data>
-  <data name="PermissionRememberBashFormat" xml:space="preserve"><value>「{0}」で始まるコマンド</value></data>
-  <data name="PermissionRememberDirFormat" xml:space="preserve"><value>{0} 配下のファイル</value></data>
-  <data name="PermissionScopeProject" xml:space="preserve"><value>このプロジェクトだけ</value></data>
-  <data name="PermissionScopeGlobal" xml:space="preserve"><value>すべてのプロジェクト</value></data>
-  <data name="PermissionEditFormat" xml:space="preserve"><value>変更前:
-{0}
-
-変更後:
-{1}</value></data>
   <data name="AiLogToolUseFormat" xml:space="preserve"><value>▶ {0}: {1}</value></data>
   <data name="AiLogToolUseNoArg" xml:space="preserve"><value>▶ {0}</value></data>
   <data name="AiLogToolResultOkFormat" xml:space="preserve"><value>✓ {0}</value></data>
   <data name="AiLogToolResultErrorFormat" xml:space="preserve"><value>✗ {0}</value></data>
   <data name="AiLogToolResultEmpty" xml:space="preserve"><value>（出力なし）</value></data>
-  <data name="AiLogPermissionAskedFormat" xml:space="preserve"><value>承認待ち: {0} {1}</value></data>
-  <data name="AiLogPermissionDecidedFormat" xml:space="preserve"><value>{0}（{1}）</value></data>
-  <data name="AiLogAllow" xml:space="preserve"><value>許可</value></data>
-  <data name="AiLogDeny" xml:space="preserve"><value>拒否</value></data>
-  <data name="AiLogByRule" xml:space="preserve"><value>ルール</value></data>
-  <data name="AiLogByHuman" xml:space="preserve"><value>手動</value></data>
-  <data name="AiLogByShutdown" xml:space="preserve"><value>停止・終了</value></data>
   <data name="AiLogSessionStartFormat" xml:space="preserve"><value>セッション開始（{0}）</value></data>
   <data name="AiLogSessionStartedFormat" xml:space="preserve"><value>セッション開始（{0}）</value></data>
   <data name="AiLogSessionEndedFormat" xml:space="preserve"><value>セッション終了（{0}）</value></data>
@@ -131,15 +105,12 @@
   <data name="AiOutcomeUnknown" xml:space="preserve"><value>終了</value></data>
   <data name="AiStatusResearching" xml:space="preserve"><value>AI 調査中</value></data>
   <data name="AiStatusExecuting" xml:space="preserve"><value>AI 遂行中</value></data>
-  <data name="AiStatusAwaiting" xml:space="preserve"><value>承認待ち</value></data>
-  <data name="AiStatusSuspended" xml:space="preserve"><value>AI 中断中</value></data>
   <data name="AiStatusSucceeded" xml:space="preserve"><value>AI 完了</value></data>
   <data name="AiStatusFailed" xml:space="preserve"><value>AI 失敗</value></data>
   <data name="AiStatusCancelled" xml:space="preserve"><value>AI 停止</value></data>
   <data name="AiStatusPending" xml:space="preserve"><value>端末を開いています</value></data>
   <data name="AiStatusWaitingForInput" xml:space="preserve"><value>入力待ち</value></data>
   <data name="AiBadgeTurnsFormat" xml:space="preserve"><value>{0} · {1} ターン</value></data>
-  <data name="AiCostFormat" xml:space="preserve"><value>${0:0.000} · {1} ターン</value></data>
   <data name="AiComposeResearch" xml:space="preserve"><value>調査の指示</value></data>
   <data name="AiComposeExecute" xml:space="preserve"><value>遂行の指示</value></data>
   <data name="AiResearchInstructionFormat" xml:space="preserve"><value>次のタスクについて調査してください。要点、根拠、参考にした情報源を最終回答としてまとめてください。ファイルの作成や変更はできません。
@@ -162,34 +133,22 @@
   <data name="AiCancel" xml:space="preserve"><value>取り消し</value></data>
   <data name="AiProgress" xml:space="preserve"><value>進行状況</value></data>
   <data name="AiArtifacts" xml:space="preserve"><value>成果物</value></data>
-  <data name="AiNoArtifacts" xml:space="preserve"><value>Write / Edit で作られたファイルはありません（リダイレクトで作ったファイルは作業フォルダを開いて確認）</value></data>
-  <data name="AiOpenWorkingDirectory" xml:space="preserve"><value>作業フォルダを開く</value></data>
-  <data name="AiStop" xml:space="preserve"><value>停止</value></data>
-  <data name="AiResume" xml:space="preserve"><value>再開</value></data>
-  <data name="AiCost" xml:space="preserve"><value>費用</value></data>
+  <data name="AiNoArtifacts" xml:space="preserve"><value>artifacts フォルダにファイルはありません</value></data>
+  <data name="AiOpenWorkingDirectory" xml:space="preserve"><value>作業フォルダ（cwd）を開く</value></data>
+  <data name="AiOpenJobFolder" xml:space="preserve"><value>ジョブフォルダを開く</value></data>
+  <data name="AiReopenTerminal" xml:space="preserve"><value>端末を開き直す</value></data>
+  <data name="AiComplete" xml:space="preserve"><value>完了にする</value></data>
+  <data name="AiStopTracking" xml:space="preserve"><value>追跡をやめる</value></data>
+  <data name="AiStopTrackingHint" xml:space="preserve"><value>「追跡をやめる」は端末を閉じません。端末はご自分で閉じてください</value></data>
   <data name="AiResult" xml:space="preserve"><value>結果</value></data>
   <data name="ProjectWorkingDirectory" xml:space="preserve"><value>作業フォルダ</value></data>
   <data name="ProjectWorkingDirectoryHint" xml:space="preserve"><value>AI がこのプロジェクトのタスクを実行するフォルダ。空なら設定の既定フォルダ</value></data>
   <data name="AiSettings" xml:space="preserve"><value>AI 設定</value></data>
   <data name="SettingsDefaultWorkingDirectory" xml:space="preserve"><value>既定の作業フォルダ（プロジェクトに作業フォルダが無いときに使う）</value></data>
-  <data name="SettingsMaxConcurrent" xml:space="preserve"><value>同時実行の上限</value></data>
   <data name="SettingsClaudePath" xml:space="preserve"><value>claude 実行ファイルのパス（空なら PATH から探す）</value></data>
   <data name="SettingsModel" xml:space="preserve"><value>モデル（空なら CLI の既定）</value></data>
-  <data name="SettingsMaxTurns" xml:space="preserve"><value>最大ターン数（--max-turns）</value></data>
-  <data name="SettingsRules" xml:space="preserve"><value>記憶した許可ルール</value></data>
-  <data name="SettingsNoRules" xml:space="preserve"><value>まだありません</value></data>
   <data name="SettingsSave" xml:space="preserve"><value>保存</value></data>
   <data name="SettingsSaved" xml:space="preserve"><value>保存しました</value></data>
-  <data name="SettingsRuleFormat" xml:space="preserve"><value>{0}: {1} — {2}</value></data>
-  <data name="SettingsRuleAllow" xml:space="preserve"><value>許可</value></data>
-  <data name="SettingsRuleDeny" xml:space="preserve"><value>拒否</value></data>
-  <data name="SettingsRuleAllTool" xml:space="preserve"><value>すべて</value></data>
-  <data name="SettingsScopeGlobal" xml:space="preserve"><value>すべてのプロジェクト</value></data>
-  <data name="SettingsScopeProjectFormat" xml:space="preserve"><value>プロジェクト「{0}」</value></data>
-  <data name="SettingsDeleteRule" xml:space="preserve"><value>削除</value></data>
-  <data name="MaxConcurrentMustBePositive" xml:space="preserve"><value>同時実行の上限は 1 以上の整数にしてください</value></data>
-  <data name="MaxConcurrentTooLargeFormat" xml:space="preserve"><value>同時実行の上限は {0} 以下にしてください</value></data>
-  <data name="MaxTurnsMustBePositive" xml:space="preserve"><value>最大ターン数は 1 以上の整数にしてください</value></data>
   <data name="DefaultWorkingDirectoryRequired" xml:space="preserve"><value>既定の作業フォルダを入力してください</value></data>
   <data name="SettingsPermissionMode" xml:space="preserve"><value>ツール承認のモード（--permission-mode）。承認そのものは利用者の settings.json に従います</value></data>
   <data name="SettingsTerminalTemplate" xml:space="preserve"><value>端末の起動コマンド（空なら既定。{cwd} と {command} が置き換わります）</value></data>

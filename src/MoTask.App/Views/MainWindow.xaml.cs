@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -8,20 +7,17 @@ using MoTask.App.Resources;
 using MoTask.App.Themes;
 using MoTask.App.ViewModels;
 using MoTask.Core.Ai;
-using MoTask.Core.Services;
 
 namespace MoTask.App.Views;
 
 public partial class MainWindow : Window
 {
     private readonly BoardViewModel _vm;
-    private readonly IAiJobService _aiJobs;
     private readonly IAiSettingsStore _settings;
 
-    public MainWindow(BoardViewModel vm, IAiJobService aiJobs, IAiSettingsStore settings)
+    public MainWindow(BoardViewModel vm, IAiSettingsStore settings)
     {
         _vm = vm;
-        _aiJobs = aiJobs;
         _settings = settings;
         DataContext = vm;
         InitializeComponent();
@@ -41,29 +37,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private bool _shutdownReady;
-
-    /// <summary>
-    /// 仕様 §9: 終了時は保留中の承認へ deny を返し、子プロセスを畳んで Suspended にしてから閉じる。
-    /// Closing は await できないので、一度キャンセルして中断を待ち、済んだらもう一度 Close する。
-    /// Dispatcher を止めずに待つのは、承認ダイアログを閉じる処理が UI スレッドを要るため。
-    /// </summary>
-    private async void OnClosing(object? sender, CancelEventArgs e)
-    {
-        if (_shutdownReady) return;
-        e.Cancel = true;
-        try
-        {
-            await _aiJobs.SuspendAllAsync();
-        }
-        catch (Exception)
-        {
-            // 畳めなくても終了は止めない（プロセスは OS が回収する）
-        }
-        _shutdownReady = true;
-        Close();
-    }
-
     /// <summary>
     /// プロジェクトとラベルの管理ダイアログを開く。アーカイブに伴うフィルタと詳細パネルの
     /// 更新は BoardViewModel 側で完結しているので、ここは開いて閉じるだけ。
@@ -78,13 +51,13 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
-    /// <summary>AI 設定ダイアログ。ルールの削除は VM 内で完結するので、ここは開いて閉じるだけ。</summary>
+    /// <summary>AI 設定ダイアログ。保存は VM 内で完結するので、ここは開いて閉じるだけ。</summary>
     private void OnAiSettingsClick(object sender, RoutedEventArgs e)
     {
         var dialog = new AiSettingsDialog
         {
             Owner = this,
-            DataContext = new AiSettingsViewModel(_settings, _aiJobs, _vm.Projects),
+            DataContext = new AiSettingsViewModel(_settings),
         };
         dialog.ShowDialog();
     }

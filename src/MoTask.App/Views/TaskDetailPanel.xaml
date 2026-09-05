@@ -111,24 +111,22 @@
               </StackPanel>
             </Border>
 
-            <!-- 最新ジョブの状態・費用・結果・成果物・進行状況 -->
+            <!-- 最新ジョブの状態・結果・成果物・進行状況 -->
             <StackPanel Visibility="{Binding HasJob, Converter={StaticResource BoolToVisibility}}" Margin="{StaticResource Gap.Top.2}">
               <DockPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                  <Button Content="{x:Static res:Strings.AiStop}" Command="{Binding StopCommand}"
-                          Visibility="{Binding IsActive, Converter={StaticResource BoolToVisibility}}" />
-                  <Button Content="{x:Static res:Strings.AiResume}" Command="{Binding ResumeCommand}" Style="{StaticResource Btn.Primary}"
-                          Visibility="{Binding IsSuspended, Converter={StaticResource BoolToVisibility}}" />
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal"
+                            Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}">
+                  <Button Content="{x:Static res:Strings.AiReopenTerminal}" Command="{Binding ReopenTerminalCommand}" Margin="{StaticResource Gap.Right.4}" />
+                  <Button Content="{x:Static res:Strings.AiComplete}" Command="{Binding CompleteCommand}" Style="{StaticResource Btn.Primary}" Margin="{StaticResource Gap.Right.4}" />
+                  <Button Content="{x:Static res:Strings.AiStopTracking}" Command="{Binding StopTrackingCommand}" />
                 </StackPanel>
                 <TextBlock Text="{Binding StatusText}" FontWeight="Medium" VerticalAlignment="Center" />
               </DockPanel>
               <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap"
                          Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
 
-              <TextBlock Text="{x:Static res:Strings.AiCost}" Style="{StaticResource Field.Label}"
-                         Visibility="{Binding CostText, Converter={StaticResource NullToVisibility}}" />
-              <TextBlock Text="{Binding CostText}" Style="{StaticResource Text.Small}"
-                         Visibility="{Binding CostText, Converter={StaticResource NullToVisibility}}" />
+              <TextBlock Text="{x:Static res:Strings.AiStopTrackingHint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+                         Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
 
               <TextBlock Text="{x:Static res:Strings.AiResult}" Style="{StaticResource Field.Label}"
                          Visibility="{Binding ResultText, Converter={StaticResource NullToVisibility}}" />
@@ -158,8 +156,12 @@
                   </Style>
                 </TextBlock.Style>
               </TextBlock>
-              <Button Content="{x:Static res:Strings.AiOpenWorkingDirectory}" Command="{Binding OpenWorkingDirectoryCommand}"
-                      Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left" Margin="{StaticResource Gap.Top.1}" />
+              <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.1}">
+                <Button Content="{x:Static res:Strings.AiOpenJobFolder}" Command="{Binding OpenJobFolderCommand}"
+                        Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}" />
+                <Button Content="{x:Static res:Strings.AiOpenWorkingDirectory}" Command="{Binding OpenWorkingDirectoryCommand}"
+                        Style="{StaticResource Btn.Ghost}" />
+              </StackPanel>
 
               <TextBlock Text="{x:Static res:Strings.AiProgress}" Style="{StaticResource Field.Label}" />
               <ItemsControl ItemsSource="{Binding Log}">

@@ -9,8 +9,8 @@ public sealed class AiJobEvent
     public int Seq { get; set; }
     public DateTime At { get; set; }
     public AiJobEventKind Kind { get; set; }
-    /// <summary>ToolUse / PermissionAsked のときのツール名。</summary>
+    /// <summary>ToolUse のときのツール名。</summary>
     public string? ToolName { get; set; }
-    /// <summary>stream-json の 1 行を生のまま。MoTask 自身が作るイベント（承認）は MoTask 形式の JSON。</summary>
+    /// <summary>events.jsonl の 1 行を生のまま（作り替え前に保存された stream-json の行もそのまま残る）。</summary>
     public string Payload { get; set; } = "";
 }

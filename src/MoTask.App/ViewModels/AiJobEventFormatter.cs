@@ -8,7 +8,7 @@ namespace MoTask.App.ViewModels;
 public sealed record AiLogLine(string Time, string Text, bool IsError);
 
 /// <summary>
-/// AiJobEvent の Payload（生の stream-json、または MoTask の承認 JSON）を 1 行の表示に落とす。
+/// AiJobEvent の Payload（フックの 1 行、または作り替え前に保存された stream-json の 1 行）を 1 行の表示に落とす。
 /// 壊れた Payload でも例外にせず、フォールバック文言で出す（HistoryFormatter と同じ流儀）。
 /// </summary>
 public static class AiJobEventFormatter
@@ -20,27 +20,6 @@ public static class AiJobEventFormatter
         var time = HistoryFormatter.Timestamp(e.At, timeZone);
         var (text, isError) = Body(e);
         return new AiLogLine(time, text, isError);
-    }
-
-    /// <summary>ToolUse の Write / Edit が触ったファイル。成果物一覧の元（仕様 §6「成果物」）。</summary>
-    public static string? ArtifactPathOf(AiJobEvent e)
-    {
-        if (e.Kind != AiJobEventKind.ToolUse || e.ToolName is not ("Write" or "Edit")) return null;
-        using var doc = TryParse(e.Payload);
-        if (doc is null) return null;
-        var block = FindToolUse(doc.RootElement, e.ToolName);
-        return block is { } b && b.TryGetProperty("input", out var input) ? ReadString(input, "file_path") : null;
-    }
-
-    public static IReadOnlyList<string> ArtifactPaths(IEnumerable<AiJobEvent> events)
-    {
-        var seen = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
-        var list = new List<string>();
-        foreach (var e in events)
-        {
-            if (ArtifactPathOf(e) is { } path && seen.Add(path)) list.Add(path);
-        }
-        return list;
     }
 
     /// <summary>

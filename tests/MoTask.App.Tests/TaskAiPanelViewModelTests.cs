@@ -11,10 +11,13 @@ namespace MoTask.App.Tests;
 
 public class TaskAiPanelViewModelTests
 {
+    private const string Folder = @"C:\w\jobs\0001-t";
+
     private readonly IBoardService _service = Substitute.For<IBoardService>();
     private readonly IAiJobService _ai = Substitute.For<IAiJobService>();
     private readonly List<AiJob> _jobs = new();
     private readonly List<AiJobEvent> _events = new();
+    private readonly List<string> _artifacts = new();
     private readonly List<string> _opened = new();
     private readonly BoardViewModel _vm;
 
@@ -31,14 +34,17 @@ public class TaskAiPanelViewModelTests
             .Returns(ci => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => j.TaskId == ci.Arg<int>()).OrderByDescending(j => j.Id).ToList()));
         _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IReadOnlyList<AiJobEvent>>(_events.Where(e => e.JobId == ci.Arg<int>()).OrderBy(e => e.Seq).ToList()));
+        _ai.GetArtifactsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(_ => Task.FromResult<IReadOnlyList<string>>(_artifacts.ToList()));
         _ai.StartJobAsync(Arg.Any<int>(), Arg.Any<AiJobKind>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ci =>
         {
-            var job = new AiJob { Id = _jobs.Count + 1, TaskId = ci.Arg<int>(), Kind = ci.Arg<AiJobKind>(), Status = AiJobStatus.Running, Instruction = ci.Arg<string>(), WorkingDirectory = @"C:\w" };
+            var job = new AiJob { Id = _jobs.Count + 1, TaskId = ci.Arg<int>(), Kind = ci.Arg<AiJobKind>(), Status = AiJobStatus.Running, Instruction = ci.Arg<string>(), WorkingDirectory = @"C:\w", JobFolder = Folder };
             _jobs.Add(job);
             return Task.FromResult(Result.Ok(job));
         });
-        _ai.StopJobAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
-        _ai.ResumeJobAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
+        _ai.CompleteJobAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
+        _ai.StopTrackingAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
+        _ai.ReopenTerminalAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
 
         _vm = new BoardViewModel(_service, new TestClock(), _ai) { OpenPath = _opened.Add };
     }
@@ -56,8 +62,15 @@ public class TaskAiPanelViewModelTests
     private void RaiseChanged(AiJobSnapshot job, AiJobEvent? newEvent = null, string? warning = null)
         => _ai.JobChanged += Raise.EventWith(_ai, new AiJobChangedEventArgs(job, newEvent, warning));
 
+    private static AiJobSnapshot Snapshot(int jobId, AiJobStatus status, int taskId = 10, int turns = 1,
+        AiJobKind kind = AiJobKind.Execute, string? error = null)
+        => new(jobId, taskId, kind, status, turns, error, @"C:\w", Folder);
+
     private static AiJobSnapshot Running(int jobId, int taskId = 10, int turns = 1, AiJobKind kind = AiJobKind.Execute)
-        => new(jobId, taskId, kind, AiJobStatus.Running, turns, null, null, @"C:\w");
+        => Snapshot(jobId, AiJobStatus.Running, taskId, turns, kind);
+
+    private static AiJob Job(int id, AiJobStatus status, int taskId = 10)
+        => new() { Id = id, TaskId = taskId, Kind = AiJobKind.Execute, Status = status, WorkingDirectory = @"C:\w", JobFolder = Folder };
 
     [Fact]
     public async Task WithoutJobs_CanStart_AndHasNothingToShow()
@@ -66,6 +79,7 @@ public class TaskAiPanelViewModelTests
 
         ai.HasJob.Should().BeFalse();
         ai.CanStart.Should().BeTrue();
+        ai.CanControl.Should().BeFalse();
         ai.IsComposing.Should().BeFalse();
         ai.Log.Should().BeEmpty();
         ai.Artifacts.Should().BeEmpty();
@@ -97,8 +111,10 @@ public class TaskAiPanelViewModelTests
         ai.IsComposing.Should().BeFalse();
         ai.HasJob.Should().BeTrue();
         ai.IsActive.Should().BeTrue();
+        ai.CanControl.Should().BeTrue();
         ai.CanStart.Should().BeFalse();
         ai.StatusText.Should().Be(Strings.AiStatusExecuting);
+        ai.JobFolder.Should().Be(Folder);
         _vm.Detail!.Card.HasAiBadge.Should().BeTrue();
     }
 
@@ -127,21 +143,20 @@ public class TaskAiPanelViewModelTests
     }
 
     [Fact]
-    public async Task JobChanged_ForThisTask_AppendsLog_AndArtifacts_AndUpdatesBadge()
+    public async Task JobChanged_ForThisTask_AppendsLog_AndUpdatesBadge()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
-        var write = new AiJobEvent
+        var toolUse = new AiJobEvent
         {
             JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.ToolUse, ToolName = "Write",
-            Payload = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\w\\report.md","content":"x"}}]}}""",
+            Payload = """{"hook_event_name":"PostToolUse","tool_name":"Write","tool_input":{"file_path":"C:\\w\\jobs\\0001-t\\artifacts\\report.md"}}""",
         };
 
-        RaiseChanged(Running(1, turns: 2), write);
+        RaiseChanged(Running(1, turns: 2), toolUse);
 
-        ai.Log.Should().ContainSingle().Which.Text.Should().Be(string.Format(Strings.AiLogToolUseFormat, "Write", @"C:\w\report.md"));
-        ai.Artifacts.Should().ContainSingle().Which.Path.Should().Be(@"C:\w\report.md");
-        ai.Artifacts[0].FileName.Should().Be("report.md");
+        ai.Log.Should().ContainSingle().Which.Text
+            .Should().Be(string.Format(Strings.AiLogToolUseFormat, "Write", @"C:\w\jobs\0001-t\artifacts\report.md"));
         _vm.Detail!.Card.AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusExecuting, 2));
     }
 
@@ -159,40 +174,56 @@ public class TaskAiPanelViewModelTests
     }
 
     [Fact]
-    public async Task JobChanged_AwaitingApproval_DoesNotFlagTheCardAsWaitingForInput()
+    public async Task JobChanged_WaitingForInput_ShowsTheInputBadge_AndKeepsTheControls()
     {
-        // カードの「入力待ち」バッジは Stop フック（WaitingForInput）専用になった（タスク 9）。
-        // AwaitingApproval はタスク 10 で消えるまでの間、カードには通常の実行中バッジのまま出る。
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
 
-        RaiseChanged(new AiJobSnapshot(1, 10, AiJobKind.Execute, AiJobStatus.AwaitingApproval, 1, null, null, @"C:\w"));
+        RaiseChanged(Snapshot(1, AiJobStatus.WaitingForInput));
 
-        _vm.Detail!.Card.IsWaitingForInput.Should().BeFalse();
-        ai.StatusText.Should().Be(Strings.AiStatusAwaiting);
+        ai.IsWaitingForInput.Should().BeTrue();
+        ai.CanControl.Should().BeTrue("入力待ちでもまだ追跡している");
+        ai.CanStart.Should().BeFalse();
+        ai.StatusText.Should().Be(Strings.AiStatusWaitingForInput);
+        _vm.Detail!.Card.IsWaitingForInput.Should().BeTrue();
     }
 
     [Fact]
-    public async Task JobChanged_Succeeded_ShowsCostAndResult_ClearsBadge_AndAllowsANewJob()
+    public async Task JobChanged_TurnEnded_ShowsTheLastAssistantMessageAsTheResult()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(1, AiJobStatus.Running));
+        var ai = await OpenAsync();
+        var stop = new AiJobEvent
+        {
+            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.TurnEnded,
+            Payload = """{"hook_event_name":"Stop","last_assistant_message":"レポートを書きました"}""",
+        };
+
+        RaiseChanged(Snapshot(1, AiJobStatus.WaitingForInput), stop);
+
+        ai.ResultText.Should().Be("レポートを書きました");
+    }
+
+    [Fact]
+    public async Task JobChanged_Succeeded_ClearsBadge_AndAllowsANewJob()
+    {
+        _jobs.Add(Job(1, AiJobStatus.Running));
         _events.Add(new AiJobEvent
         {
-            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.Result,
-            Payload = """{"type":"result","is_error":false,"num_turns":3,"total_cost_usd":0.25,"result":"レポートを書きました"}""",
+            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.TurnEnded,
+            Payload = """{"hook_event_name":"Stop","last_assistant_message":"レポートを書きました"}""",
         });
         var ai = await OpenAsync();
         _jobs[0].Status = AiJobStatus.Succeeded;
         _jobs[0].NumTurns = 3;
-        _jobs[0].TotalCostUsd = 0.25m;
 
-        RaiseChanged(new AiJobSnapshot(1, 10, AiJobKind.Execute, AiJobStatus.Succeeded, 3, 0.25m, null, @"C:\w"));
+        RaiseChanged(Snapshot(1, AiJobStatus.Succeeded, turns: 3));
         await ai.PendingLoad;
 
         ai.StatusText.Should().Be(Strings.AiStatusSucceeded);
-        ai.CostText.Should().Be(string.Format(Strings.AiCostFormat, 0.25m, 3));
         ai.ResultText.Should().Be("レポートを書きました");
         ai.IsActive.Should().BeFalse();
+        ai.CanControl.Should().BeFalse();
         ai.CanStart.Should().BeTrue();
         _vm.Detail!.Card.HasAiBadge.Should().BeFalse();
     }
@@ -209,14 +240,14 @@ public class TaskAiPanelViewModelTests
         var review = new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review };
         board.Columns.Add(review);
         _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(board)));
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
         var card = _vm.Detail!.Card;
 
         TestBoards.Move(board.Columns[0], review, 10, int.MaxValue);
         _jobs[0].Status = AiJobStatus.Succeeded;
 
-        RaiseChanged(new AiJobSnapshot(1, 10, AiJobKind.Execute, AiJobStatus.Succeeded, 3, null, null, @"C:\w"));
+        RaiseChanged(Snapshot(1, AiJobStatus.Succeeded, turns: 3));
         await ai.PendingLoad;
 
         var reviewColumn = _vm.Columns.Single(c => c.Id == 4);
@@ -237,12 +268,13 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task OverlappingLoads_DoNotDoubleTheLog()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(1, AiJobStatus.Running));
         _events.Add(new AiJobEvent
         {
-            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.AssistantText,
-            Payload = """{"type":"assistant","message":{"content":[{"type":"text","text":"やります"}]}}""",
+            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.SessionStarted,
+            Payload = """{"hook_event_name":"SessionStart","source":"startup"}""",
         });
+        _artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
         var ai = await OpenAsync();
 
         var gate = new TaskCompletionSource();
@@ -259,18 +291,18 @@ public class TaskAiPanelViewModelTests
         await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
 
         ai.Log.Should().ContainSingle("重なった読み込みでログが二重にならない");
-        ai.Artifacts.Should().BeEmpty();
+        ai.Artifacts.Should().ContainSingle("成果物も二重にならない");
     }
 
     [Fact]
     public async Task JobChanged_Failed_ShowsErrorMessage()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
         _jobs[0].Status = AiJobStatus.Failed;
         _jobs[0].ErrorMessage = "だめでした";
 
-        RaiseChanged(new AiJobSnapshot(1, 10, AiJobKind.Execute, AiJobStatus.Failed, 1, null, "だめでした", @"C:\w"));
+        RaiseChanged(Snapshot(1, AiJobStatus.Failed, error: "だめでした"));
         await ai.PendingLoad;
 
         ai.StatusText.Should().Be(Strings.AiStatusFailed);
@@ -286,60 +318,76 @@ public class TaskAiPanelViewModelTests
     }
 
     [Fact]
-    public async Task Stop_CallsService()
+    public async Task Complete_CallsService_AndReloads()
     {
-        _jobs.Add(new AiJob { Id = 5, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(5, AiJobStatus.WaitingForInput));
         var ai = await OpenAsync();
 
-        ai.IsActive.Should().BeTrue();
-        await ai.StopCommand.ExecuteAsync(null);
+        ai.CanControl.Should().BeTrue();
+        await ai.CompleteCommand.ExecuteAsync(null);
 
-        await _ai.Received(1).StopJobAsync(5, Arg.Any<CancellationToken>());
+        await _ai.Received(1).CompleteJobAsync(5, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task Suspended_OffersResume_AndResumeCallsService()
+    public async Task StopTracking_CallsService()
     {
-        _jobs.Add(new AiJob { Id = 5, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Suspended, WorkingDirectory = @"C:\w" });
+        _jobs.Add(Job(5, AiJobStatus.Running));
         var ai = await OpenAsync();
 
-        ai.IsSuspended.Should().BeTrue();
-        ai.CanStart.Should().BeFalse("中断中は再開か、まず停止");
-        ai.StatusText.Should().Be(Strings.AiStatusSuspended);
-        await ai.ResumeCommand.ExecuteAsync(null);
+        await ai.StopTrackingCommand.ExecuteAsync(null);
 
-        await _ai.Received(1).ResumeJobAsync(5, Arg.Any<CancellationToken>());
+        await _ai.Received(1).StopTrackingAsync(5, Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task OpenArtifact_AndOpenWorkingDirectory_UseOpenPath()
+    public async Task ReopenTerminal_CallsService()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Succeeded, WorkingDirectory = @"C:\w" });
-        _events.Add(new AiJobEvent
-        {
-            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.ToolUse, ToolName = "Write",
-            Payload = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\w\\report.md","content":"x"}}]}}""",
-        });
+        _jobs.Add(Job(5, AiJobStatus.WaitingForInput));
+        var ai = await OpenAsync();
+
+        await ai.ReopenTerminalCommand.ExecuteAsync(null);
+
+        await _ai.Received(1).ReopenTerminalAsync(5, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Artifacts_ComeFromTheService_NotFromTheEventLog()
+    {
+        _jobs.Add(Job(1, AiJobStatus.Succeeded));
+        _artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
+        var ai = await OpenAsync();
+
+        await _ai.Received(1).GetArtifactsAsync(1, Arg.Any<CancellationToken>());
+        ai.Artifacts.Should().ContainSingle().Which.Path.Should().Be(@"C:\w\jobs\0001-t\artifacts\report.md");
+        ai.Artifacts[0].FileName.Should().Be("report.md");
+    }
+
+    [Fact]
+    public async Task OpenArtifact_WorkingDirectory_AndJobFolder_UseOpenPath()
+    {
+        _jobs.Add(Job(1, AiJobStatus.Succeeded));
+        _artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
         var ai = await OpenAsync();
 
         ai.OpenArtifactCommand.Execute(ai.Artifacts.Single());
         ai.OpenWorkingDirectoryCommand.Execute(null);
+        ai.OpenJobFolderCommand.Execute(null);
 
-        _opened.Should().Equal(@"C:\w\report.md", @"C:\w");
+        _opened.Should().Equal(@"C:\w\jobs\0001-t\artifacts\report.md", @"C:\w", Folder);
     }
 
     [Fact]
     public async Task Load_RestoresBadgesFromUnfinishedJobs()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 11, Kind = AiJobKind.Research, Status = AiJobStatus.Suspended, WorkingDirectory = @"C:\w" });
-        _jobs.Add(new AiJob { Id = 2, TaskId = 12, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _jobs.Add(new AiJob { Id = 1, TaskId = 11, Kind = AiJobKind.Research, Status = AiJobStatus.WaitingForInput, WorkingDirectory = @"C:\w", JobFolder = Folder });
+        _jobs.Add(new AiJob { Id = 2, TaskId = 12, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w", JobFolder = Folder });
         _ai.TurnCountOf(2).Returns(6);
 
         await _vm.LoadAsync();
 
         var cards = _vm.Columns.SelectMany(c => c.AllCards).ToDictionary(c => c.Id);
-        // カードのバッジは Suspended 専用の文言をもう出さない（タスク 9）。中断中も実行中と同じ書式で出る。
-        cards[11].AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusResearching, 0));
+        cards[11].AiBadgeText.Should().Be(Strings.AiStatusWaitingForInput);
         cards[12].AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusExecuting, 6));
         cards[10].HasAiBadge.Should().BeFalse();
     }

@@ -2,10 +2,10 @@ namespace MoTask.Core.Model;
 
 public enum AiJobStatus
 {
+    /// <summary>ジョブは作ったが、まだ SessionStart フックが来ていない（端末が開くまでの数百 ms）。</summary>
     Pending = 0,
     Running = 1,
-    AwaitingApproval = 2,
-    Suspended = 3,
+    /// <summary>2 と 3 は廃止した AwaitingApproval / Suspended の番号。空けたままにする。</summary>
     Succeeded = 4,
     Failed = 5,
     Cancelled = 6,
@@ -15,11 +15,10 @@ public enum AiJobStatus
 
 public static class AiJobStatusExtensions
 {
-    /// <summary>子プロセスが生きている状態。同時実行数はこれを数える。</summary>
-    public static bool IsActive(this AiJobStatus status)
-        => status is AiJobStatus.Running or AiJobStatus.AwaitingApproval;
+    /// <summary>MoTask がまだ追いかけているジョブ（Pending / Running / WaitingForInput）。</summary>
+    public static bool IsActive(this AiJobStatus status) => !status.IsTerminal();
 
-    /// <summary>もう動かない状態。Suspended は再開できるので含めない。</summary>
+    /// <summary>もう追いかけないジョブ。端末が生きているかどうかは MoTask には分からない。</summary>
     public static bool IsTerminal(this AiJobStatus status)
         => status is AiJobStatus.Succeeded or AiJobStatus.Failed or AiJobStatus.Cancelled;
 }

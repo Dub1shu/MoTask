@@ -5,10 +5,7 @@ public enum AiJobEventKind
     AssistantText = 0,
     ToolUse = 1,
     ToolResult = 2,
-    /// <summary>廃止予定（承認は MoTask を通らない）。Task 10 で消す。</summary>
-    PermissionAsked = 3,
-    /// <summary>廃止予定（承認は MoTask を通らない）。Task 10 で消す。</summary>
-    PermissionDecided = 4,
+    /// <summary>3 と 4 は廃止した承認イベント（PermissionAsked / PermissionDecided）の番号。空けたままにする。</summary>
     Error = 5,
     Result = 6,
     /// <summary>知らないフック、パースできない行。捨てずに残すための受け皿。</summary>

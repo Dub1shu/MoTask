@@ -1,31 +1,18 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
 using MoTask.Core.Ai;
-using MoTask.Core.Model;
-using MoTask.Core.Services;
 
 namespace MoTask.App.ViewModels;
 
-public sealed record PermissionRuleRow(int Id, string Text);
-
-/// <summary>仕様 §10「設定」。設定値は settings.json、許可ルールは DB（IAiJobService 経由）。</summary>
+/// <summary>仕様 §10「設定」。設定値は settings.json だけ（承認は利用者の Claude Code 設定に従う）。</summary>
 public sealed partial class AiSettingsViewModel : ObservableObject
 {
     private readonly IAiSettingsStore _store;
-    private readonly IAiJobService _jobs;
-    private readonly IReadOnlyList<Project> _projects;
-
-    /// <summary>同時実行数の上限。1 件が claude の子プロセス 1 つなので、青天井にはしない。</summary>
-    private const int MaxConcurrentJobsLimit = 20;
 
     [ObservableProperty] private string _defaultWorkingDirectory = "";
-    [ObservableProperty] private string _maxConcurrentText = "";
     [ObservableProperty] private string _claudeExecutablePath = "";
     [ObservableProperty] private string _model = "";
-    [ObservableProperty] private string _maxTurnsText = "";
     [ObservableProperty] private string _permissionMode = "";
     [ObservableProperty] private string _terminalCommandTemplate = "";
     [ObservableProperty] private string? _errorMessage;
@@ -34,44 +21,16 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>CLI が受け付ける値だけを選ばせる（仕様 §4.3）。</summary>
     public IReadOnlyList<string> PermissionModes => AiSettings.PermissionModes;
 
-    public ObservableCollection<PermissionRuleRow> Rules { get; } = new();
-
-    public Task PendingLoad { get; private set; } = Task.CompletedTask;
-
-    public AiSettingsViewModel(IAiSettingsStore store, IAiJobService jobs, IReadOnlyList<Project> projects)
+    public AiSettingsViewModel(IAiSettingsStore store)
     {
         _store = store;
-        _jobs = jobs;
-        _projects = projects;
 
         var s = store.Load();
         _defaultWorkingDirectory = s.DefaultWorkingDirectory;
-        _maxConcurrentText = s.MaxConcurrentJobs.ToString(CultureInfo.CurrentCulture);
         _claudeExecutablePath = s.ClaudeExecutablePath ?? "";
         _model = s.Model ?? "";
-        _maxTurnsText = s.MaxTurns.ToString(CultureInfo.CurrentCulture);
         _permissionMode = s.PermissionMode;
         _terminalCommandTemplate = s.TerminalCommandTemplate ?? "";
-        PendingLoad = LoadRulesAsync();
-    }
-
-    public async Task LoadRulesAsync()
-    {
-        var rules = await _jobs.GetPermissionRulesAsync();
-        Rules.Clear();
-        foreach (var r in rules) Rules.Add(new PermissionRuleRow(r.Id, Describe(r)));
-    }
-
-    private string Describe(AiPermissionRule rule)
-    {
-        var decision = rule.Decision == RuleDecision.Allow ? Strings.SettingsRuleAllow : Strings.SettingsRuleDeny;
-        var target = rule.Pattern is null
-            ? $"{rule.ToolName}（{Strings.SettingsRuleAllTool}）"
-            : $"{rule.ToolName}「{rule.Pattern}」";
-        var scope = rule.Scope == RuleScope.Global
-            ? Strings.SettingsScopeGlobal
-            : string.Format(Strings.SettingsScopeProjectFormat, _projects.FirstOrDefault(p => p.Id == rule.ProjectId)?.Name ?? "?");
-        return string.Format(Strings.SettingsRuleFormat, decision, target, scope);
     }
 
     [RelayCommand]
@@ -84,21 +43,6 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             ErrorMessage = Strings.DefaultWorkingDirectoryRequired;
             return;
         }
-        if (!TryParsePositive(MaxConcurrentText, out var maxConcurrent))
-        {
-            ErrorMessage = Strings.MaxConcurrentMustBePositive;
-            return;
-        }
-        if (maxConcurrent > MaxConcurrentJobsLimit)
-        {
-            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Strings.MaxConcurrentTooLargeFormat, MaxConcurrentJobsLimit);
-            return;
-        }
-        if (!TryParsePositive(MaxTurnsText, out var maxTurns))
-        {
-            ErrorMessage = Strings.MaxTurnsMustBePositive;
-            return;
-        }
         var mode = PermissionMode.Trim();
         if (!AiSettings.PermissionModes.Contains(mode))
         {
@@ -106,27 +50,11 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             return;
         }
 
-        _store.Save(new AiSettings(dir, maxConcurrent, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model), maxTurns,
+        _store.Save(new AiSettings(dir, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model),
             mode, NullIfBlank(TerminalCommandTemplate)));
         ErrorMessage = null;
         StatusMessage = Strings.SettingsSaved;
     }
-
-    [RelayCommand]
-    private async Task DeleteRuleAsync(PermissionRuleRow row)
-    {
-        var result = await _jobs.DeletePermissionRuleAsync(row.Id);
-        if (!result.IsSuccess)
-        {
-            ErrorMessage = result.Error;
-            return;
-        }
-        ErrorMessage = null;
-        await LoadRulesAsync();
-    }
-
-    private static bool TryParsePositive(string text, out int value)
-        => int.TryParse(text.Trim(), NumberStyles.Integer, CultureInfo.CurrentCulture, out value) && value >= 1;
 
     private static string? NullIfBlank(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 }

@@ -4,11 +4,11 @@ using MoTask.Core.Model;
 namespace MoTask.Core.Tests.Fakes;
 
 /// <summary>
-/// IBoardRepository / IHistoryRepository / IUnitOfWork / IAiJobRepository / IPermissionRuleRepository を
+/// IBoardRepository / IHistoryRepository / IUnitOfWork / IAiJobRepository を
 /// まとめて実装するテスト用ストア。
 /// 参照は常に同一インスタンスを返す（EF の追跡と同じ契約）。Id は Add 時に即採番する。
 /// </summary>
-public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository, IPermissionRuleRepository
+public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository
 {
     private int _nextId = 1;
     private long _nextHistoryId = 1;
@@ -19,7 +19,6 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public List<HistoryEntry> History { get; } = new();
     public List<AiJob> Jobs { get; } = new();
     public List<AiJobEvent> JobEvents { get; } = new();
-    public List<AiPermissionRule> Rules { get; } = new();
     public int SaveCount { get; private set; }
     public bool FailNextSave { get; set; }
 
@@ -111,9 +110,9 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     // ---- IAiJobRepository ----
     //
-    // GetAsync / GetForTaskAsync は IHistoryRepository・IPermissionRuleRepository と
-    // 「同じ名前・同じ引数・違う戻り値」で衝突する。C# は戻り値だけのオーバーロードを許さないので、
-    // 衝突する分は明示的実装にする（テストは Jobs / Rules / History を直接見るので支障は無い）。
+    // GetForTaskAsync は IHistoryRepository と「同じ名前・同じ引数・違う戻り値」で衝突する。
+    // C# は戻り値だけのオーバーロードを許さないので、衝突する分は明示的実装にする
+    // （テストは Jobs / History を直接見るので支障は無い）。
 
     public void Add(AiJob job)
     {
@@ -121,7 +120,7 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
         Jobs.Add(job);
     }
 
-    Task<AiJob?> IAiJobRepository.GetAsync(int jobId, CancellationToken ct)
+    public Task<AiJob?> GetAsync(int jobId, CancellationToken ct = default)
         => Task.FromResult(Jobs.FirstOrDefault(j => j.Id == jobId));
 
     Task<IReadOnlyList<AiJob>> IAiJobRepository.GetForTaskAsync(int taskId, CancellationToken ct)
@@ -138,22 +137,6 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     public Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<AiJobEvent>>(JobEvents.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList());
-
-    // ---- IPermissionRuleRepository ----
-
-    public Task<IReadOnlyList<AiPermissionRule>> GetAllAsync(CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<AiPermissionRule>>(Rules.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id).ToList());
-
-    Task<AiPermissionRule?> IPermissionRuleRepository.GetAsync(int ruleId, CancellationToken ct)
-        => Task.FromResult(Rules.FirstOrDefault(r => r.Id == ruleId));
-
-    public void Add(AiPermissionRule rule)
-    {
-        if (rule.Id == 0) rule.Id = _nextId++;
-        Rules.Add(rule);
-    }
-
-    public void Remove(AiPermissionRule rule) => Rules.Remove(rule);
 
     // ---- IUnitOfWork ----
 

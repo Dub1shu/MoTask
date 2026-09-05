@@ -1,20 +1,15 @@
 namespace MoTask.Core.Ai;
 
 /// <summary>
-/// 仕様 §11「設定」。MaxConcurrentJobs / MaxTurns はターミナル実行では使わないので Task 10 で落とす。
+/// 仕様 §11「設定」。端末で人が claude を回すので、同時実行の上限も最大ターン数も MoTask は持たない。
 /// </summary>
 public sealed record AiSettings(
     string DefaultWorkingDirectory,
-    int MaxConcurrentJobs,
     string? ClaudeExecutablePath,
     string? Model,
-    int MaxTurns,
     string PermissionMode,
     string? TerminalCommandTemplate)
 {
-    public const int DefaultMaxConcurrentJobs = 3;
-    public const int DefaultMaxTurns = 50;
-
     /// <summary>--permission-mode の既定。既定で止まらず走り、危険な操作は端末で人に聞かれる（仕様 §3）。</summary>
     public const string DefaultPermissionMode = "auto";
 
@@ -25,7 +20,5 @@ public sealed record AiSettings(
     public static string DefaultWorkingDirectoryPath
         => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "MoTask");
 
-    public static AiSettings Default() => new(
-        DefaultWorkingDirectoryPath, DefaultMaxConcurrentJobs, null, null, DefaultMaxTurns,
-        DefaultPermissionMode, null);
+    public static AiSettings Default() => new(DefaultWorkingDirectoryPath, null, null, DefaultPermissionMode, null);
 }
