@@ -283,6 +283,55 @@ public sealed partial class BoardViewModel : ObservableObject
         return result.Value;
     }
 
+    public Task<bool> ArchiveProjectAsync(int projectId)
+        => RunClassificationChangeAsync(() => _service.ArchiveProjectAsync(projectId));
+
+    public Task<bool> UnarchiveProjectAsync(int projectId)
+        => RunClassificationChangeAsync(() => _service.UnarchiveProjectAsync(projectId));
+
+    public Task<bool> ArchiveLabelAsync(int labelId)
+        => RunClassificationChangeAsync(() => _service.ArchiveLabelAsync(labelId));
+
+    public Task<bool> UnarchiveLabelAsync(int labelId)
+        => RunClassificationChangeAsync(() => _service.UnarchiveLabelAsync(labelId));
+
+    /// <summary>
+    /// プロジェクト・ラベルの一覧そのものを変える操作。タスクは動かないので履歴も再読み込みも要らないが、
+    /// フィルタバーと、開いている詳細パネルの選択肢は入れ替える必要がある。
+    /// </summary>
+    private async Task<bool> RunClassificationChangeAsync(Func<Task<Result>> action)
+    {
+        var result = await GuardAsync(action);
+        if (!await HandleAsync(result)) return false;
+        return await ReloadClassificationsAsync();
+    }
+
+    /// <summary>プロジェクトとラベルを読み直し、フィルタバーと詳細パネルの選択肢へ反映する。</summary>
+    private async Task<bool> ReloadClassificationsAsync()
+    {
+        var projects = await QueryAsync(() => _service.GetProjectsAsync());
+        if (!projects.IsSuccess)
+        {
+            ShowFailure(projects);
+            return false;
+        }
+        var labels = await QueryAsync(() => _service.GetLabelsAsync());
+        if (!labels.IsSuccess)
+        {
+            ShowFailure(labels);
+            return false;
+        }
+
+        Projects = projects.Value!;
+        Labels = labels.Value!;
+        Filter.SetProjects(Projects);
+        Filter.SetLabels(Labels);
+        // 絞り込みに使っていたラベルをアーカイブすると条件そのものが消えるので、表示を絞り直す
+        ApplyFilter();
+        Detail?.Refresh();
+        return true;
+    }
+
     // ---------- 列操作 ----------
 
     public Task<bool> RenameColumnAsync(ColumnViewModel column, string name)

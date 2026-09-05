@@ -339,6 +339,17 @@ public sealed class BoardService : IBoardService
         return Result.Ok();
     }, ct);
 
+    public Task<Result> UnarchiveProjectAsync(int projectId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var project = await _boards.GetProjectAsync(projectId, ct).ConfigureAwait(false);
+        if (project is null) return Result.Fail(Messages.ProjectNotFound);
+        if (!project.Archived) return Result.Ok();
+
+        project.Archived = false;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
     public Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default) => RunAsync(async () =>
     {
         name = name.Trim();
@@ -348,6 +359,29 @@ public sealed class BoardService : IBoardService
         _boards.AddLabel(label);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
         return Result.Ok(label);
+    }, ct);
+
+    public Task<Result> ArchiveLabelAsync(int labelId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var label = await _boards.GetLabelAsync(labelId, ct).ConfigureAwait(false);
+        if (label is null) return Result.Fail(Messages.LabelNotFound);
+        if (label.Archived) return Result.Ok();
+
+        // タスクとの紐付き（TaskLabels）はそのまま。一覧から退けるだけ。
+        label.Archived = true;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> UnarchiveLabelAsync(int labelId, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var label = await _boards.GetLabelAsync(labelId, ct).ConfigureAwait(false);
+        if (label is null) return Result.Fail(Messages.LabelNotFound);
+        if (!label.Archived) return Result.Ok();
+
+        label.Archived = false;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
     }, ct);
 
     // ---------- 共通 ----------

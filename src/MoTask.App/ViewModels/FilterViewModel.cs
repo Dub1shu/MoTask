@@ -48,7 +48,8 @@ public sealed partial class FilterViewModel : ObservableObject
     {
         var keep = Labels.Where(l => l.IsSelected).Select(l => l.Id).ToHashSet();
         Labels.Clear();
-        foreach (var l in labels.OrderBy(l => l.Name, StringComparer.CurrentCulture))
+        // アーカイブ済みは絞り込みの選択肢から外す（プロジェクトと同じ扱い）
+        foreach (var l in labels.Where(l => !l.Archived).OrderBy(l => l.Name, StringComparer.CurrentCulture))
         {
             Labels.Add(new LabelFilterItem(l, RaiseChanged) { IsSelected = keep.Contains(l.Id) });
         }

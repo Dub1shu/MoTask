@@ -67,4 +67,98 @@ public class BoardServiceClassificationTests
     {
         (await _service.CreateLabelAsync(" ", "accent-300")).Error.Should().Be(Messages.LabelNameRequired);
     }
+
+    [Fact]
+    public async Task CreateLabel_IsNotArchived()
+    {
+        (await _service.CreateLabelAsync("至急", "accent-500")).Value!.Archived.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ArchiveLabel_SetsArchived()
+    {
+        var l = _store.SeedLabel("至急");
+
+        (await _service.ArchiveLabelAsync(l.Id)).IsSuccess.Should().BeTrue();
+
+        l.Archived.Should().BeTrue();
+        (await _service.ArchiveLabelAsync(999)).Error.Should().Be(Messages.LabelNotFound);
+    }
+
+    /// <summary>既にその状態なら保存しない（既存の ArchiveProject と同じ冪等性）。</summary>
+    [Fact]
+    public async Task ArchiveLabel_WhenAlreadyArchived_DoesNotSaveAgain()
+    {
+        var l = _store.SeedLabel("至急");
+        await _service.ArchiveLabelAsync(l.Id);
+        var saves = _store.SaveCount;
+
+        (await _service.ArchiveLabelAsync(l.Id)).IsSuccess.Should().BeTrue();
+
+        _store.SaveCount.Should().Be(saves);
+    }
+
+    [Fact]
+    public async Task UnarchiveLabel_ClearsArchived()
+    {
+        var l = _store.SeedLabel("至急");
+        await _service.ArchiveLabelAsync(l.Id);
+
+        (await _service.UnarchiveLabelAsync(l.Id)).IsSuccess.Should().BeTrue();
+
+        l.Archived.Should().BeFalse();
+        (await _service.UnarchiveLabelAsync(999)).Error.Should().Be(Messages.LabelNotFound);
+    }
+
+    [Fact]
+    public async Task UnarchiveLabel_WhenNotArchived_DoesNotSaveAgain()
+    {
+        var l = _store.SeedLabel("至急");
+        var saves = _store.SaveCount;
+
+        (await _service.UnarchiveLabelAsync(l.Id)).IsSuccess.Should().BeTrue();
+
+        _store.SaveCount.Should().Be(saves);
+    }
+
+    [Fact]
+    public async Task UnarchiveProject_ClearsArchived()
+    {
+        var p = _store.SeedProject("合宿");
+        await _service.ArchiveProjectAsync(p.Id);
+
+        (await _service.UnarchiveProjectAsync(p.Id)).IsSuccess.Should().BeTrue();
+
+        p.Archived.Should().BeFalse();
+        (await _service.UnarchiveProjectAsync(999)).Error.Should().Be(Messages.ProjectNotFound);
+    }
+
+    [Fact]
+    public async Task UnarchiveProject_WhenNotArchived_DoesNotSaveAgain()
+    {
+        var p = _store.SeedProject("合宿");
+        var saves = _store.SaveCount;
+
+        (await _service.UnarchiveProjectAsync(p.Id)).IsSuccess.Should().BeTrue();
+
+        _store.SaveCount.Should().Be(saves);
+    }
+
+    /// <summary>
+    /// アーカイブしてもタスクとの紐付きは切らない。切ると過去のタスクの表示と
+    /// 履歴の文言が壊れる（アーカイブを選んだ理由がこれ）。
+    /// </summary>
+    [Fact]
+    public async Task ArchiveLabel_KeepsItAttachedToTasks()
+    {
+        var l = _store.SeedLabel("至急");
+        var column = _store.SeedColumn("未着手", ColumnRole.Backlog);
+        var task = (await _service.CreateTaskAsync(column.Id, "テスト")).Value!;
+        await _service.SetTaskLabelsAsync(task.Id, new[] { l.Id });
+
+        await _service.ArchiveLabelAsync(l.Id);
+
+        task.Labels.Should().ContainSingle().Which.Id.Should().Be(l.Id);
+        (await _service.GetLabelsAsync()).Should().ContainSingle();
+    }
 }

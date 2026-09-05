@@ -16,13 +16,17 @@
     <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"
             BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
             Padding="{StaticResource Pad.Bar}">
-      <StackPanel Orientation="Horizontal">
-        <TextBlock Text="{x:Static res:Strings.Brand}" Style="{StaticResource Text.Brand}" VerticalAlignment="Center" />
-        <Border Margin="{StaticResource Gap.Left.8}" BorderBrush="{StaticResource Brush.Accent}"
-                BorderThickness="0,0,0,2" Padding="{StaticResource Pad.Tab}">
-          <TextBlock Text="{x:Static res:Strings.ViewBoard}" Foreground="{StaticResource Brush.Accent.700}" FontWeight="Medium" />
-        </Border>
-      </StackPanel>
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
+                Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
+        <StackPanel Orientation="Horizontal">
+          <TextBlock Text="{x:Static res:Strings.Brand}" Style="{StaticResource Text.Brand}" VerticalAlignment="Center" />
+          <Border Margin="{StaticResource Gap.Left.8}" BorderBrush="{StaticResource Brush.Accent}"
+                  BorderThickness="0,0,0,2" Padding="{StaticResource Pad.Tab}">
+            <TextBlock Text="{x:Static res:Strings.ViewBoard}" Foreground="{StaticResource Brush.Accent.700}" FontWeight="Medium" />
+          </Border>
+        </StackPanel>
+      </DockPanel>
     </Border>
 
     <!-- 保存失敗などの非モーダルバナー -->

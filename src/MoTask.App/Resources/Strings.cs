@@ -43,6 +43,14 @@ public static class Strings
     public static string Column => Get(nameof(Column));
     public static string ColumnMenu => Get(nameof(ColumnMenu));
     public static string CompletedAt => Get(nameof(CompletedAt));
+    public static string ManageClassifications => Get(nameof(ManageClassifications));
+    public static string ManageProjectsHeading => Get(nameof(ManageProjectsHeading));
+    public static string ManageLabelsHeading => Get(nameof(ManageLabelsHeading));
+    public static string ManageUsageFormat => Get(nameof(ManageUsageFormat));
+    public static string ManageArchive => Get(nameof(ManageArchive));
+    public static string ManageUnarchive => Get(nameof(ManageUnarchive));
+    public static string ManageArchivedNote => Get(nameof(ManageArchivedNote));
+    public static string ManageEmpty => Get(nameof(ManageEmpty));
     public static string History => Get(nameof(History));
     public static string NoProject => Get(nameof(NoProject));
     public static string NewProjectHint => Get(nameof(NewProjectHint));

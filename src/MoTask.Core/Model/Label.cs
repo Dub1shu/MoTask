@@ -8,4 +8,9 @@ public sealed class Label
     public string Name { get; set; } = "";
     /// <summary>アクセントランプの段の名前（"accent-300" など）。</summary>
     public string Color { get; set; } = DefaultColor;
+    /// <summary>
+    /// 一覧から退けるだけで、既にこのラベルが付いているタスクからは外さない。
+    /// 過去のタスクの表示と履歴の文言を壊さないため、削除ではなくアーカイブにしている。
+    /// </summary>
+    public bool Archived { get; set; }
 }

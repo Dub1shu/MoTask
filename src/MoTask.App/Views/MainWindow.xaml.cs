@@ -32,6 +32,20 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// プロジェクトとラベルの管理ダイアログを開く。アーカイブに伴うフィルタと詳細パネルの
+    /// 更新は BoardViewModel 側で完結しているので、ここは開いて閉じるだけ。
+    /// </summary>
+    private void OnManageClassificationsClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ManageClassificationsDialog
+        {
+            Owner = this,
+            DataContext = new ManageClassificationsViewModel(_vm),
+        };
+        dialog.ShowDialog();
+    }
+
     /// <summary>仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は N/Delete を奪わない。</summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {

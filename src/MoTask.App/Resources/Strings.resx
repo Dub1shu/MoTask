@@ -36,6 +36,14 @@
   <data name="DueDate" xml:space="preserve"><value>期限</value></data>
   <data name="Column" xml:space="preserve"><value>列</value></data>
   <data name="CompletedAt" xml:space="preserve"><value>完了日時</value></data>
+  <data name="ManageClassifications" xml:space="preserve"><value>プロジェクトとラベル</value></data>
+  <data name="ManageProjectsHeading" xml:space="preserve"><value>プロジェクト</value></data>
+  <data name="ManageLabelsHeading" xml:space="preserve"><value>ラベル</value></data>
+  <data name="ManageUsageFormat" xml:space="preserve"><value>{0} 件で使用中</value></data>
+  <data name="ManageArchive" xml:space="preserve"><value>アーカイブ</value></data>
+  <data name="ManageUnarchive" xml:space="preserve"><value>復元</value></data>
+  <data name="ManageArchivedNote" xml:space="preserve"><value>アーカイブ済み</value></data>
+  <data name="ManageEmpty" xml:space="preserve"><value>まだありません</value></data>
   <data name="ColumnMenu" xml:space="preserve"><value>列のメニュー</value></data>
   <data name="History" xml:space="preserve"><value>履歴</value></data>
   <data name="NoProject" xml:space="preserve"><value>（なし）</value></data>

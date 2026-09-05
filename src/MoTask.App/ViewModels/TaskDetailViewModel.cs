@@ -70,7 +70,9 @@ public sealed partial class TaskDetailViewModel : ObservableObject
             CompletedAtText = m.CompletedAt is DateTime completed ? HistoryFormatter.Timestamp(completed) : null;
 
             Labels.Clear();
-            foreach (var l in _board.Labels.OrderBy(l => l.Name))
+            // アーカイブ済みは選択肢から外すが、このタスクが既に持っているものは残す
+            // （プロジェクトのドロップダウンと同じ規則）
+            foreach (var l in _board.Labels.Where(l => !l.Archived || m.Labels.Any(x => x.Id == l.Id)).OrderBy(l => l.Name))
             {
                 Labels.Add(new LabelToggleViewModel(l, m.Labels.Any(x => x.Id == l.Id), OnLabelToggled));
             }
