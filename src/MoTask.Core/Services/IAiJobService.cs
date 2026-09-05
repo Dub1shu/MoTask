@@ -16,4 +16,19 @@ public interface IAiJobService
     Task<IReadOnlyList<AiJob>> GetUnfinishedJobsAsync(CancellationToken ct = default);
     /// <summary>実行中ジョブの概算ターン数。実行中でなければ 0。</summary>
     int TurnCountOf(int jobId);
+
+    /// <summary>実行中のジョブを止めて Cancelled にする。保留中の承認は「MoTask で停止されました」で deny。</summary>
+    Task<Result> StopJobAsync(int jobId, CancellationToken ct = default);
+
+    /// <summary>Suspended を --resume で続ける。claude 不在・上限超過は Fail。</summary>
+    Task<Result> ResumeJobAsync(int jobId, CancellationToken ct = default);
+
+    /// <summary>アプリ終了時。保留中の承認へ deny を返し、子プロセスを畳み、Suspended にする。</summary>
+    Task SuspendAllAsync();
+
+    /// <summary>前回のクラッシュで Running / AwaitingApproval のまま残ったジョブを Suspended にする。起動時に呼ぶ。</summary>
+    Task RecoverOnStartupAsync(CancellationToken ct = default);
+
+    Task<IReadOnlyList<AiPermissionRule>> GetPermissionRulesAsync(CancellationToken ct = default);
+    Task<Result> DeletePermissionRuleAsync(int ruleId, CancellationToken ct = default);
 }

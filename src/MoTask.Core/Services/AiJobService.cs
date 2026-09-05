@@ -25,6 +25,9 @@ public sealed class AiJobService : IAiJobService
     /// <summary>子プロセスが生きているジョブの制御ハンドル。DB には無い。</summary>
     private sealed class RunningJob
     {
+        /// <summary>まだ決定が返っていない承認要求。CLI は複数のツールを同時に呼ぶので 1 つとは限らない。</summary>
+        private readonly List<TaskCompletionSource> _pendingPermissions = new();
+
         public required int JobId { get; init; }
         public required int TaskId { get; init; }
         public required string TaskTitle { get; init; }
@@ -37,7 +40,31 @@ public sealed class AiJobService : IAiJobService
         public int TurnCount { get; set; }
         public StopReason Reason { get; set; }
         public Task Completion { get; set; } = Task.CompletedTask;
-        public Task? PendingPermission { get; set; }
+
+        /// <summary>承認要求の受付。決定が返るまでこの TaskCompletionSource が保留中として残る。</summary>
+        public TaskCompletionSource AddPendingPermission()
+        {
+            var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_pendingPermissions) _pendingPermissions.Add(pending);
+            return pending;
+        }
+
+        public void RemovePendingPermission(TaskCompletionSource pending)
+        {
+            lock (_pendingPermissions) _pendingPermissions.Remove(pending);
+        }
+
+        /// <summary>この要求が最後の 1 件か（＝決めれば AwaitingApproval が解ける）。ゲートの中から呼ぶ。</summary>
+        public bool IsLastPendingPermission()
+        {
+            lock (_pendingPermissions) return _pendingPermissions.Count <= 1;
+        }
+
+        /// <summary>畳むときに待つ対象。スナップショットなので、待っている間に増えた分は含めない。</summary>
+        public IReadOnlyList<Task> PendingPermissions()
+        {
+            lock (_pendingPermissions) return _pendingPermissions.Select(p => p.Task).ToList();
+        }
     }
 
     private static readonly JsonSerializerOptions PayloadOptions = new()
@@ -201,6 +228,121 @@ public sealed class AiJobService : IAiJobService
         Raise(job, entry, null, null);
     }
 
+    // ---------- 停止・中断・再開 ----------
+
+    public async Task<Result> StopJobAsync(int jobId, CancellationToken ct = default)
+    {
+        var exists = await _gate.RunAsync(async () => await _jobs.GetAsync(jobId, ct).ConfigureAwait(false) is not null, ct).ConfigureAwait(false);
+        if (!exists) return Result.Fail(Messages.AiJobNotFound);
+        if (!_running.TryGetValue(jobId, out var entry)) return Result.Fail(Messages.AiJobNotActive);
+
+        await ShutdownAsync(entry, StopReason.Stop).ConfigureAwait(false);
+        return Result.Ok();
+    }
+
+    public async Task SuspendAllAsync()
+    {
+        var entries = _running.Values.ToList();
+        // 承認ダイアログへの deny → プロセス終了 → Suspended の順。並行に畳んでよい。
+        await Task.WhenAll(entries.Select(e => ShutdownAsync(e, StopReason.Suspend))).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// 保留中の承認要求すべてへ先に deny を返してから（CLI へ応答が届くのを最大 2 秒待つ）プロセスを殺す。
+    /// 終了の理由は entry.Reason に残し、ExecuteAsync が最終状態を決める。
+    /// ゲートの外から呼ぶこと（承認の後始末も ExecuteAsync もゲートを取る）。
+    /// </summary>
+    private static async Task ShutdownAsync(RunningJob entry, StopReason reason)
+    {
+        entry.Reason = reason;
+        entry.PromptCts.Cancel();
+        var pending = entry.PendingPermissions();
+        if (pending.Count > 0)
+        {
+            await Task.WhenAny(Task.WhenAll(pending), Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
+        }
+        entry.ProcessCts.Cancel();
+        try
+        {
+            await entry.Completion.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // ExecuteAsync は例外を握って状態を確定させるので、ここへ来るのは起動そのものの失敗だけ
+        }
+    }
+
+    public async Task<Result> ResumeJobAsync(int jobId, CancellationToken ct = default)
+    {
+        var available = _runner.CheckAvailable();
+        if (!available.IsSuccess) return Result.Fail(available.Error!);
+
+        var settings = _settings.Load();
+        RunningJob? entry = null;
+        AiJob? job = null;
+        var result = await _gate.RunAsync(async () =>
+        {
+            try
+            {
+                job = await _jobs.GetAsync(jobId, ct).ConfigureAwait(false);
+                if (job is null) return Result.Fail(Messages.AiJobNotFound);
+                if (job.Status != AiJobStatus.Suspended) return Result.Fail(Messages.AiJobNotSuspended);
+                // 中断中に同じタスクで別のジョブを始められる（Suspended は Active ではない）。
+                // その後で再開すると 1 タスクに実行中 2 件になるので、開始と同じ条件でここでも弾く。
+                if (_running.Values.Any(r => r.TaskId == job.TaskId)) return Result.Fail(Messages.TaskAlreadyHasActiveJob);
+                if (LimitError(settings) is string limit) return Result.Fail(limit);
+
+                var task = await _boards.GetTaskAsync(job.TaskId, ct).ConfigureAwait(false);
+                if (task is null) return Result.Fail(Messages.TaskNotFound);
+
+                var events = await _jobs.GetEventsAsync(job.Id, ct).ConfigureAwait(false);
+                job.Status = AiJobStatus.Running;
+                job.ErrorMessage = null;
+                await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+                // 開始と同じくゲートの中で登録する。再開したジョブが _running に戻っていないと、
+                // 同じタスクの二重起動を弾く StartJobAsync の判定が空振りする。
+                entry = Register(job, task, seq: events.Count == 0 ? 0 : events.Max(e => e.Seq));
+                return Result.Ok();
+            }
+            catch (PersistenceException ex)
+            {
+                return Result.Fail($"{Messages.SaveFailed}: {ex.Message}");
+            }
+        }, ct).ConfigureAwait(false);
+
+        if (result.IsSuccess) Launch(job!, entry!, Messages.ResumeInstruction, resume: true);
+        return result;
+    }
+
+    public Task RecoverOnStartupAsync(CancellationToken ct = default) => _gate.RunAsync(async () =>
+    {
+        var orphans = await _jobs.GetByStatusAsync(new[] { AiJobStatus.Running, AiJobStatus.AwaitingApproval }, ct).ConfigureAwait(false);
+        if (orphans.Count == 0) return;
+        foreach (var job in orphans) job.Status = AiJobStatus.Suspended;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+    }, ct);
+
+    // ---------- ルール管理 ----------
+
+    public Task<IReadOnlyList<AiPermissionRule>> GetPermissionRulesAsync(CancellationToken ct = default)
+        => _gate.RunAsync(() => _rules.GetAllAsync(ct), ct);
+
+    public Task<Result> DeletePermissionRuleAsync(int ruleId, CancellationToken ct = default) => _gate.RunAsync(async () =>
+    {
+        var rule = await _rules.GetAsync(ruleId, ct).ConfigureAwait(false);
+        if (rule is null) return Result.Fail(Messages.PermissionRuleNotFound);
+        _rules.Remove(rule);
+        try
+        {
+            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Result.Ok();
+        }
+        catch (PersistenceException ex)
+        {
+            return Result.Fail($"{Messages.SaveFailed}: {ex.Message}");
+        }
+    }, ct);
+
     // ---------- 実行と完了 ----------
 
     private async Task ExecuteAsync(AiJob job, RunningJob entry, AgentRunRequest request, bool resume)
@@ -327,11 +469,11 @@ public sealed class AiJobService : IAiJobService
     /// <summary>
     /// 承認ツールから呼ばれる。ルールで決まればダイアログ無し。AskHuman なら IPermissionPrompt を待つ。
     /// タイムアウトはさせない。停止・終了で PromptCts が取り消されたときだけ deny を返す。
+    /// 並行して何件でも来る（CLI は複数のツールを同時に呼ぶ）ので、保留中の要求は entry に積む。
     /// </summary>
     private async Task<PermissionDecision> HandlePermissionAsync(AiJob job, RunningJob entry, PermissionRequest request, CancellationToken ct)
     {
-        var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        entry.PendingPermission = pending.Task;
+        var pending = entry.AddPendingPermission();
         try
         {
             AiJobEvent? asked = null;
@@ -366,7 +508,9 @@ public sealed class AiJobService : IAiJobService
             AiJobEvent? decided = null;
             warning = await _gate.RunAsync(async () =>
             {
-                if (job.Status == AiJobStatus.AwaitingApproval) job.Status = AiJobStatus.Running;
+                // まだ他の要求が保留中なら AwaitingApproval のまま。最後の 1 件が決まって初めて Running へ戻す。
+                // 数えるのはゲートの中（他の要求の受付・決定もゲートを通るので、ここでの数え方が競らない）。
+                if (job.Status == AiJobStatus.AwaitingApproval && entry.IsLastPendingPermission()) job.Status = AiJobStatus.Running;
                 decided = AddEvent(job, entry, AiJobEventKind.PermissionDecided, request.ToolName, DecidedPayload(decision, source));
                 return await SaveQuietlyAsync().ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -376,7 +520,7 @@ public sealed class AiJobService : IAiJobService
         finally
         {
             pending.TrySetResult();
-            entry.PendingPermission = null;
+            entry.RemovePendingPermission(pending);
         }
     }
 
