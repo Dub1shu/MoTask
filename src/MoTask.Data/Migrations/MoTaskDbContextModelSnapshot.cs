@@ -134,9 +134,6 @@ namespace MoTask.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("WorkingDirectory")
-                        .HasColumnType("TEXT");
-
                     b.HasKey("Id");
 
                     b.ToTable("Projects", (string)null);

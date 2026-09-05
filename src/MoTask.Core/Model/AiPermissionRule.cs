@@ -1,6 +1,6 @@
 namespace MoTask.Core.Model;
 
-/// <summary>「今後も許可／拒否」の記憶。Pattern の作り方は <c>PermissionPattern</c> を参照。</summary>
+/// <summary>「今後も許可／拒否」の記憶。Pattern は、Bash の場合は先頭 2 トークン、Write/Edit の場合はディレクトリの絶対パス、ツール全体を許可する場合は null。</summary>
 public sealed class AiPermissionRule
 {
     public int Id { get; set; }
