@@ -34,4 +34,21 @@ public static class Messages
     public static string DefaultColumnActive => Get(nameof(DefaultColumnActive));
     public static string DefaultColumnReview => Get(nameof(DefaultColumnReview));
     public static string DefaultColumnDone => Get(nameof(DefaultColumnDone));
+    public static string ClaudeNotFound => Get(nameof(ClaudeNotFound));
+    public static string WorkingDirectoryMissingFormat => Get(nameof(WorkingDirectoryMissingFormat));
+    public static string ConcurrencyLimitFormat => Get(nameof(ConcurrencyLimitFormat));
+    public static string TaskAlreadyHasActiveJob => Get(nameof(TaskAlreadyHasActiveJob));
+    public static string TaskDeletedCannotRunAi => Get(nameof(TaskDeletedCannotRunAi));
+    public static string InstructionRequired => Get(nameof(InstructionRequired));
+    public static string AiJobNotFound => Get(nameof(AiJobNotFound));
+    public static string AiJobNotActive => Get(nameof(AiJobNotActive));
+    public static string AiJobNotSuspended => Get(nameof(AiJobNotSuspended));
+    public static string SuspendedByShutdown => Get(nameof(SuspendedByShutdown));
+    public static string StoppedByUser => Get(nameof(StoppedByUser));
+    public static string ResumeInstruction => Get(nameof(ResumeInstruction));
+    public static string ResumeFailedFormat => Get(nameof(ResumeFailedFormat));
+    public static string NoReviewColumn => Get(nameof(NoReviewColumn));
+    public static string AgentExitedWithCodeFormat => Get(nameof(AgentExitedWithCodeFormat));
+    public static string AgentFailedFormat => Get(nameof(AgentFailedFormat));
+    public static string PermissionRuleNotFound => Get(nameof(PermissionRuleNotFound));
 }
