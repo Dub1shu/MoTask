@@ -57,4 +57,6 @@ public static class Messages
     public static string ApprovalUiFailed => Get(nameof(ApprovalUiFailed));
     public static string HooksExecutableNotFound => Get(nameof(HooksExecutableNotFound));
     public static string JobFolderFailedFormat => Get(nameof(JobFolderFailedFormat));
+    public static string TerminalLaunchFailedFormat => Get(nameof(TerminalLaunchFailedFormat));
+    public static string TerminalStartPromptFormat => Get(nameof(TerminalStartPromptFormat));
 }
