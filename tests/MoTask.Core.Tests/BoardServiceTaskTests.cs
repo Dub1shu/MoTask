@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MoTask.Core;
+using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
@@ -21,7 +22,7 @@ public class BoardServiceTaskTests
         _backlog = _store.SeedColumn("未着手", ColumnRole.Backlog);
         _active = _store.SeedColumn("進行中", ColumnRole.Active, wipLimit: 1);
         _done = _store.SeedColumn("完了", ColumnRole.Done);
-        _service = new BoardService(_store, _store, _store, _clock);
+        _service = new BoardService(_store, _store, _store, _clock, new OperationGate());
     }
 
     [Fact]

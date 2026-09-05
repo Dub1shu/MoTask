@@ -15,6 +15,9 @@ public sealed class MoTaskDbContext : DbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<Label> Labels => Set<Label>();
     public DbSet<HistoryEntry> History => Set<HistoryEntry>();
+    public DbSet<AiJob> AiJobs => Set<AiJob>();
+    public DbSet<AiJobEvent> AiJobEvents => Set<AiJobEvent>();
+    public DbSet<AiPermissionRule> AiPermissionRules => Set<AiPermissionRule>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -71,6 +74,36 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.Detail).IsRequired().HasDefaultValue("");
             e.HasIndex(x => x.TaskId);
             e.HasOne(x => x.Task).WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AiJob>(e =>
+        {
+            e.ToTable("AiJobs");
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            e.Property(x => x.Instruction).IsRequired().HasDefaultValue("");
+            e.Property(x => x.WorkingDirectory).IsRequired().HasDefaultValue("");
+            e.HasIndex(x => x.TaskId);
+            e.HasIndex(x => x.Status);
+            e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AiJobEvent>(e =>
+        {
+            e.ToTable("AiJobEvents");
+            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(24);
+            e.Property(x => x.Payload).IsRequired().HasDefaultValue("");
+            e.HasIndex(x => new { x.JobId, x.Seq }).IsUnique();
+            e.HasOne<AiJob>().WithMany().HasForeignKey(x => x.JobId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<AiPermissionRule>(e =>
+        {
+            e.ToTable("AiPermissionRules");
+            e.Property(x => x.Scope).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Decision).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.ToolName).IsRequired();
+            e.HasOne<Project>().WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -10,13 +10,15 @@
         Title="{x:Static res:Strings.AppTitle}" Width="1280" Height="800" MinWidth="900" MinHeight="600"
         Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
-        Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
+        Loaded="OnLoaded" Closing="OnClosing" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>
     <!-- トップバー。ボード面（Brush.Bg）と区別が付くよう、ここだけ Surface を敷く。 -->
     <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"
             BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
             Padding="{StaticResource Pad.Bar}">
       <DockPanel>
+        <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
+                Content="{x:Static res:Strings.AiSettings}" Click="OnAiSettingsClick" Margin="{StaticResource Gap.Left.2}" />
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">

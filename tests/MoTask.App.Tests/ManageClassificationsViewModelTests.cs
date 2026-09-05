@@ -48,7 +48,7 @@ public class ManageClassificationsViewModelTests
             _urgent.Archived = false;
             return Task.FromResult(Result.Ok());
         });
-        _vm = new BoardViewModel(_service, new TestClock());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
     }
 
     private async Task<ManageClassificationsViewModel> OpenAsync()

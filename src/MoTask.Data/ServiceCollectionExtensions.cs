@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using MoTask.Core.Abstractions;
+using MoTask.Core.Ai;
 using MoTask.Data.Repositories;
 
 namespace MoTask.Data;
@@ -20,6 +21,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IBoardRepository, BoardRepository>();
         services.AddSingleton<IHistoryRepository, HistoryRepository>();
         services.AddSingleton<IUnitOfWork, EfUnitOfWork>();
+        services.AddSingleton<IAiJobRepository, AiJobRepository>();
+        services.AddSingleton<IPermissionRuleRepository, PermissionRuleRepository>();
+        services.AddSingleton<IAiSettingsStore>(_ => new JsonAiSettingsStore(DbPaths.SettingsNextTo(dbPath)));
+        // BoardService と AiJobService が同じ DbContext を使うので、直列化ゲートも 1 つ
+        services.AddSingleton<OperationGate>();
         services.AddSingleton<DatabaseInitializer>();
         return services;
     }

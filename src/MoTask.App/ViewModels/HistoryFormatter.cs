@@ -19,6 +19,8 @@ public static class HistoryFormatter
             HistoryKind.Edited => FormatEdited(entry.Detail),
             HistoryKind.Deleted => Strings.HistoryDeleted,
             HistoryKind.Restored => Strings.HistoryRestored,
+            HistoryKind.AiJobStarted => FormatAi(entry.Detail, started: true),
+            HistoryKind.AiJobFinished => FormatAi(entry.Detail, started: false),
             _ => Strings.HistoryUnknown,
         };
         return $"{stamp} {body}";
@@ -54,6 +56,27 @@ public static class HistoryFormatter
         }
         return string.Format(Strings.HistoryEditedFormat, string.Join(Strings.HistoryFieldJoiner, changes.Keys.Select(FieldName)));
     }
+
+    private static string FormatAi(string detail, bool started)
+    {
+        var ai = AiJobHistoryDetail.Deserialize(detail);
+        if (ai is null) return Strings.HistoryUnknown;
+        var kind = KindName(ai.Kind);
+        return started
+            ? string.Format(Strings.HistoryAiStartedFormat, kind)
+            : string.Format(Strings.HistoryAiFinishedFormat, kind, OutcomeName(ai.Status));
+    }
+
+    public static string KindName(AiJobKind kind)
+        => kind == AiJobKind.Research ? Strings.AiKindResearch : Strings.AiKindExecute;
+
+    private static string OutcomeName(AiJobStatus? status) => status switch
+    {
+        AiJobStatus.Succeeded => Strings.AiOutcomeSucceeded,
+        AiJobStatus.Failed => Strings.AiOutcomeFailed,
+        AiJobStatus.Cancelled => Strings.AiOutcomeCancelled,
+        _ => Strings.AiOutcomeUnknown,
+    };
 
     public static string FieldName(string key) => key switch
     {

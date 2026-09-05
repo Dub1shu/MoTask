@@ -1,6 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.Core;
 using MoTask.Core.Abstractions;
@@ -21,8 +24,14 @@ public sealed partial class BoardViewModel : ObservableObject
 
     private readonly IBoardService _service;
     private readonly IClock _clock;
+    private readonly SynchronizationContext? _ui;
     private Board? _board;
     private bool _syncingSelection;
+
+    public IAiJobService AiJobs { get; }
+
+    /// <summary>成果物や作業フォルダを開く。テストでは差し替える。</summary>
+    public Action<string> OpenPath { get; set; } = ShellOpener.Open;
 
     public ObservableCollection<ColumnViewModel> Columns { get; } = new();
     public FilterViewModel Filter { get; } = new();
@@ -45,12 +54,26 @@ public sealed partial class BoardViewModel : ObservableObject
         new ColumnRoleOption(ColumnRole.Review, Strings.RoleReview),
     };
 
-    public BoardViewModel(IBoardService service, IClock clock)
+    public BoardViewModel(IBoardService service, IClock clock, IAiJobService aiJobs)
     {
         _service = service;
         _clock = clock;
+        AiJobs = aiJobs;
+        // 生成は UI スレッド（DI から MainWindow 経由）。JobChanged はワーカーから来るのでここへ戻す。
+        _ui = SynchronizationContext.Current;
+        // 文脈が無いのはテスト（Application も無い）だけのはず。実アプリで欠けていたら配線ミスで、
+        // JobChanged がワーカースレッドのまま UI を触ることになる。起動時に気付けるようにする。
+        Debug.Assert(_ui is not null || Application.Current is null,
+            "BoardViewModel は UI スレッドで生成すること（SynchronizationContext.Current が null）。");
         _newColumnRole = DefaultColumnRole();
         Filter.Changed += (_, _) => ApplyFilter();
+        aiJobs.JobChanged += (_, e) => Post(() => OnJobChanged(e));
+    }
+
+    private void Post(Action action)
+    {
+        if (_ui is null) action();
+        else _ui.Post(_ => action(), null);
     }
 
     /// <summary>追加する列の既定の種別は「進行中」。</summary>
@@ -101,6 +124,7 @@ public sealed partial class BoardViewModel : ObservableObject
             Columns.Add(vm);
         }
         ApplyFilter();
+        await ApplyAiStatesAsync();
         SelectCard(selectedId is int id ? AllCards().FirstOrDefault(c => c.Id == id) : null);
         IsLoaded = true;
     }
@@ -122,6 +146,99 @@ public sealed partial class BoardViewModel : ObservableObject
 
     public string ColumnName(int columnId)
         => _board?.Columns.FirstOrDefault(c => c.Id == columnId)?.Name ?? Strings.UnknownColumn;
+
+    // ---------- AI ジョブ ----------
+
+    /// <summary>未完了ジョブ（Running / AwaitingApproval / Suspended）からカードのバッジを組み直す。</summary>
+    private async Task ApplyAiStatesAsync()
+    {
+        var jobs = await QueryAsync(() => AiJobs.GetUnfinishedJobsAsync());
+        if (!jobs.IsSuccess)
+        {
+            ShowFailure(jobs);
+            return;
+        }
+        var byTask = jobs.Value!.GroupBy(j => j.TaskId).ToDictionary(g => g.Key, g => g.OrderByDescending(j => j.Id).First());
+        foreach (var card in AllCards())
+        {
+            card.SetAiState(byTask.TryGetValue(card.Id, out var job) ? Snapshot(job) : null);
+        }
+    }
+
+    private AiJobSnapshot Snapshot(AiJob job)
+        => new(job.Id, job.TaskId, job.Kind, job.Status, job.NumTurns ?? AiJobs.TurnCountOf(job.Id),
+            job.TotalCostUsd, job.ErrorMessage, job.WorkingDirectory);
+
+    /// <summary>UI スレッドで呼ばれる。バッジ・バナー・詳細パネル、完了時の列移動の反映。</summary>
+    private void OnJobChanged(AiJobChangedEventArgs e)
+    {
+        var card = AllCards().FirstOrDefault(c => c.Id == e.Job.TaskId);
+        card?.SetAiState(e.Job);
+        if (e.Warning is not null) BannerMessage = e.Warning;
+        Detail?.Ai.OnJobChanged(e);
+
+        if (e.Job.Status == AiJobStatus.Succeeded)
+        {
+            // AiJobService が BoardService.MoveTask でタスクを Review 列へ動かした。モデルは動いているので表示を追従させる。
+            var selected = SelectedCard;
+            if (card is not null) ReattachMovedCard(card);
+            foreach (var column in Columns) RefreshColumn(column);
+            if (selected is not null) SelectCard(selected);
+            RunGuarded(AfterTaskChangedAsync);
+        }
+    }
+
+    /// <summary>
+    /// モデルが別の列へ移ったカードの VM を、先に移動先列の <see cref="ColumnViewModel.AllCards"/> へ移す。
+    /// <see cref="ColumnViewModel.SyncCardsFromModel"/> の VM 再利用は列ごとに閉じているので、これを
+    /// 先にやらないと移動先が新しい VM を作る。すると開いている詳細パネルの <c>Card</c> がどの列にも
+    /// 属さない孤児になり、<see cref="SelectCard"/> が全列の選択を外し、その後のバッジ更新も
+    /// 見えないカードに書かれる。<see cref="MoveCardAsync"/> と同じ手順（VM を先に動かす）。
+    /// 位置は直後の <see cref="RefreshColumn"/> が Position 順に組み直すので、ここでは末尾でよい。
+    /// </summary>
+    private void ReattachMovedCard(TaskCardViewModel card)
+    {
+        var target = Columns.FirstOrDefault(c => c.Id == card.Model.ColumnId);
+        var source = ColumnOf(card);
+        if (target is null || ReferenceEquals(source, target)) return;
+        source?.AllCards.Remove(card);
+        target.AllCards.Add(card);
+    }
+
+    public async Task<bool> StartAiJobAsync(TaskCardViewModel card, AiJobKind kind, string instruction)
+    {
+        var result = await GuardAsync(() => AiJobs.StartJobAsync(card.Id, kind, instruction));
+        if (!await HandleAsync(result)) return false;
+        card.SetAiState(Snapshot(result.Value!));
+        await AfterTaskChangedAsync();
+        return true;
+    }
+
+    public async Task<bool> StopAiJobAsync(int jobId)
+        => await HandleAsync(await GuardAsync(() => AiJobs.StopJobAsync(jobId)));
+
+    public async Task<bool> ResumeAiJobAsync(int jobId)
+        => await HandleAsync(await GuardAsync(() => AiJobs.ResumeJobAsync(jobId)));
+
+    /// <summary>失敗したら空を返し、理由はバナーに出す（GetHistoryAsync と同じ流儀）。</summary>
+    public async Task<IReadOnlyList<AiJob>> QueryAiJobsAsync(int taskId)
+    {
+        var jobs = await QueryAsync(() => AiJobs.GetJobsForTaskAsync(taskId));
+        if (jobs.IsSuccess) return jobs.Value!;
+        ShowFailure(jobs);
+        return Array.Empty<AiJob>();
+    }
+
+    public async Task<IReadOnlyList<AiJobEvent>> QueryAiEventsAsync(int jobId)
+    {
+        var events = await QueryAsync(() => AiJobs.GetEventsAsync(jobId));
+        if (events.IsSuccess) return events.Value!;
+        ShowFailure(events);
+        return Array.Empty<AiJobEvent>();
+    }
+
+    public Task<bool> SetProjectWorkingDirectoryAsync(int projectId, string? path)
+        => RunClassificationChangeAsync(() => _service.SetProjectWorkingDirectoryAsync(projectId, path));
 
     // ---------- 選択 ----------
 

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MoTask.Core;
+using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
@@ -15,7 +16,7 @@ public class BoardServiceClassificationTests
     public BoardServiceClassificationTests()
     {
         _store.SeedColumn("完了", ColumnRole.Done);
-        _service = new BoardService(_store, _store, _store, new FakeClock());
+        _service = new BoardService(_store, _store, _store, new FakeClock(), new OperationGate());
     }
 
     [Fact]
@@ -160,5 +161,23 @@ public class BoardServiceClassificationTests
 
         task.Labels.Should().ContainSingle().Which.Id.Should().Be(l.Id);
         (await _service.GetLabelsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task SetProjectWorkingDirectory_TrimsAndStores_EmptyBecomesNull()
+    {
+        var project = _store.SeedProject("顧客A");
+
+        (await _service.SetProjectWorkingDirectoryAsync(project.Id, @"  C:\work\a  ")).IsSuccess.Should().BeTrue();
+        project.WorkingDirectory.Should().Be(@"C:\work\a");
+
+        (await _service.SetProjectWorkingDirectoryAsync(project.Id, "   ")).IsSuccess.Should().BeTrue();
+        project.WorkingDirectory.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SetProjectWorkingDirectory_UnknownProject_IsRejected()
+    {
+        (await _service.SetProjectWorkingDirectoryAsync(999, @"C:\x")).Error.Should().Be(Messages.ProjectNotFound);
     }
 }

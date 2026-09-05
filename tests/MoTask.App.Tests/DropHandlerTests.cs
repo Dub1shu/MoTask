@@ -33,7 +33,7 @@ public class DropHandlerTests
             .Returns(Task.FromResult(Result.Ok()));
         _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Ok()));
-        _vm = new BoardViewModel(_service, new TestClock());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
     }
 
     private static IDropInfo Info(object? data, IEnumerable? targetCollection, int insertIndex)

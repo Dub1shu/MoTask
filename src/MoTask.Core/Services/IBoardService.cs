@@ -31,6 +31,8 @@ public interface IBoardService
     Task<Result<Project>> CreateProjectAsync(string name, CancellationToken ct = default);
     Task<Result> ArchiveProjectAsync(int projectId, CancellationToken ct = default);
     Task<Result> UnarchiveProjectAsync(int projectId, CancellationToken ct = default);
+    /// <summary>AI ジョブの cwd。空白だけなら null（既定ワークフォルダを使う）に戻す。</summary>
+    Task<Result> SetProjectWorkingDirectoryAsync(int projectId, string? path, CancellationToken ct = default);
     Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default);
     /// <summary>一覧から退けるだけ。既にこのラベルが付いているタスクからは外さない。</summary>
     Task<Result> ArchiveLabelAsync(int labelId, CancellationToken ct = default);

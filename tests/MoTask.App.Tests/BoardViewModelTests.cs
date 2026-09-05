@@ -28,7 +28,7 @@ public class BoardViewModelTests
             .Returns(Task.FromResult<IReadOnlyList<Label>>(new[] { _urgent }));
         _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>()));
-        _vm = new BoardViewModel(_service, new TestClock());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
     }
 
     private static int[] Ids(ColumnViewModel c) => c.Cards.Select(x => x.Id).ToArray();

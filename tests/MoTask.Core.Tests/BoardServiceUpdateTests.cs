@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MoTask.Core;
+using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
@@ -20,7 +21,7 @@ public class BoardServiceUpdateTests
         _backlog = _store.SeedColumn("未着手", ColumnRole.Backlog);
         _store.SeedColumn("完了", ColumnRole.Done);
         _task = _store.SeedTask(_backlog, "元のタイトル");
-        _service = new BoardService(_store, _store, _store, _clock);
+        _service = new BoardService(_store, _store, _store, _clock, new OperationGate());
     }
 
     private TaskUpdate Unchanged() => new(_task.Id, _task.Title, _task.Description, _task.ProjectId, _task.DueDate);
