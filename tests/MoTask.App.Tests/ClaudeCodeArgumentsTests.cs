@@ -60,6 +60,9 @@ public class ClaudeCodeArgumentsTests
         args.Should().ContainInOrder("--resume", "c6522216-b5ea-4dc9-be02-26a4fe614029");
         args.Should().NotContain("--session-id");
         args.Should().ContainInOrder("-p", "続けて");
+        // 再開でも利用者の settings.json の allowlist を効かせない（仕様 §4.4）。
+        // このフラグが分岐の中へ移されたら、ここで気づけるようにしておく。
+        args.Should().ContainInOrder("--setting-sources", "");
     }
 
     [Fact]

@@ -48,9 +48,13 @@ public sealed class ClaudeCodeRunner : IAgentRunner
 
         var gate = new PermissionGate(request.OnPermissionRequest);
         var token = _server.Register(gate.InvokeAsync);
-        var configPath = McpConfigFile.Write(request.JobId, mcpUrl, token);
+        // Register の直後から try に入る。一時ファイルの書き出しが失敗しても、登録したハンドラが
+        // サーバの辞書に残らないようにする。
+        string? configPath = null;
         try
         {
+            configPath = McpConfigFile.Write(request.JobId, mcpUrl, token);
+
             var psi = new ProcessStartInfo(exe)
             {
                 WorkingDirectory = request.WorkingDirectory,
@@ -118,7 +122,7 @@ public sealed class ClaudeCodeRunner : IAgentRunner
             _server.Unregister(token);
             gate.Close();
             await gate.WaitIdleAsync(null).ConfigureAwait(false);
-            McpConfigFile.Delete(configPath);
+            if (configPath is not null) McpConfigFile.Delete(configPath);
         }
     }
 
@@ -143,10 +147,12 @@ public sealed class ClaudeCodeRunner : IAgentRunner
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
-        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or ObjectDisposedException)
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or ObjectDisposedException or AggregateException)
         {
             // 既に終わっている、権限が無い、あるいは正常終了と取り消しが競って Process が捨てられた後。
-            // いずれも子は残らず、呼び出し側の状態遷移にも影響しない。
+            // AggregateException は Kill(entireProcessTree: true) がツリーの一部を殺せなかった場合
+            // （ここで漏らすと catch 節の rethrow を追い越して OperationCanceledException を握り潰す）。
+            // いずれも呼び出し側の状態遷移には影響しない。
         }
     }
 
@@ -172,81 +178,5 @@ public sealed class ClaudeCodeRunner : IAgentRunner
     {
         var finished = await Task.WhenAny(stderr, Task.Delay(StderrDrainTimeout)).ConfigureAwait(false);
         return ReferenceEquals(finished, stderr) ? await stderr.ConfigureAwait(false) : null;
-    }
-
-    /// <summary>
-    /// 承認ハンドラの出入りを数える門。トークンの Unregister だけでは「解決済みだがまだ呼ばれて
-    /// いない」要求を止められないので、閉じたあとに来たものは内側（Core）へ通さず即 deny で返す。
-    /// </summary>
-    private sealed class PermissionGate
-    {
-        private readonly Func<PermissionRequest, CancellationToken, Task<PermissionDecision>> _inner;
-        private readonly object _sync = new();
-        private TaskCompletionSource? _idle;
-        private int _active;
-        private bool _closed;
-        private long _lastDecisionTimestamp;
-
-        public PermissionGate(Func<PermissionRequest, CancellationToken, Task<PermissionDecision>> inner) => _inner = inner;
-
-        /// <summary>直近の決定からの経過時間。まだ 1 件も決まっていなければ null。</summary>
-        public TimeSpan? SinceLastDecision
-        {
-            get
-            {
-                lock (_sync)
-                {
-                    return _lastDecisionTimestamp == 0 ? null : Stopwatch.GetElapsedTime(_lastDecisionTimestamp);
-                }
-            }
-        }
-
-        public Task<PermissionDecision> InvokeAsync(PermissionRequest request, CancellationToken ct)
-        {
-            lock (_sync)
-            {
-                if (_closed) return Task.FromResult(PermissionDecision.Deny(Messages.StoppedByUser));
-                if (_active++ == 0) _idle = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            }
-            return InvokeCoreAsync(request, ct);
-        }
-
-        public void Close()
-        {
-            lock (_sync) _closed = true;
-        }
-
-        /// <summary>走っているハンドラが無くなるまで待つ。timeout が null なら待ちきる。</summary>
-        public async Task WaitIdleAsync(TimeSpan? timeout)
-        {
-            Task idle;
-            lock (_sync)
-            {
-                if (_active == 0) return;
-                idle = _idle!.Task;
-            }
-            if (timeout is null) await idle.ConfigureAwait(false);
-            else await Task.WhenAny(idle, Task.Delay(timeout.Value)).ConfigureAwait(false);
-        }
-
-        private async Task<PermissionDecision> InvokeCoreAsync(PermissionRequest request, CancellationToken ct)
-        {
-            try
-            {
-                return await _inner(request, ct).ConfigureAwait(false);
-            }
-            finally
-            {
-                lock (_sync)
-                {
-                    _lastDecisionTimestamp = Stopwatch.GetTimestamp();
-                    if (--_active == 0)
-                    {
-                        _idle!.TrySetResult();
-                        _idle = null;
-                    }
-                }
-            }
-        }
     }
 }
