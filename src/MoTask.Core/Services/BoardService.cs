@@ -9,15 +9,17 @@ public sealed class BoardService : IBoardService
     private readonly IHistoryRepository _history;
     private readonly IUnitOfWork _uow;
     private readonly IClock _clock;
-    // DbContext は同時に1操作しか受け付けないので、ユースケースを直列化する
-    private readonly SemaphoreSlim _gate = new(1, 1);
+    // DbContext は同時に1操作しか受け付けないので、ユースケースを直列化する。
+    // AiJobService と同じ DbContext を共有するため、ゲートも DI で同じインスタンスを受け取る。
+    private readonly OperationGate _gate;
 
-    public BoardService(IBoardRepository boards, IHistoryRepository history, IUnitOfWork uow, IClock clock)
+    public BoardService(IBoardRepository boards, IHistoryRepository history, IUnitOfWork uow, IClock clock, OperationGate? gate = null)
     {
         _boards = boards;
         _history = history;
         _uow = uow;
         _clock = clock;
+        _gate = gate ?? new OperationGate();
     }
 
     // ---------- 照会 ----------
@@ -350,6 +352,20 @@ public sealed class BoardService : IBoardService
         return Result.Ok();
     }, ct);
 
+    public Task<Result> SetProjectWorkingDirectoryAsync(int projectId, string? path, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var project = await _boards.GetProjectAsync(projectId, ct).ConfigureAwait(false);
+        if (project is null) return Result.Fail(Messages.ProjectNotFound);
+
+        var trimmed = string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+        if (project.WorkingDirectory == trimmed) return Result.Ok();
+
+        // 存在確認はしない。フォルダを後から作る運用も許し、ジョブ開始時に改めて確かめる（仕様 §8）。
+        project.WorkingDirectory = trimmed;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
     public Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default) => RunAsync(async () =>
     {
         name = name.Trim();
@@ -437,18 +453,7 @@ public sealed class BoardService : IBoardService
         for (var i = 0; i < tasks.Count; i++) tasks[i].Position = i;
     }
 
-    private async Task<T> GateAsync<T>(Func<Task<T>> action, CancellationToken ct)
-    {
-        await _gate.WaitAsync(ct).ConfigureAwait(false);
-        try
-        {
-            return await action().ConfigureAwait(false);
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
+    private Task<T> GateAsync<T>(Func<Task<T>> action, CancellationToken ct) => _gate.RunAsync(action, ct);
 
     private Task<Result> RunAsync(Func<Task<Result>> action, CancellationToken ct) => GateAsync(async () =>
     {
