@@ -69,7 +69,15 @@ public sealed class TerminalLauncher : ISessionLauncher
         var template = settings.TerminalCommandTemplate is { Length: > 0 } configured
             ? configured
             : _hasWindowsTerminal() ? WindowsTerminalTemplate : FallbackTemplate;
-        var line = template.Replace("{cwd}", request.WorkingDirectory).Replace("{command}", inner);
+        // テンプレート側で {cwd} はすでに "..." に囲まれている（既定テンプレートも利用者定義も同じ形）。
+        // ドライブ直下（D:\ など）のように末尾が \ で終わる cwd をそのまま埋めると、
+        // テンプレートの閉じ " の直前が奇数個の \ になり、CommandLineToArgvW がその " を
+        // エスケープされた文字と解釈してしまい、以降が丸ごと 1 引数に飲み込まれる。
+        // CommandLine.Quote と同じ規則で末尾の \ を 2 倍にしてから、Quote が付ける外側の "
+        // だけを剥がして埋め込む（テンプレートの " と二重に囲まないため）。
+        var quotedCwd = CommandLine.Quote(request.WorkingDirectory);
+        var cwdForTemplate = quotedCwd.Substring(1, quotedCwd.Length - 2);
+        var line = template.Replace("{cwd}", cwdForTemplate).Replace("{command}", inner);
 
         var (fileName, arguments) = CommandLine.SplitFirstToken(line);
         return Result.Ok(new TerminalCommand(fileName, arguments, request.WorkingDirectory));

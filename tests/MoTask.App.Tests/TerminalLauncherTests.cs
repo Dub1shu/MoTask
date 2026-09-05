@@ -146,6 +146,17 @@ public class TerminalLauncherTests : IDisposable
     }
 
     [Fact]
+    public void BuildCommand_DoublesATrailingBackslashInCwdSoTheTemplateQuoteStillCloses()
+    {
+        // ドライブ直下（D:\）も正当な作業ディレクトリ。末尾の \ をそのまま埋めると
+        // テンプレートの閉じ " が \" と解釈され、以降が丸ごと 1 引数に飲み込まれてしまう。
+        var command = Launcher().BuildCommand(_request with { WorkingDirectory = @"D:\" }).Value!;
+
+        command.Arguments.Should().StartWith("-d \"D:\\\\\" cmd /k ");
+        command.Arguments.Should().Contain("--session-id");
+    }
+
+    [Fact]
     public void BuildCommand_FailsWhenClaudeIsMissing()
     {
         _store.Save(_store.Load() with { ClaudeExecutablePath = Path.Combine(_dir, "no-such.exe") });
