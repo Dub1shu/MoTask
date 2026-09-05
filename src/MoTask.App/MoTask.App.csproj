@@ -5,6 +5,7 @@
     <UseWPF>true</UseWPF>
     <RootNamespace>MoTask.App</RootNamespace>
     <AssemblyName>MoTask</AssemblyName>
+    <ApplicationIcon>..\..\resources\motodo_icon.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
@@ -19,6 +20,7 @@
     <InternalsVisibleTo Include="MoTask.App.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="..\..\resources\motodo_icon.ico" Link="Resources\motodo_icon.ico" />
     <Resource Include="Fonts\*.ttf" />
     <Content Include="Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
