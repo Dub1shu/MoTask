@@ -16,4 +16,7 @@
     <ProjectReference Include="..\..\src\MoTask.App\MoTask.App.csproj" />
     <ProjectReference Include="..\..\src\MoTask.Core\MoTask.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
