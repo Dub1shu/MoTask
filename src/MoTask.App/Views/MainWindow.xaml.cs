@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
@@ -36,6 +37,29 @@ public partial class MainWindow : Window
         {
             _vm.ShowBanner(string.Format(CultureInfo.CurrentCulture, Strings.StartupFailedFormat, ex.Message));
         }
+    }
+
+    private bool _shutdownReady;
+
+    /// <summary>
+    /// 仕様 §9: 終了時は保留中の承認へ deny を返し、子プロセスを畳んで Suspended にしてから閉じる。
+    /// Closing は await できないので、一度キャンセルして中断を待ち、済んだらもう一度 Close する。
+    /// Dispatcher を止めずに待つのは、承認ダイアログを閉じる処理が UI スレッドを要るため。
+    /// </summary>
+    private async void OnClosing(object? sender, CancelEventArgs e)
+    {
+        if (_shutdownReady) return;
+        e.Cancel = true;
+        try
+        {
+            await _aiJobs.SuspendAllAsync();
+        }
+        catch (Exception)
+        {
+            // 畳めなくても終了は止めない（プロセスは OS が回収する）
+        }
+        _shutdownReady = true;
+        Close();
     }
 
     /// <summary>

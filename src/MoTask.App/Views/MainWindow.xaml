@@ -10,7 +10,7 @@
         Title="{x:Static res:Strings.AppTitle}" Width="1280" Height="800" MinWidth="900" MinHeight="600"
         Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
-        Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
+        Loaded="OnLoaded" Closing="OnClosing" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>
     <!-- トップバー。ボード面（Brush.Bg）と区別が付くよう、ここだけ Surface を敷く。 -->
     <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"

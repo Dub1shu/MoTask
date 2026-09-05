@@ -3,9 +3,11 @@ using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.App.Views;
 using MoTask.Core.Abstractions;
+using MoTask.Core.Ai;
 using MoTask.Core.Services;
 using MoTask.Data;
 
@@ -32,6 +34,11 @@ public partial class App : Application
                 return;
             }
 
+            // 承認 MCP サーバは 1 つだけ。ジョブ開始前に立っていればよい。
+            _host.Services.GetRequiredService<ApprovalMcpServer>().Start();
+            // 前回クラッシュして Running のまま残ったジョブは、プロセスが無いので Suspended に戻す
+            await _host.Services.GetRequiredService<IAiJobService>().RecoverOnStartupAsync();
+
             var window = _host.Services.GetRequiredService<MainWindow>();
             MainWindow = window;
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -49,9 +56,14 @@ public partial class App : Application
     private static IHost BuildHost(string dbPath)
     {
         var builder = Host.CreateApplicationBuilder();
-        builder.Services.AddMoTaskData(dbPath);
+        builder.Services.AddMoTaskData(dbPath); // OperationGate / リポジトリ / 設定ストアもここで登録される
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddSingleton<IBoardService, BoardService>();
+        builder.Services.AddSingleton<IPermissionPolicy, PermissionPolicy>();
+        builder.Services.AddSingleton<IPermissionPrompt, WpfPermissionPrompt>();
+        builder.Services.AddSingleton<ApprovalMcpServer>();
+        builder.Services.AddSingleton<IAgentRunner, ClaudeCodeRunner>();
+        builder.Services.AddSingleton<IAiJobService, AiJobService>();
         builder.Services.AddSingleton<ViewModels.BoardViewModel>();
         builder.Services.AddSingleton<MainWindow>();
         return builder.Build();
