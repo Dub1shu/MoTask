@@ -139,30 +139,43 @@ public class AiJobEventFormatterTests
     [Fact]
     public void Artifacts_ComeFromWriteAndEditToolUses_Deduplicated()
     {
+        // "zzz"/"sample2"/"aaa" 順（出現順）はアルファベット順（aaa/sample2/zzz）とは逆になるよう
+        // 選んである。実装が並べ替え（例: パス文字列でソート）に退行したら本テストが検出する。
+        const string writeFirst = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\work\\zzz\\first.txt","content":"x"}}]}}""";
+        const string writeLast = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\work\\aaa\\last.txt","content":"x"}}]}}""";
         const string edit = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Edit","input":{"file_path":"C:\\work\\sample2\\hello.txt","old_string":"a","new_string":"b"}}]}}""";
         const string read = """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Read","input":{"file_path":"C:\\work\\other.txt"}}]}}""";
         var events = new[]
         {
+            Event(AiJobEventKind.ToolUse, writeFirst, "Write"),
             Event(AiJobEventKind.ToolUse, Deny[3], "Write"),
             Event(AiJobEventKind.ToolUse, read, "Read"),
             Event(AiJobEventKind.ToolUse, edit, "Edit"),
+            Event(AiJobEventKind.ToolUse, writeLast, "Write"),
             Event(AiJobEventKind.ToolUse, Bash[2], "Bash"),
         };
 
-        AiJobEventFormatter.ArtifactPaths(events).Should().Equal(@"C:\work\sample2\hello.txt");
-        AiJobEventFormatter.ArtifactPathOf(events[1]).Should().BeNull();
-        AiJobEventFormatter.ArtifactPathOf(events[3]).Should().BeNull();
+        AiJobEventFormatter.ArtifactPaths(events).Should().Equal(
+            @"C:\work\zzz\first.txt",
+            @"C:\work\sample2\hello.txt",
+            @"C:\work\aaa\last.txt");
+        AiJobEventFormatter.ArtifactPathOf(events[2]).Should().BeNull();
+        AiJobEventFormatter.ArtifactPathOf(events[5]).Should().BeNull();
     }
 
     [Fact]
     public void ResultText_ComesFromTheLastResult()
     {
+        // Result イベントを 2 件用意し、後の方の result が採用されることを検証する（1 件だけでは
+        // LastOrDefault と FirstOrDefault を区別できない）。
+        const string secondResult = """{"type":"result","is_error":false,"num_turns":3,"total_cost_usd":0.02,"result":"二回目"}""";
         var events = new[]
         {
             Event(AiJobEventKind.AssistantText, Bash[4]),
             Event(AiJobEventKind.Result, Bash[5]),
+            Event(AiJobEventKind.Result, secondResult),
         };
-        AiJobEventFormatter.ResultText(events).Should().Be("完了");
+        AiJobEventFormatter.ResultText(events).Should().Be("二回目");
         AiJobEventFormatter.ResultText(new[] { events[0] }).Should().BeNull();
     }
 
@@ -233,6 +246,24 @@ public class AiJobEventFormatterTests
 
         var events = new[] { Event(AiJobEventKind.Result, successMissingResult) };
         AiJobEventFormatter.ResultText(events).Should().BeNull();
+    }
+
+    [Fact]
+    public void Result_FractionalOrOutOfRangeNumbers_DoesNotThrow()
+    {
+        // ValueKind == Number は「整数として GetInt32/GetDecimal できる」ことを保証しない。
+        // 小数（2.7）や int32 に収まらない桁数の num_turns、decimal の範囲を超える total_cost_usd は
+        // GetInt32/GetDecimal だと FormatException / OverflowException を投げる。
+        const string fractionalTurns = """{"type":"result","is_error":false,"num_turns":2.7,"total_cost_usd":0.01}""";
+        const string outOfRange = """{"type":"result","is_error":false,"num_turns":99999999999,"total_cost_usd":1e30}""";
+
+        var a = () => AiJobEventFormatter.Format(Event(AiJobEventKind.Result, fractionalTurns));
+        var b = () => AiJobEventFormatter.Format(Event(AiJobEventKind.Result, outOfRange));
+
+        a.Should().NotThrow();
+        b.Should().NotThrow();
+        a().Text.Should().Be(string.Format(Strings.AiLogResultFormat, 0, "0.010"));
+        b().Text.Should().Be(string.Format(Strings.AiLogResultFormat, 0, "0.000"));
     }
 
     [Fact]

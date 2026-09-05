@@ -148,8 +148,12 @@ public static class AiJobEventFormatter
     {
         var isError = root.TryGetProperty("is_error", out var ie) && ie.ValueKind == JsonValueKind.True;
         if (isError) return (string.Format(Strings.AiLogResultErrorFormat, ReadString(root, "result") ?? ""), true);
-        var turns = root.TryGetProperty("num_turns", out var t) && t.ValueKind == JsonValueKind.Number ? t.GetInt32() : 0;
-        var cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number ? c.GetDecimal() : 0m;
+        // ValueKind == Number は整数として GetInt32/GetDecimal できることまでは保証しない（小数、
+        // int32/decimal の範囲外の値など）。TryGet* で失敗を吸収し、欠落時と同じ既定値にフォールバックする
+        // （TryGetInt32/TryGetDecimal は ValueKind が Number でない場合に InvalidOperationException を
+        // 投げるため、ValueKind チェックは残す）。
+        var turns = root.TryGetProperty("num_turns", out var t) && t.ValueKind == JsonValueKind.Number && t.TryGetInt32(out var ti) ? ti : 0;
+        var cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number && c.TryGetDecimal(out var ci) ? ci : 0m;
         return (string.Format(Strings.AiLogResultFormat, turns, cost.ToString("0.000", CultureInfo.InvariantCulture)), false);
     }
 
