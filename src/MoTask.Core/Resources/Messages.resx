@@ -45,4 +45,6 @@
   <data name="AgentExitedWithCodeFormat" xml:space="preserve"><value>claude が終了コード {0} で終了しました</value></data>
   <data name="AgentFailedFormat" xml:space="preserve"><value>AI の実行に失敗しました: {0}</value></data>
   <data name="PermissionRuleNotFound" xml:space="preserve"><value>許可ルールが見つかりません</value></data>
+  <data name="DeniedByRule" xml:space="preserve"><value>MoTask の許可ルールにより拒否されました</value></data>
+  <data name="DeniedByHuman" xml:space="preserve"><value>MoTask の利用者が拒否しました</value></data>
 </root>

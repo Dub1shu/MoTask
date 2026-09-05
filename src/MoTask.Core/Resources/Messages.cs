@@ -51,4 +51,6 @@ public static class Messages
     public static string AgentExitedWithCodeFormat => Get(nameof(AgentExitedWithCodeFormat));
     public static string AgentFailedFormat => Get(nameof(AgentFailedFormat));
     public static string PermissionRuleNotFound => Get(nameof(PermissionRuleNotFound));
+    public static string DeniedByRule => Get(nameof(DeniedByRule));
+    public static string DeniedByHuman => Get(nameof(DeniedByHuman));
 }

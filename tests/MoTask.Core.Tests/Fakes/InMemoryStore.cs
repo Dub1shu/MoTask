@@ -4,10 +4,11 @@ using MoTask.Core.Model;
 namespace MoTask.Core.Tests.Fakes;
 
 /// <summary>
-/// IBoardRepository / IHistoryRepository / IUnitOfWork をまとめて実装するテスト用ストア。
+/// IBoardRepository / IHistoryRepository / IUnitOfWork / IAiJobRepository / IPermissionRuleRepository を
+/// まとめて実装するテスト用ストア。
 /// 参照は常に同一インスタンスを返す（EF の追跡と同じ契約）。Id は Add 時に即採番する。
 /// </summary>
-public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork
+public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository, IPermissionRuleRepository
 {
     private int _nextId = 1;
     private long _nextHistoryId = 1;
@@ -16,6 +17,9 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public List<Project> Projects { get; } = new();
     public List<Label> Labels { get; } = new();
     public List<HistoryEntry> History { get; } = new();
+    public List<AiJob> Jobs { get; } = new();
+    public List<AiJobEvent> JobEvents { get; } = new();
+    public List<AiPermissionRule> Rules { get; } = new();
     public int SaveCount { get; private set; }
     public bool FailNextSave { get; set; }
 
@@ -104,6 +108,52 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public Task<IReadOnlyList<HistoryEntry>> GetForTaskAsync(int taskId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<HistoryEntry>>(
             History.Where(h => h.TaskId == taskId).OrderByDescending(h => h.At).ThenByDescending(h => h.Id).ToList());
+
+    // ---- IAiJobRepository ----
+    //
+    // GetAsync / GetForTaskAsync は IHistoryRepository・IPermissionRuleRepository と
+    // 「同じ名前・同じ引数・違う戻り値」で衝突する。C# は戻り値だけのオーバーロードを許さないので、
+    // 衝突する分は明示的実装にする（テストは Jobs / Rules / History を直接見るので支障は無い）。
+
+    public void Add(AiJob job)
+    {
+        if (job.Id == 0) job.Id = _nextId++;
+        Jobs.Add(job);
+    }
+
+    Task<AiJob?> IAiJobRepository.GetAsync(int jobId, CancellationToken ct)
+        => Task.FromResult(Jobs.FirstOrDefault(j => j.Id == jobId));
+
+    Task<IReadOnlyList<AiJob>> IAiJobRepository.GetForTaskAsync(int taskId, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<AiJob>>(Jobs.Where(j => j.TaskId == taskId).OrderByDescending(j => j.Id).ToList());
+
+    public Task<IReadOnlyList<AiJob>> GetByStatusAsync(IReadOnlyCollection<AiJobStatus> statuses, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<AiJob>>(Jobs.Where(j => statuses.Contains(j.Status)).OrderBy(j => j.Id).ToList());
+
+    public void AddEvent(AiJobEvent entry)
+    {
+        entry.Id = _nextHistoryId++;
+        JobEvents.Add(entry);
+    }
+
+    public Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<AiJobEvent>>(JobEvents.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList());
+
+    // ---- IPermissionRuleRepository ----
+
+    public Task<IReadOnlyList<AiPermissionRule>> GetAllAsync(CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<AiPermissionRule>>(Rules.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id).ToList());
+
+    Task<AiPermissionRule?> IPermissionRuleRepository.GetAsync(int ruleId, CancellationToken ct)
+        => Task.FromResult(Rules.FirstOrDefault(r => r.Id == ruleId));
+
+    public void Add(AiPermissionRule rule)
+    {
+        if (rule.Id == 0) rule.Id = _nextId++;
+        Rules.Add(rule);
+    }
+
+    public void Remove(AiPermissionRule rule) => Rules.Remove(rule);
 
     // ---- IUnitOfWork ----
 
