@@ -12,9 +12,10 @@ var target = args[0];
 using var input = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));
 var payload = input.ReadToEnd();
 
-// 連続する空白（改行やインデント込み）を単一の半角空白に畳んで 1 行にする
+// 改行を単一の半角空白に畳んで 1 行にする（改行直後のインデントも一緒に畳む）。
+// ペイロード内の改行なしの連続空白（JSON 文字列の空白など）は保持したままにする。
 // （events.jsonl は「1 行 = 1 イベント」が唯一の約束）。
-var line = Regex.Replace(payload, @"\s+", " ").Trim();
+var line = Regex.Replace(payload, @"[\r\n]+[ \t]*", " ").Trim();
 if (line.Length == 0) return 0;
 
 var bytes = new UTF8Encoding(false).GetBytes(line + "\n");

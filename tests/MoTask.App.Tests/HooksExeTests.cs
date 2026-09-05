@@ -88,6 +88,18 @@ public class HooksExeTests : IDisposable
         File.Exists(target).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task PreservesMultipleSpaces_WhenNoLineBreaksArePresent()
+    {
+        var target = Path.Combine(_dir, "events.jsonl");
+
+        // JSON 文字列内の連続空白（改行なし）は保持される
+        await RunAsync(target, """{"test":"a  b  c"}""");
+
+        File.ReadAllLines(target).Should().ContainSingle()
+            .Which.Should().Be("""{"test":"a  b  c"}""");
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }
