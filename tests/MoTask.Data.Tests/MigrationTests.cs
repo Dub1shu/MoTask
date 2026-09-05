@@ -50,10 +50,14 @@ public class MigrationTests : IDisposable
             await old.SaveChangesAsync();
             old.Tasks.Add(new TaskItem { Id = 1, Title = "t", ColumnId = column.Id, CreatedAt = now, UpdatedAt = now });
             await old.SaveChangesAsync();
+            // Running / Pending は「作り替え前に MoTask が落ちて、復旧処理を経ないまま残った行」を
+            // 再現する（仕様 §9・移行 SQL 参照）。JobFolder は前段のマイグレーションが埋める '' のまま。
             await old.Database.ExecuteSqlRawAsync(
                 "INSERT INTO AiJobs (TaskId, Kind, Status, SessionId, Instruction, WorkingDirectory, JobFolder, StartedAt) " +
                 "VALUES (1, 'Execute', 'Suspended', '00000000-0000-0000-0000-000000000001', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
-                "(1, 'Execute', 'AwaitingApproval', '00000000-0000-0000-0000-000000000002', 'i', 'C:\\w', '', '2026-09-05 00:00:00')");
+                "(1, 'Execute', 'AwaitingApproval', '00000000-0000-0000-0000-000000000002', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
+                "(1, 'Execute', 'Running', '00000000-0000-0000-0000-000000000003', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
+                "(1, 'Execute', 'Pending', '00000000-0000-0000-0000-000000000004', 'i', 'C:\\w', '', '2026-09-05 00:00:00')");
             // Payload は波かっこを含むので、SQL 文字列に直接埋めず引数で渡す（{0} が書式指定と衝突する）
             await old.Database.ExecuteSqlRawAsync(
                 "INSERT INTO AiJobEvents (JobId, Seq, At, Kind, Payload) " +
@@ -66,7 +70,8 @@ public class MigrationTests : IDisposable
         await ctx.Database.MigrateAsync();
 
         var jobs = await ctx.Set<AiJob>().OrderBy(j => j.Id).ToListAsync();
-        jobs.Select(j => j.Status).Should().Equal(AiJobStatus.Cancelled, AiJobStatus.Cancelled);
+        jobs.Select(j => j.Status).Should().Equal(
+            AiJobStatus.Cancelled, AiJobStatus.Cancelled, AiJobStatus.Cancelled, AiJobStatus.Cancelled);
         jobs.Should().OnlyContain(j => j.EndedAt != null, "追跡をやめた時刻を StartedAt で埋める");
         var events = await ctx.Set<AiJobEvent>().OrderBy(e => e.Seq).ToListAsync();
         events.Select(e => e.Kind).Should().Equal(AiJobEventKind.System, AiJobEventKind.System);

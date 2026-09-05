@@ -34,13 +34,25 @@ public sealed record JobFolderPaths(string Root)
     {
         var invalid = Path.GetInvalidFileNameChars();
         var builder = new StringBuilder(title.Length);
-        foreach (var c in title)
+        for (var i = 0; i < title.Length; i++)
         {
+            var c = title[i];
             var replace = char.IsWhiteSpace(c) || char.IsControl(c) || Array.IndexOf(invalid, c) >= 0;
             var next = replace ? '-' : c;
             // 区切りの連続は 1 つにまとめる
             if (next == '-' && builder.Length > 0 && builder[^1] == '-') continue;
             if (next == '-' && builder.Length == 0) continue;
+            // サロゲートペアの上位だけを残すと、フォルダ名の中に孤立したサロゲートが残る。
+            // 下位が続くなら 2 つとも入れるか、入らないならここで打ち切る。
+            if (char.IsHighSurrogate(next) && i + 1 < title.Length && char.IsLowSurrogate(title[i + 1]))
+            {
+                if (builder.Length + 2 > MaxSlugLength) break;
+                builder.Append(next);
+                builder.Append(title[i + 1]);
+                i++;
+                if (builder.Length >= MaxSlugLength) break;
+                continue;
+            }
             builder.Append(next);
             if (builder.Length >= MaxSlugLength) break;
         }

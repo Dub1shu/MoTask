@@ -55,4 +55,17 @@ public class JobFolderPathsTests
 
         slug.Should().HaveLength(40);
     }
+
+    [Fact]
+    public void Slug_DoesNotSplitASurrogatePairAtTheLengthCap()
+    {
+        // 上限ちょうどの位置に絵文字（サロゲートペア）が来ると、上位だけ入れて下位を切り捨てると
+        // 孤立サロゲートがフォルダ名に残ってしまう。ペアごと諦めて、その手前で打ち切る。
+        var title = new string('a', 39) + "😀" + "b";
+
+        var slug = JobFolderPaths.Slug(title);
+
+        slug.Should().Be(new string('a', 39));
+        slug.Should().NotContain("\uD83D").And.NotContain("\uDE00");
+    }
 }

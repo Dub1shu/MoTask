@@ -64,6 +64,12 @@ public sealed class JobEventWatcher : IJobEventSource, IDisposable
         var remaining = subscription.SkipLines;
         var seenTheFile = false;
         var partial = "";
+        // フックは 4096 バイトの書き込みバッファを持つ FileStream で追記するので、こちらが読む
+        // タイミング次第でマルチバイト文字の途中までしか書かれていないことがある。Decoder を
+        // 追従の間ずっと使い回すことで、未完成の末尾バイト列を内部状態として次の周回まで
+        // 持ち越す（flush: false）。周回ごとに新しい StreamReader を作ると、その未完成バイト列が
+        // 毎回 U+FFFD に化けたうえで読み飛ばされ、文字が永久に失われる。
+        var decoder = Utf8.GetDecoder();
 
         using var timer = new PeriodicTimer(_pollInterval);
         try
@@ -93,9 +99,15 @@ public sealed class JobEventWatcher : IJobEventSource, IDisposable
                     using var stream = new FileStream(subscription.EventsPath, FileMode.Open, FileAccess.Read,
                         FileShare.ReadWrite | FileShare.Delete);
                     stream.Seek(offset, SeekOrigin.Begin);
-                    using var reader = new StreamReader(stream, Utf8);
-                    text = await reader.ReadToEndAsync(token).ConfigureAwait(false);
+                    using var buffer = new MemoryStream();
+                    await stream.CopyToAsync(buffer, token).ConfigureAwait(false);
                     offset = stream.Position;
+                    var bytes = buffer.GetBuffer();
+                    var byteCount = (int)buffer.Length;
+                    // UTF-8 の文字数はバイト数以下なので、この大きさのバッファで必ず足りる。
+                    var chars = new char[byteCount];
+                    var charCount = decoder.GetChars(bytes, 0, byteCount, chars, 0, flush: false);
+                    text = new string(chars, 0, charCount);
                 }
                 catch (IOException)
                 {

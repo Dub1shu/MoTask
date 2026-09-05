@@ -149,6 +149,34 @@ public class JobEventWatcherTests : IDisposable
     }
 
     [Fact]
+    public async Task Follow_KeepsAMultiByteCharacterIntactWhenAWriteSplitsItAcrossTheReadBoundary()
+    {
+        // フックは 4096 バイトの書き込みバッファを持つ FileStream で追記するので、読み取り位置と
+        // 文字の境界が一致しないことがある。ペイロードを 4KB 超にし、日本語 1 文字（UTF-8 で 3
+        // バイト）の 1 バイト目の直後で 2 回の書き込みに分けて、その状況を再現する。
+        var utf8 = new UTF8Encoding(false);
+        var padding = new string('a', 4100);
+        var payload = padding + "見" + "x";
+        var lineBytes = utf8.GetBytes(payload + "\n");
+        var splitIndex = utf8.GetByteCount(padding) + 1; // "見" の1バイト目 (0xE8) の直後
+        var part1 = lineBytes[..splitIndex];
+        var part2 = lineBytes[splitIndex..];
+
+        File.WriteAllBytes(_events, part1);
+        _watcher.Follow(Subscription());
+        await Task.Delay(80); // 文字が割れた状態で最低 1 回はポーリングさせる
+        _lines.Should().BeEmpty("改行がまだ来ていないので、まだ 1 行も確定していないはず");
+
+        using (var stream = new FileStream(_events, FileMode.Append, FileAccess.Write, FileShare.ReadWrite))
+        {
+            stream.Write(part2, 0, part2.Length);
+        }
+
+        await EventuallyAsync(() => _lines.Count == 1);
+        _lines.Single().Should().Be(payload, "境界で割れた文字も壊れずに復元されるはず");
+    }
+
+    [Fact]
     public async Task StopFollowing_StopsDelivering()
     {
         _watcher.Follow(Subscription());

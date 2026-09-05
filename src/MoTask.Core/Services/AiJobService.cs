@@ -298,6 +298,9 @@ public sealed class AiJobService : IAiJobService
         if (!launched.IsSuccess) return launched;
 
         // 前に追従が切れていても掛け直す。取り込み済みの行は読み飛ばす。
+        // 数える前に古い追従を止める。そうしないと、数えている間に古いループが取り込んだ行が
+        // SkipLines に反映されず、新しい購読でもう一度取り込まれて二重カウントになる。
+        _events.StopFollowing(jobId);
         var events = await _gate.RunAsync(() => _jobs.GetEventsAsync(jobId, ct), ct).ConfigureAwait(false);
         Follow(jobId, job.JobFolder, events.Count);
         return Result.Ok();

@@ -116,6 +116,7 @@ public static class Strings
     public static string AiExecuteInstructionFormat => Get(nameof(AiExecuteInstructionFormat));
     public static string AiNoDescription => Get(nameof(AiNoDescription));
     public static string AiSection => Get(nameof(AiSection));
+    public static string AiOperations => Get(nameof(AiOperations));
     public static string AiResearch => Get(nameof(AiResearch));
     public static string AiExecute => Get(nameof(AiExecute));
     public static string AiStart => Get(nameof(AiStart));

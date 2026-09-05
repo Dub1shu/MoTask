@@ -148,7 +148,7 @@
                 </TextBlock.Style>
               </TextBlock>
               <!-- 操作（仕様 §11）。MoTask は端末のプロセスを所有しないので、殺すボタンは無い -->
-              <TextBlock Text="{x:Static res:Strings.AiSection}" Style="{StaticResource Field.Label}" />
+              <TextBlock Text="{x:Static res:Strings.AiOperations}" Style="{StaticResource Field.Label}" />
               <WrapPanel>
                 <Button Content="{x:Static res:Strings.AiOpenJobFolder}" Command="{Binding OpenJobFolderCommand}"
                         Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}" />

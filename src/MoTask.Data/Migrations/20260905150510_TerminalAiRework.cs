@@ -13,9 +13,14 @@ namespace MoTask.Data.Migrations
         {
             // 廃止した状態のまま残っている行を Cancelled に寄せる（仕様 §9）。
             // 端末のプロセスはもう追えないので、成功でも失敗でもなく「追跡をやめた」が正しい。
+            // Running / Pending もここに含める。旧実装のまま MoTask が落ちていると、次に上がった
+            // ときの復旧処理を経ずに Running/Pending の行が残ることがあり、JobFolder = '' のまま
+            // （＝1 つ前のマイグレーションが埋めた値）だと新しい RecoverOnStartupAsync も拾えず、
+            // そのタスクへの AI 依頼が永久にブロックされる。JobFolder = '' の条件で、この作り替え
+            // より後に生まれた行（実ジョブフォルダを持つ）を巻き込まないようにする。
             migrationBuilder.Sql(
                 "UPDATE AiJobs SET Status = 'Cancelled', EndedAt = COALESCE(EndedAt, StartedAt) " +
-                "WHERE Status IN ('AwaitingApproval', 'Suspended')");
+                "WHERE Status IN ('AwaitingApproval','Suspended','Running','Pending') AND JobFolder = ''");
 
             // 列挙は文字列で保存されている。消した名前が残っていると読み出しで例外になるので、
             // 承認イベントは System に寄せる（Payload は原文のまま残る）。

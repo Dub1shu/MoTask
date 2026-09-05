@@ -113,13 +113,13 @@
   <data name="AiBadgeTurnsFormat" xml:space="preserve"><value>{0} · {1} ターン</value></data>
   <data name="AiComposeResearch" xml:space="preserve"><value>調査の指示</value></data>
   <data name="AiComposeExecute" xml:space="preserve"><value>遂行の指示</value></data>
-  <data name="AiResearchInstructionFormat" xml:space="preserve"><value>次のタスクについて調査してください。要点、根拠、参考にした情報源を最終回答としてまとめてください。ファイルの作成や変更はできません。
+  <data name="AiResearchInstructionFormat" xml:space="preserve"><value>次のタスクについて調査してください。要点、根拠、参考にした情報源を最終回答としてまとめてください。ファイルの作成や変更はしないでください。
 
 タスク: {0}
 
 詳細:
 {1}</value></data>
-  <data name="AiExecuteInstructionFormat" xml:space="preserve"><value>次のタスクを遂行してください。成果物は作業フォルダに保存し、最後に何をしたかを簡潔に報告してください。
+  <data name="AiExecuteInstructionFormat" xml:space="preserve"><value>次のタスクを遂行してください。最後に何をしたかを簡潔に報告してください。
 
 タスク: {0}
 
@@ -127,6 +127,7 @@
 {1}</value></data>
   <data name="AiNoDescription" xml:space="preserve"><value>（なし）</value></data>
   <data name="AiSection" xml:space="preserve"><value>AI に任せる</value></data>
+  <data name="AiOperations" xml:space="preserve"><value>操作</value></data>
   <data name="AiResearch" xml:space="preserve"><value>調査させる</value></data>
   <data name="AiExecute" xml:space="preserve"><value>遂行させる</value></data>
   <data name="AiStart" xml:space="preserve"><value>開始</value></data>
@@ -151,6 +152,6 @@
   <data name="SettingsSaved" xml:space="preserve"><value>保存しました</value></data>
   <data name="DefaultWorkingDirectoryRequired" xml:space="preserve"><value>既定の作業フォルダを入力してください</value></data>
   <data name="SettingsPermissionMode" xml:space="preserve"><value>ツール承認のモード（--permission-mode）。承認そのものは利用者の settings.json に従います</value></data>
-  <data name="SettingsTerminalTemplate" xml:space="preserve"><value>端末の起動コマンド（空なら既定。{cwd} と {command} が置き換わります）</value></data>
+  <data name="SettingsTerminalTemplate" xml:space="preserve"><value>端末の起動コマンド（空なら既定。{cwd} と {command} が置き換わります。{cwd} は " で囲んでください）</value></data>
   <data name="PermissionModeInvalid" xml:space="preserve"><value>権限モードは一覧から選んでください</value></data>
 </root>
