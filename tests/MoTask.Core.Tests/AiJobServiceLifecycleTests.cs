@@ -153,6 +153,66 @@ public class AiJobServiceLifecycleTests : IDisposable
         job.Status.Should().Be(AiJobStatus.Suspended);
     }
 
+    /// <summary>
+    /// 承認の deny を返し切ってからプロセスを殺す、という順序そのものを見る。ダイアログ側の取り消しを
+    /// テストが握って（HoldCancellation）、deny と kill の採番の前後を比べるので、待ち時間に依存しない。
+    /// </summary>
+    [Fact]
+    public async Task SuspendAll_AnswersEveryPendingPermission_BeforeKillingTheProcess()
+    {
+        var job = await StartAsync();
+        _prompt.StampCancellation = _runner.NextOrder;
+        _prompt.HoldCancellation = true;
+        var first = _runner.AskPermissionAsync(job.Id, GitPush);
+        var second = _runner.AskPermissionAsync(job.Id, GitPush with { ToolUseId = "toolu_2" });
+        await _prompt.WaitUntilAskedAsync(2);
+
+        var suspend = _service.SuspendAllAsync();
+        await _prompt.WaitUntilHeldAsync(2);
+        _runner.KillOrderOf(job.Id).Should().Be(0, "保留中の承認を握っている間はまだ殺さない");
+
+        _prompt.ReleaseCancellations();
+        await suspend.WaitAsync(TimeSpan.FromSeconds(5));
+
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+        _prompt.CancelOrders.Should().HaveCount(2);
+        _prompt.CancelOrders.Max().Should().BeLessThan(
+            _runner.KillOrderOf(job.Id), "保留中の承認すべてに決定を返してからプロセスを殺す");
+        job.Status.Should().Be(AiJobStatus.Suspended);
+    }
+
+    /// <summary>
+    /// deny を受け取った CLI が次のツールを呼ぶことがある。畳み始めたあとの要求で状態やイベントを
+    /// 書くと、確定済みの Cancelled / Suspended を追い越して終了済みのジョブが Running に蘇る。
+    /// </summary>
+    [Fact]
+    public async Task PermissionArrivingAfterTeardownStarted_IsDeniedWithoutTouchingTheJob()
+    {
+        var job = await StartAsync();
+        _prompt.HoldCancellation = true;
+        var first = _runner.AskPermissionAsync(job.Id, GitPush);
+        await _prompt.WaitUntilAskedAsync();
+
+        var suspend = _service.SuspendAllAsync();
+        await _prompt.WaitUntilHeldAsync();
+        var eventsBefore = (await _service.GetEventsAsync(job.Id)).Count;
+
+        var late = await _runner.AskPermissionAsync(job.Id, GitPush with { ToolUseId = "toolu_late" })
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        late.IsAllowed.Should().BeFalse();
+        late.Message.Should().Be(Messages.SuspendedByShutdown);
+        job.Status.Should().Be(AiJobStatus.AwaitingApproval, "遅れて来た要求は状態を書き換えない");
+        (await _service.GetEventsAsync(job.Id)).Count.Should().Be(eventsBefore, "イベントも増やさない");
+        _prompt.Asked.Should().ContainSingle("畳み始めたあとはダイアログを出さない");
+
+        _prompt.ReleaseCancellations();
+        await suspend.WaitAsync(TimeSpan.FromSeconds(5));
+        (await first.WaitAsync(TimeSpan.FromSeconds(5))).Message.Should().Be(Messages.SuspendedByShutdown);
+        job.Status.Should().Be(AiJobStatus.Suspended);
+        job.EndedAt.Should().BeNull();
+    }
+
     [Fact]
     public async Task TwoPermissionsInFlight_ReturnToRunning_OnlyWhenTheLastOneIsDecided()
     {
@@ -253,6 +313,17 @@ public class AiJobServiceLifecycleTests : IDisposable
 
         (await _service.StartJobAsync(task.Id, AiJobKind.Execute, "もう一度"))
             .Error.Should().Be(Messages.TaskAlreadyHasActiveJob);
+    }
+
+    [Fact]
+    public async Task Resume_DeletedTask_IsRejected()
+    {
+        var job = await StartAsync();
+        await _service.SuspendAllAsync();
+        _store.AllTasks.Single(t => t.Id == job.TaskId).DeletedAt = _clock.UtcNow;
+
+        (await _service.ResumeJobAsync(job.Id)).Error.Should().Be(Messages.TaskDeletedCannotRunAi);
+        job.Status.Should().Be(AiJobStatus.Suspended);
     }
 
     [Fact]

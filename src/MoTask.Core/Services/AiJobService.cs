@@ -27,6 +27,7 @@ public sealed class AiJobService : IAiJobService
     {
         /// <summary>まだ決定が返っていない承認要求。CLI は複数のツールを同時に呼ぶので 1 つとは限らない。</summary>
         private readonly List<TaskCompletionSource> _pendingPermissions = new();
+        private StopReason _reason;
 
         public required int JobId { get; init; }
         public required int TaskId { get; init; }
@@ -38,15 +39,44 @@ public sealed class AiJobService : IAiJobService
         public CancellationTokenSource PromptCts { get; } = new();
         public int Seq { get; set; }
         public int TurnCount { get; set; }
-        public StopReason Reason { get; set; }
         public Task Completion { get; set; } = Task.CompletedTask;
 
-        /// <summary>承認要求の受付。決定が返るまでこの TaskCompletionSource が保留中として残る。</summary>
-        public TaskCompletionSource AddPendingPermission()
+        /// <summary>停止・終了の理由。BeginShutdown で None 以外になり、以後は承認要求を受け付けない。</summary>
+        public StopReason Reason
         {
-            var pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            lock (_pendingPermissions) _pendingPermissions.Add(pending);
-            return pending;
+            get { lock (_pendingPermissions) return _reason; }
+        }
+
+        /// <summary>
+        /// 畳み始める。理由を立てて、待つべき保留要求のスナップショットを返す。受付と同じロックの中で
+        /// やるので、ここで返した一覧に漏れる要求は以後 1 件も受け付けられない。
+        /// </summary>
+        public IReadOnlyList<Task> BeginShutdown(StopReason reason)
+        {
+            lock (_pendingPermissions)
+            {
+                _reason = reason;
+                return _pendingPermissions.Select(p => p.Task).ToList();
+            }
+        }
+
+        /// <summary>
+        /// 承認要求の受付。決定が返るまでこの TaskCompletionSource が保留中として残る。
+        /// 畳み始めたあとは false を返す（呼び出し側が何も触らずに deny する）。
+        /// </summary>
+        public bool TryAddPendingPermission(out TaskCompletionSource pending)
+        {
+            lock (_pendingPermissions)
+            {
+                if (_reason != StopReason.None)
+                {
+                    pending = default!;
+                    return false;
+                }
+                pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                _pendingPermissions.Add(pending);
+                return true;
+            }
         }
 
         public void RemovePendingPermission(TaskCompletionSource pending)
@@ -58,12 +88,6 @@ public sealed class AiJobService : IAiJobService
         public bool IsLastPendingPermission()
         {
             lock (_pendingPermissions) return _pendingPermissions.Count <= 1;
-        }
-
-        /// <summary>畳むときに待つ対象。スナップショットなので、待っている間に増えた分は含めない。</summary>
-        public IReadOnlyList<Task> PendingPermissions()
-        {
-            lock (_pendingPermissions) return _pendingPermissions.Select(p => p.Task).ToList();
         }
     }
 
@@ -248,27 +272,43 @@ public sealed class AiJobService : IAiJobService
     }
 
     /// <summary>
-    /// 保留中の承認要求すべてへ先に deny を返してから（CLI へ応答が届くのを最大 2 秒待つ）プロセスを殺す。
+    /// 保留中の承認要求すべてに決定が付くのを待って（最大 2 秒）からプロセスを殺す。待つのは
+    /// HandlePermissionAsync が決定を返し終えるところまでで、その決定が子プロセスへ実際に書き込まれる
+    /// ことまではここでは保証しない（フラッシュは IAgentRunner の実装側の責務）。
+    /// 畳み始めたあとに届いた要求は RunningJob が受付を断り、HandlePermissionAsync が即 deny で返す。
     /// 終了の理由は entry.Reason に残し、ExecuteAsync が最終状態を決める。
     /// ゲートの外から呼ぶこと（承認の後始末も ExecuteAsync もゲートを取る）。
     /// </summary>
     private static async Task ShutdownAsync(RunningJob entry, StopReason reason)
     {
-        entry.Reason = reason;
-        entry.PromptCts.Cancel();
-        var pending = entry.PendingPermissions();
-        if (pending.Count > 0)
-        {
-            await Task.WhenAny(Task.WhenAll(pending), Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
-        }
-        entry.ProcessCts.Cancel();
         try
         {
+            var pending = entry.BeginShutdown(reason);
+            Cancel(entry.PromptCts);
+            if (pending.Count > 0)
+            {
+                await Task.WhenAny(Task.WhenAll(pending), Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
+            }
+            Cancel(entry.ProcessCts);
             await entry.Completion.ConfigureAwait(false);
         }
         catch (Exception)
         {
-            // ExecuteAsync は例外を握って状態を確定させるので、ここへ来るのは起動そのものの失敗だけ
+            // ExecuteAsync は例外を握って状態を確定させるので、ここへ来るのは起動そのものの失敗と、
+            // 畳む手順自体がこけた場合だけ。アプリ終了時に SuspendAllAsync が投げ返さないよう握り潰す。
+        }
+    }
+
+    /// <summary>Cancel は登録済みコールバックの例外を AggregateException でまとめて投げうる。畳む手順を止めない。</summary>
+    private static void Cancel(CancellationTokenSource cts)
+    {
+        try
+        {
+            cts.Cancel();
+        }
+        catch (Exception)
+        {
+            // 承認ダイアログやランナー側のコールバックの失敗で、プロセスの kill を落とさない
         }
     }
 
@@ -294,6 +334,8 @@ public sealed class AiJobService : IAiJobService
 
                 var task = await _boards.GetTaskAsync(job.TaskId, ct).ConfigureAwait(false);
                 if (task is null) return Result.Fail(Messages.TaskNotFound);
+                // 中断中に消されたタスクは再開しない（完了時の確認待ちへの移動が削除済みタスクを動かしてしまう）。
+                if (task.IsDeleted) return Result.Fail(Messages.TaskDeletedCannotRunAi);
 
                 var events = await _jobs.GetEventsAsync(job.Id, ct).ConfigureAwait(false);
                 job.Status = AiJobStatus.Running;
@@ -470,10 +512,21 @@ public sealed class AiJobService : IAiJobService
     /// 承認ツールから呼ばれる。ルールで決まればダイアログ無し。AskHuman なら IPermissionPrompt を待つ。
     /// タイムアウトはさせない。停止・終了で PromptCts が取り消されたときだけ deny を返す。
     /// 並行して何件でも来る（CLI は複数のツールを同時に呼ぶ）ので、保留中の要求は entry に積む。
+    /// 畳み始めたあとの要求は、状態もイベントも触らずに即 deny する。
     /// </summary>
     private async Task<PermissionDecision> HandlePermissionAsync(AiJob job, RunningJob entry, PermissionRequest request, CancellationToken ct)
     {
-        var pending = entry.AddPendingPermission();
+        // 停止・終了の deny を受け取った CLI が、プロセスが死ぬ前に次のツールを呼ぶことがある。
+        // ここで受け付けて AwaitingApproval を書くと、最終状態を確定した ExecuteAsync を追い越して
+        // 終了済みのジョブを Running に蘇らせてしまう（EndedAt と終了履歴が付いたまま実体が無い状態）。
+        // 受付の可否は保留一覧と同じロックの中で決まるので、ShutdownAsync が待つ一覧から漏れて
+        // なお受け付けられる、という隙間は無い。
+        if (!entry.TryAddPendingPermission(out var pending))
+        {
+            return PermissionDecision.Deny(
+                entry.Reason == StopReason.Stop ? Messages.StoppedByUser : Messages.SuspendedByShutdown);
+        }
+
         try
         {
             AiJobEvent? asked = null;

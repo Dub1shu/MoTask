@@ -15,18 +15,30 @@ public sealed class FakeAgentRunner : IAgentRunner
     // (jobId, 何回目の起動か) → その起動のリクエスト。再開すると同じジョブで 2 回目の RunAsync が来る。
     private readonly ConcurrentDictionary<(int JobId, int Nth), TaskCompletionSource<AgentRunRequest>> _started = new();
     private readonly ConcurrentDictionary<int, int> _runCounts = new();
+    private readonly ConcurrentDictionary<int, int> _killOrder = new();
+    private int _order;
 
     public Result Availability { get; set; } = Result.Ok();
     public List<AgentRunRequest> Requests { get; } = new();
 
     public Result CheckAvailable() => Availability;
 
+    /// <summary>畳む順序を見るための連番。「deny を返し切ってから殺す」の検証にテストと共有する。</summary>
+    public int NextOrder() => Interlocked.Increment(ref _order);
+
+    /// <summary>プロセスを殺した順番（NextOrder の値）。まだ殺されていなければ 0。</summary>
+    public int KillOrderOf(int jobId) => _killOrder.TryGetValue(jobId, out var order) ? order : 0;
+
     public Task<AgentRunOutcome> RunAsync(AgentRunRequest request, CancellationToken ct)
     {
         var tcs = new TaskCompletionSource<AgentRunOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (Requests) Requests.Add(request);
         _pending[request.JobId] = tcs;
-        ct.Register(() => tcs.TrySetCanceled(ct));
+        ct.Register(() =>
+        {
+            _killOrder[request.JobId] = NextOrder();
+            tcs.TrySetCanceled(ct);
+        });
         var nth = _runCounts.AddOrUpdate(request.JobId, 1, (_, n) => n + 1);
         Started(request.JobId, nth).TrySetResult(request);
         return tcs.Task;
