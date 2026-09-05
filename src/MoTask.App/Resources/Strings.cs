@@ -120,4 +120,18 @@ public static class Strings
     public static string AiOutcomeFailed => Get(nameof(AiOutcomeFailed));
     public static string AiOutcomeCancelled => Get(nameof(AiOutcomeCancelled));
     public static string AiOutcomeUnknown => Get(nameof(AiOutcomeUnknown));
+    public static string AiStatusResearching => Get(nameof(AiStatusResearching));
+    public static string AiStatusExecuting => Get(nameof(AiStatusExecuting));
+    public static string AiStatusAwaiting => Get(nameof(AiStatusAwaiting));
+    public static string AiStatusSuspended => Get(nameof(AiStatusSuspended));
+    public static string AiStatusSucceeded => Get(nameof(AiStatusSucceeded));
+    public static string AiStatusFailed => Get(nameof(AiStatusFailed));
+    public static string AiStatusCancelled => Get(nameof(AiStatusCancelled));
+    public static string AiStatusPending => Get(nameof(AiStatusPending));
+    public static string AiBadgeTurnsFormat => Get(nameof(AiBadgeTurnsFormat));
+    public static string AiCostFormat => Get(nameof(AiCostFormat));
+    public static string AiComposeResearch => Get(nameof(AiComposeResearch));
+    public static string AiComposeExecute => Get(nameof(AiComposeExecute));
+    public static string AiResearchInstructionFormat => Get(nameof(AiResearchInstructionFormat));
+    public static string AiExecuteInstructionFormat => Get(nameof(AiExecuteInstructionFormat));
 }

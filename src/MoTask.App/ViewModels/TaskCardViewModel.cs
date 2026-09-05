@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using MoTask.App.Resources;
 using MoTask.Core.Filtering;
 using MoTask.Core.Model;
+using MoTask.Core.Services;
 
 namespace MoTask.App.ViewModels;
 
@@ -17,6 +18,9 @@ public sealed partial class TaskCardViewModel : ObservableObject
     [ObservableProperty] private string _dueText = "";
     [ObservableProperty] private DueStatus _dueStatus;
     [ObservableProperty] private bool _isDeleted;
+    [ObservableProperty] private string? _aiBadgeText;
+    [ObservableProperty] private bool _isAwaitingApproval;
+    [ObservableProperty] private bool _hasAiBadge;
 
     public ObservableCollection<LabelChip> Labels { get; } = new();
 
@@ -45,5 +49,30 @@ public sealed partial class TaskCardViewModel : ObservableObject
         }
         OnPropertyChanged(nameof(ColumnId));
         OnPropertyChanged(nameof(Position));
+    }
+
+    /// <summary>
+    /// AI ジョブの状態をバッジに写す（仕様 §10）。終了状態や null で消す。
+    /// Refresh はモデルの項目しか見ないので、バッジはここでだけ変わる。
+    /// </summary>
+    public void SetAiState(AiJobSnapshot? job)
+    {
+        if (job is null || job.Status.IsTerminal() || job.Status == AiJobStatus.Pending)
+        {
+            AiBadgeText = null;
+            IsAwaitingApproval = false;
+            HasAiBadge = false;
+            return;
+        }
+
+        IsAwaitingApproval = job.Status == AiJobStatus.AwaitingApproval;
+        AiBadgeText = job.Status switch
+        {
+            AiJobStatus.AwaitingApproval => Strings.AiStatusAwaiting,
+            AiJobStatus.Suspended => Strings.AiStatusSuspended,
+            _ => string.Format(CultureInfo.CurrentCulture, Strings.AiBadgeTurnsFormat,
+                job.Kind == AiJobKind.Research ? Strings.AiStatusResearching : Strings.AiStatusExecuting, job.TurnCount),
+        };
+        HasAiBadge = true;
     }
 }

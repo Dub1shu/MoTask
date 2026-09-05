@@ -125,4 +125,28 @@
   <data name="AiOutcomeFailed" xml:space="preserve"><value>失敗</value></data>
   <data name="AiOutcomeCancelled" xml:space="preserve"><value>停止</value></data>
   <data name="AiOutcomeUnknown" xml:space="preserve"><value>終了</value></data>
+  <data name="AiStatusResearching" xml:space="preserve"><value>AI 調査中</value></data>
+  <data name="AiStatusExecuting" xml:space="preserve"><value>AI 遂行中</value></data>
+  <data name="AiStatusAwaiting" xml:space="preserve"><value>承認待ち</value></data>
+  <data name="AiStatusSuspended" xml:space="preserve"><value>AI 中断中</value></data>
+  <data name="AiStatusSucceeded" xml:space="preserve"><value>AI 完了</value></data>
+  <data name="AiStatusFailed" xml:space="preserve"><value>AI 失敗</value></data>
+  <data name="AiStatusCancelled" xml:space="preserve"><value>AI 停止</value></data>
+  <data name="AiStatusPending" xml:space="preserve"><value>AI 待機中</value></data>
+  <data name="AiBadgeTurnsFormat" xml:space="preserve"><value>{0} · {1} ターン</value></data>
+  <data name="AiCostFormat" xml:space="preserve"><value>${0:0.000} · {1} ターン</value></data>
+  <data name="AiComposeResearch" xml:space="preserve"><value>調査の指示</value></data>
+  <data name="AiComposeExecute" xml:space="preserve"><value>遂行の指示</value></data>
+  <data name="AiResearchInstructionFormat" xml:space="preserve"><value>次のタスクについて調査してください。要点、根拠、参考にした情報源を最終回答としてまとめてください。ファイルの作成や変更はできません。
+
+タスク: {0}
+
+詳細:
+{1}</value></data>
+  <data name="AiExecuteInstructionFormat" xml:space="preserve"><value>次のタスクを遂行してください。成果物は作業フォルダに保存し、最後に何をしたかを簡潔に報告してください。
+
+タスク: {0}
+
+詳細:
+{1}</value></data>
 </root>

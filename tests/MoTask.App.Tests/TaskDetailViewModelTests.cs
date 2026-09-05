@@ -31,7 +31,7 @@ public class TaskDetailViewModelTests
         _service.UpdateTaskAsync(Arg.Any<TaskUpdate>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
         _service.MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Ok()));
-        _vm = new BoardViewModel(_service, new TestClock());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
     }
 
     private async Task<TaskDetailViewModel> OpenAsync(int taskId)
@@ -223,5 +223,28 @@ public class TaskDetailViewModelTests
         detail.CloseCommand.Execute(null);
         _vm.Detail.Should().BeNull();
         _vm.SelectedCard.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProjectWorkingDirectory_IsShownForTheSelectedProject_AndSavedOnChange()
+    {
+        _service.SetProjectWorkingDirectoryAsync(100, Arg.Any<string?>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
+        var detail = await OpenAsync(10);
+
+        detail.HasProject.Should().BeTrue();
+        detail.ProjectWorkingDirectory.Should().BeNull();
+
+        detail.ProjectWorkingDirectory = @"C:\work\a";
+        await detail.PendingSave;
+
+        await _service.Received(1).SetProjectWorkingDirectoryAsync(100, @"C:\work\a", Arg.Any<CancellationToken>());
+        await _service.DidNotReceive().UpdateTaskAsync(Arg.Any<TaskUpdate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProjectWorkingDirectory_IsHiddenWithoutAProject()
+    {
+        var detail = await OpenAsync(11);
+        detail.HasProject.Should().BeFalse();
     }
 }
