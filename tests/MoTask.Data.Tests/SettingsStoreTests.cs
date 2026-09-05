@@ -48,6 +48,30 @@ public class SettingsStoreTests : IDisposable
         loaded.Model.Should().BeNull();
     }
 
+    [Fact]
+    public void Save_CalledAgain_ReplacesThePreviousFile_AndRoundTrips()
+    {
+        var store = new JsonAiSettingsStore(PathOf("settings.json"));
+        var first = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20);
+        var second = new AiSettings(@"C:\other", 4, null, null, 30);
+
+        store.Save(first);
+        store.Save(second);
+
+        new JsonAiSettingsStore(PathOf("settings.json")).Load().Should().Be(second);
+    }
+
+    [Fact]
+    public void Save_LeavesNoTemporaryFileBehind()
+    {
+        var store = new JsonAiSettingsStore(PathOf("settings.json"));
+
+        store.Save(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20));
+
+        Directory.GetFiles(_dir).Should().Equal(PathOf("settings.json"));
+        File.Exists(PathOf("settings.json.tmp")).Should().BeFalse();
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }

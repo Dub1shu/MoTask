@@ -5,7 +5,7 @@ namespace MoTask.Data;
 
 /// <summary>
 /// settings.json。項目が欠けていても既定で埋め、壊れていても既定を返す(設定ファイルの事故で起動を止めない)。
-/// 保存は都度ファイル全体を書く。
+/// 保存は同じフォルダの一時ファイルに書いてから置き換える(クラッシュや電源断で本体を破損させない)。
 /// </summary>
 public sealed class JsonAiSettingsStore : IAiSettingsStore
 {
@@ -50,7 +50,26 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
             Model = settings.Model,
             MaxTurns = settings.MaxTurns,
         };
-        File.WriteAllText(_path, JsonSerializer.Serialize(dto, Options));
+
+        // 一時ファイルに書いてから置き換える。書き込みが途中で失敗しても settings.json は元のまま。
+        var tmpPath = _path + ".tmp";
+        try
+        {
+            File.WriteAllText(tmpPath, JsonSerializer.Serialize(dto, Options));
+            if (File.Exists(_path))
+            {
+                File.Replace(tmpPath, _path, destinationBackupFileName: null);
+            }
+            else
+            {
+                File.Move(tmpPath, _path);
+            }
+        }
+        finally
+        {
+            // 成功時は既にリネーム済みで存在しない。失敗時のゴミだけ片付ける。
+            if (File.Exists(tmpPath)) File.Delete(tmpPath);
+        }
     }
 
     private sealed class Dto
