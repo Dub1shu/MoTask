@@ -20,7 +20,11 @@ public class MigrationTests : IDisposable
         var tables = await ctx.Database
             .SqlQueryRaw<string>("SELECT name AS Value FROM sqlite_master WHERE type = 'table'")
             .ToListAsync();
-        tables.Should().Contain(new[] { "Boards", "Columns", "Tasks", "Projects", "Labels", "TaskLabels", "History" });
+        tables.Should().Contain(new[]
+        {
+            "Boards", "Columns", "Tasks", "Projects", "Labels", "TaskLabels", "History",
+            "AiJobs", "AiJobEvents", "AiPermissionRules",
+        });
     }
 
     [Fact]
@@ -64,6 +68,30 @@ public class MigrationTests : IDisposable
         DbPaths.DefaultDirectory.Should().EndWith("MoTask");
         DbPaths.DefaultDatabase.Should().EndWith(Path.Combine("MoTask", "motask.db"));
         DbPaths.ConnectionString(@"C:\x\y.db").Should().Contain("y.db");
+    }
+
+    [Fact]
+    public async Task Project_WorkingDirectory_RoundTrips()
+    {
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+            ctx.Projects.Add(new Project { Name = "p", WorkingDirectory = @"C:\work\p" });
+            ctx.Projects.Add(new Project { Name = "q" });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            (await ctx.Projects.SingleAsync(p => p.Name == "p")).WorkingDirectory.Should().Be(@"C:\work\p");
+            (await ctx.Projects.SingleAsync(p => p.Name == "q")).WorkingDirectory.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public void DbPaths_SettingsSitNextToTheDatabase()
+    {
+        DbPaths.DefaultSettings.Should().EndWith(Path.Combine("MoTask", "settings.json"));
     }
 
     public void Dispose() => _db.Dispose();
