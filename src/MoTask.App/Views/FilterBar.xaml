@@ -6,7 +6,8 @@
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:BoardViewModel}">
-  <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}">
+  <Border Background="{StaticResource Brush.Surface}" BorderBrush="{StaticResource Brush.Divider}"
+          BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}">
     <DockPanel>
       <Button DockPanel.Dock="Right" Content="{x:Static res:Strings.NewTask}" Style="{StaticResource Btn.Primary}"
               Command="{Binding NewTaskCommand}" />

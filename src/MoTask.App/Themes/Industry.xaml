@@ -2,13 +2,19 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
-  <!-- 色（styles.css :root） -->
-  <Color x:Key="Color.Bg">#F2F2F3</Color>
-  <Color x:Key="Color.Surface">#E9E9EA</Color>
-  <Color x:Key="Color.Text">#1D1F20</Color>
-  <Color x:Key="Color.Accent">#5980A6</Color>
-  <Color x:Key="Color.Divider">#291D1F20</Color>
-  <Color x:Key="Color.Danger">#B3261E</Color>
+  <!-- Graphite Blue: 黒の濃淡で階層を作り、操作箇所だけ青で強調する。 -->
+  <Color x:Key="Color.Bg">#0D0F12</Color>
+  <Color x:Key="Color.Surface">#15181D</Color>
+  <Color x:Key="Color.SurfaceRaised">#1D2128</Color>
+  <Color x:Key="Color.SurfaceHover">#252B35</Color>
+  <Color x:Key="Color.Input">#111419</Color>
+  <Color x:Key="Color.Text">#ECEEF2</Color>
+  <Color x:Key="Color.TextMuted">#9BA3B2</Color>
+  <Color x:Key="Color.Accent">#7DA7FF</Color>
+  <Color x:Key="Color.AccentSubtle">#263756</Color>
+  <Color x:Key="Color.Divider">#343943</Color>
+  <Color x:Key="Color.Danger">#FF7373</Color>
+  <Color x:Key="Color.OnAccent">#0C1424</Color>
 
   <Color x:Key="Color.Neutral.100">#F5F5F8</Color>
   <Color x:Key="Color.Neutral.200">#E7E7EA</Color>
@@ -32,11 +38,16 @@
 
   <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}" />
   <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
+  <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="{StaticResource Color.SurfaceRaised}" />
+  <SolidColorBrush x:Key="Brush.SurfaceHover" Color="{StaticResource Color.SurfaceHover}" />
+  <SolidColorBrush x:Key="Brush.Input" Color="{StaticResource Color.Input}" />
   <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}" />
-  <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.Neutral.600}" />
+  <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}" />
   <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
+  <SolidColorBrush x:Key="Brush.AccentSubtle" Color="{StaticResource Color.AccentSubtle}" />
   <SolidColorBrush x:Key="Brush.Divider" Color="{StaticResource Color.Divider}" />
   <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
+  <SolidColorBrush x:Key="Brush.OnAccent" Color="{StaticResource Color.OnAccent}" />
 
   <SolidColorBrush x:Key="Brush.Neutral.100" Color="{StaticResource Color.Neutral.100}" />
   <SolidColorBrush x:Key="Brush.Neutral.200" Color="{StaticResource Color.Neutral.200}" />
@@ -122,6 +133,7 @@
   <sys:Double x:Key="FontSize.Control">14</sys:Double>
   <sys:Double x:Key="FontSize.Small">13</sys:Double>
   <sys:Double x:Key="FontSize.Caption">11</sys:Double>
+  <sys:Double x:Key="FontSize.DetailTitle">18</sys:Double>
   <sys:Double x:Key="FontSize.H4">20</sys:Double>
   <sys:Double x:Key="FontSize.H5">16</sys:Double>
 </ResourceDictionary>
