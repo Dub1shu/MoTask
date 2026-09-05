@@ -36,6 +36,7 @@ public static class Messages
     public static string DefaultColumnDone => Get(nameof(DefaultColumnDone));
     public static string ClaudeNotFound => Get(nameof(ClaudeNotFound));
     public static string WorkingDirectoryMissingFormat => Get(nameof(WorkingDirectoryMissingFormat));
+    public static string DefaultWorkingDirectoryFailedFormat => Get(nameof(DefaultWorkingDirectoryFailedFormat));
     public static string ConcurrencyLimitFormat => Get(nameof(ConcurrencyLimitFormat));
     public static string TaskAlreadyHasActiveJob => Get(nameof(TaskAlreadyHasActiveJob));
     public static string TaskDeletedCannotRunAi => Get(nameof(TaskDeletedCannotRunAi));

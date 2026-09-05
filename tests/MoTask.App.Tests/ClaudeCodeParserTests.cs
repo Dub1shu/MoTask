@@ -111,6 +111,25 @@ public class ClaudeCodeParserTests
         ClaudeCodeParser.Parse("""{"no":"type"}""").Single().Kind.Should().Be(AiJobEventKind.System);
     }
 
+    /// <summary>
+    /// decimal に収まらない total_cost_usd（・大きすぎる num_turns）で例外を投げないこと。
+    /// ここで投げるとランナの stdout ループを抜けてジョブ全体が失敗する。
+    /// </summary>
+    [Fact]
+    public void ResultLine_WithOutOfRangeNumbers_IsStillAnEvent_WithoutThrowing()
+    {
+        const string line = """{"type":"result","is_error":false,"num_turns":1e40,"total_cost_usd":1e40,"result":"完了"}""";
+
+        var ev = ClaudeCodeParser.Parse(line).Single();
+
+        ev.Kind.Should().Be(AiJobEventKind.Result);
+        ev.Payload.Should().Be(line);
+        ev.Result.Should().NotBeNull();
+        ev.Result!.TotalCostUsd.Should().BeNull("decimal に収まらない値は落とす");
+        ev.Result.NumTurns.Should().BeNull("int に収まらない値も落とす");
+        ev.Result.ResultText.Should().Be("完了");
+    }
+
     [Fact]
     public void BlankLine_ProducesNothing()
     {

@@ -230,7 +230,7 @@ public sealed class AiJobService : IAiJobService
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
-            return Result.Fail<string>(string.Format(Messages.WorkingDirectoryMissingFormat, fallback));
+            return Result.Fail<string>(string.Format(Messages.DefaultWorkingDirectoryFailedFormat, fallback));
         }
         return Result.Ok(fallback);
     }
@@ -436,7 +436,13 @@ public sealed class AiJobService : IAiJobService
         }).ConfigureAwait(false);
 
         _running.TryRemove(job.Id, out _);
-        if (final == AiJobStatus.Succeeded) warning ??= await MoveToReviewAsync(job.TaskId).ConfigureAwait(false);
+        if (final == AiJobStatus.Succeeded)
+        {
+            // 保存に失敗していても列移動そのものは必ず試みる（?? = だと警告が立っている時に呼ばれない）。
+            // バナーは 1 本なので、先に立っている保存失敗の警告を優先し、無いときだけ移動側の警告を出す。
+            var moveWarning = await MoveToReviewAsync(job.TaskId).ConfigureAwait(false);
+            warning ??= moveWarning;
+        }
         Raise(job, entry, null, warning);
     }
 

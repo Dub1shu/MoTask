@@ -183,6 +183,7 @@
   <data name="SettingsScopeProjectFormat" xml:space="preserve"><value>プロジェクト「{0}」</value></data>
   <data name="SettingsDeleteRule" xml:space="preserve"><value>削除</value></data>
   <data name="MaxConcurrentMustBePositive" xml:space="preserve"><value>同時実行の上限は 1 以上の整数にしてください</value></data>
+  <data name="MaxConcurrentTooLargeFormat" xml:space="preserve"><value>同時実行の上限は {0} 以下にしてください</value></data>
   <data name="MaxTurnsMustBePositive" xml:space="preserve"><value>最大ターン数は 1 以上の整数にしてください</value></data>
   <data name="DefaultWorkingDirectoryRequired" xml:space="preserve"><value>既定の作業フォルダを入力してください</value></data>
 </root>

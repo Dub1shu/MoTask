@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MoTask.Core;
+using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
@@ -15,7 +16,7 @@ public class BoardServiceClassificationTests
     public BoardServiceClassificationTests()
     {
         _store.SeedColumn("完了", ColumnRole.Done);
-        _service = new BoardService(_store, _store, _store, new FakeClock());
+        _service = new BoardService(_store, _store, _store, new FakeClock(), new OperationGate());
     }
 
     [Fact]

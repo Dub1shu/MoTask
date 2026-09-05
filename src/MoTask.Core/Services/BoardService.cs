@@ -13,13 +13,13 @@ public sealed class BoardService : IBoardService
     // AiJobService と同じ DbContext を共有するため、ゲートも DI で同じインスタンスを受け取る。
     private readonly OperationGate _gate;
 
-    public BoardService(IBoardRepository boards, IHistoryRepository history, IUnitOfWork uow, IClock clock, OperationGate? gate = null)
+    public BoardService(IBoardRepository boards, IHistoryRepository history, IUnitOfWork uow, IClock clock, OperationGate gate)
     {
         _boards = boards;
         _history = history;
         _uow = uow;
         _clock = clock;
-        _gate = gate ?? new OperationGate();
+        _gate = gate;
     }
 
     // ---------- 照会 ----------

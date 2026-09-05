@@ -30,6 +30,7 @@
   <data name="DefaultColumnDone" xml:space="preserve"><value>完了</value></data>
   <data name="ClaudeNotFound" xml:space="preserve"><value>claude 実行ファイルが見つかりません。設定でパスを指定してください</value></data>
   <data name="WorkingDirectoryMissingFormat" xml:space="preserve"><value>プロジェクトの作業フォルダが見つかりません: {0}</value></data>
+  <data name="DefaultWorkingDirectoryFailedFormat" xml:space="preserve"><value>既定の作業フォルダを作成できません: {0}</value></data>
   <data name="ConcurrencyLimitFormat" xml:space="preserve"><value>同時に実行できる AI ジョブは {1} 件までです（現在 {0} 件が実行中）</value></data>
   <data name="TaskAlreadyHasActiveJob" xml:space="preserve"><value>このタスクには実行中の AI ジョブがあります</value></data>
   <data name="TaskDeletedCannotRunAi" xml:space="preserve"><value>削除済みのタスクには AI を実行できません</value></data>

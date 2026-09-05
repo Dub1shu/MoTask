@@ -160,6 +160,23 @@ public class AiJobServiceStartTests : IDisposable
         _store.Jobs.Should().BeEmpty();
     }
 
+    /// <summary>既定の作業フォルダを作れなかった場合は、プロジェクト設定を指す文言にならないこと。</summary>
+    [Fact]
+    public async Task Start_DefaultWorkingDirectoryCannotBeCreated_IsRejected_WithTheDefaultFolderMessage()
+    {
+        Directory.CreateDirectory(_tempDir);
+        var blocker = Path.Combine(_tempDir, "blocker");
+        File.WriteAllText(blocker, "");
+        var fallback = Path.Combine(blocker, "MoTask");
+        _settings.Settings = _settings.Settings with { DefaultWorkingDirectory = fallback };
+        var task = _store.SeedTask(_backlog, "a");
+
+        var result = await _service.StartJobAsync(task.Id, AiJobKind.Execute, "やる");
+
+        result.Error.Should().Be(string.Format(Messages.DefaultWorkingDirectoryFailedFormat, fallback));
+        _store.Jobs.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Start_TaskWithActiveJob_IsRejected()
     {
@@ -267,6 +284,27 @@ public class AiJobServiceStartTests : IDisposable
         args.Job.Status.Should().Be(AiJobStatus.Succeeded);
         args.Warning.Should().Be(Messages.NoReviewColumn);
         task.ColumnId.Should().Be(_backlog.Id);
+    }
+
+    /// <summary>
+    /// 完了時の保存に失敗しても、確認待ちへの移動は必ず試みる（??= だと短絡して移動が呼ばれない）。
+    /// バナーは 1 本なので、先に立っている保存失敗の警告をそのまま出す。
+    /// </summary>
+    [Fact]
+    public async Task Completion_WhenTheFinalSaveFails_StillMovesTaskToReview()
+    {
+        var task = _store.SeedTask(_backlog, "a");
+        var job = (await _service.StartJobAsync(task.Id, AiJobKind.Execute, "やる")).Value!;
+        await _runner.WaitForRunAsync(job.Id);
+        var warned = WaitForWarningAsync();
+        _store.FailNextSave = true;
+
+        _runner.Complete(job.Id, FakeAgentRunner.Success());
+        var args = await warned;
+
+        args.Job.Status.Should().Be(AiJobStatus.Succeeded);
+        args.Warning.Should().StartWith(Messages.SaveFailed, "保存失敗の理由を見せる");
+        task.ColumnId.Should().Be(_review.Id, "保存に失敗しても確認待ちへは動かす");
     }
 
     [Fact]

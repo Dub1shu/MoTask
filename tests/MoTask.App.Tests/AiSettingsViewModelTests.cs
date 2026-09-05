@@ -87,6 +87,32 @@ public class AiSettingsViewModelTests
         _store.DidNotReceive().Save(Arg.Any<AiSettings>());
     }
 
+    /// <summary>上限が無いと 1000 件の claude 子プロセスを許してしまう。</summary>
+    [Fact]
+    public async Task Save_RejectsAConcurrencyLimitAboveTheMaximum()
+    {
+        var vm = await OpenAsync();
+        vm.MaxConcurrentText = "21";
+
+        vm.SaveCommand.Execute(null);
+
+        vm.ErrorMessage.Should().Be(string.Format(Strings.MaxConcurrentTooLargeFormat, 20));
+        vm.StatusMessage.Should().BeNull();
+        _store.DidNotReceive().Save(Arg.Any<AiSettings>());
+    }
+
+    [Fact]
+    public async Task Save_AcceptsTheMaximumConcurrencyLimit()
+    {
+        var vm = await OpenAsync();
+        vm.MaxConcurrentText = "20";
+
+        vm.SaveCommand.Execute(null);
+
+        vm.ErrorMessage.Should().BeNull();
+        _store.Received(1).Save(new AiSettings(@"C:\work", 20, @"C:\tools\claude.exe", "claude-sonnet-5", 30));
+    }
+
     [Fact]
     public async Task Rules_AreListed_WithDecisionPatternAndScope()
     {

@@ -53,7 +53,11 @@ public partial class App : Application
         }
     }
 
-    private static IHost BuildHost(string dbPath)
+    /// <summary>
+    /// BoardService と AiJobService が同じ OperationGate を受け取ることがこのアプリの並行性設計の前提。
+    /// その配線をテストから確かめられるように internal で公開する（テストは MoTask.App.Tests のみ）。
+    /// </summary>
+    internal static IHost BuildHost(string dbPath)
     {
         var builder = Host.CreateApplicationBuilder();
         builder.Services.AddMoTaskData(dbPath); // OperationGate / リポジトリ / 設定ストアもここで登録される

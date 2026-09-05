@@ -168,6 +168,7 @@ public static class Strings
     public static string SettingsScopeProjectFormat => Get(nameof(SettingsScopeProjectFormat));
     public static string SettingsDeleteRule => Get(nameof(SettingsDeleteRule));
     public static string MaxConcurrentMustBePositive => Get(nameof(MaxConcurrentMustBePositive));
+    public static string MaxConcurrentTooLargeFormat => Get(nameof(MaxConcurrentTooLargeFormat));
     public static string MaxTurnsMustBePositive => Get(nameof(MaxTurnsMustBePositive));
     public static string DefaultWorkingDirectoryRequired => Get(nameof(DefaultWorkingDirectoryRequired));
 }

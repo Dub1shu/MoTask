@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text.Json;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
@@ -76,8 +75,10 @@ public static class ClaudeCodeParser
     {
         var isError = root.TryGetProperty("is_error", out var e) && e.ValueKind == JsonValueKind.True;
         int? turns = root.TryGetProperty("num_turns", out var t) && t.ValueKind == JsonValueKind.Number && t.TryGetInt32(out var n) ? n : null;
+        // decimal に収まらない値（1e40 など）で throw しない。1 行の異常でジョブ全体を落とさない。
         decimal? cost = root.TryGetProperty("total_cost_usd", out var c) && c.ValueKind == JsonValueKind.Number
-            ? decimal.Parse(c.GetRawText(), NumberStyles.Float, CultureInfo.InvariantCulture)
+            && c.TryGetDecimal(out var d)
+            ? d
             : null;
         var text = ReadString(root, "result");
         if (string.IsNullOrEmpty(text) && root.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)

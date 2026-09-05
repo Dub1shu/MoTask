@@ -16,6 +16,9 @@
     <ProjectReference Include="..\MoTask.Data\MoTask.Data.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="MoTask.App.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="Fonts\*.ttf" />
     <Content Include="Fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

@@ -18,6 +18,9 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     private readonly IAiJobService _jobs;
     private readonly IReadOnlyList<Project> _projects;
 
+    /// <summary>同時実行数の上限。1 件が claude の子プロセス 1 つなので、青天井にはしない。</summary>
+    private const int MaxConcurrentJobsLimit = 20;
+
     [ObservableProperty] private string _defaultWorkingDirectory = "";
     [ObservableProperty] private string _maxConcurrentText = "";
     [ObservableProperty] private string _claudeExecutablePath = "";
@@ -77,6 +80,11 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         if (!TryParsePositive(MaxConcurrentText, out var maxConcurrent))
         {
             ErrorMessage = Strings.MaxConcurrentMustBePositive;
+            return;
+        }
+        if (maxConcurrent > MaxConcurrentJobsLimit)
+        {
+            ErrorMessage = string.Format(CultureInfo.CurrentCulture, Strings.MaxConcurrentTooLargeFormat, MaxConcurrentJobsLimit);
             return;
         }
         if (!TryParsePositive(MaxTurnsText, out var maxTurns))
