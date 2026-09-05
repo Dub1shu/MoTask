@@ -47,4 +47,5 @@
   <data name="PermissionRuleNotFound" xml:space="preserve"><value>許可ルールが見つかりません</value></data>
   <data name="DeniedByRule" xml:space="preserve"><value>MoTask の許可ルールにより拒否されました</value></data>
   <data name="DeniedByHuman" xml:space="preserve"><value>MoTask の利用者が拒否しました</value></data>
+  <data name="ApprovalUiFailed" xml:space="preserve"><value>承認画面を表示できなかったため拒否しました</value></data>
 </root>

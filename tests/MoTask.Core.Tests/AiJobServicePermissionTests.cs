@@ -58,7 +58,7 @@ public class AiJobServicePermissionTests : IDisposable
         var statuses = new List<AiJobStatus>();
         _service.JobChanged += (_, e) => statuses.Add(e.Job.Status);
 
-        var decision = await _runner.AskPermissionAsync(job.Id, GitPush);
+        var decision = await _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5));
 
         decision.IsAllowed.Should().BeTrue();
         _prompt.Asked.Should().BeEmpty();
@@ -82,7 +82,7 @@ public class AiJobServicePermissionTests : IDisposable
         _store.Rules.Add(Rule("Bash", "git push", RuleDecision.Deny));
         var job = await StartAsync();
 
-        var decision = await _runner.AskPermissionAsync(job.Id, GitPush);
+        var decision = await _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5));
 
         decision.IsAllowed.Should().BeFalse();
         decision.Message.Should().Be(Messages.DeniedByRule);
@@ -94,8 +94,13 @@ public class AiJobServicePermissionTests : IDisposable
     {
         var job = await StartAsync();
 
-        var pending = _runner.AskPermissionAsync(job.Id, GitPush);
+        var pending = _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5));
         await _prompt.WaitUntilAskedAsync();
+
+        // 人を待っている間、共有の OperationGate は空いていなければならない。
+        // 承認待ちがゲートを握っていたらボード操作が全部止まるので、ゲートを通る照会でそれを確かめる
+        // （握っていればここでタイムアウト＝失敗になる。テストがハングしないための歯止めでもある）。
+        await _service.GetJobsForTaskAsync(job.TaskId).WaitAsync(TimeSpan.FromSeconds(2));
 
         job.Status.Should().Be(AiJobStatus.AwaitingApproval);
         var ctx = _prompt.Asked.Single();
@@ -117,7 +122,7 @@ public class AiJobServicePermissionTests : IDisposable
         _prompt.Enqueue(new HumanDecision(RuleDecision.Deny, Remember: false, RuleScope.Global));
         var job = await StartAsync();
 
-        var decision = await _runner.AskPermissionAsync(job.Id, GitPush);
+        var decision = await _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5));
 
         decision.IsAllowed.Should().BeFalse();
         decision.Message.Should().Be(Messages.DeniedByHuman);
@@ -133,7 +138,7 @@ public class AiJobServicePermissionTests : IDisposable
         var job = await StartAsync();
         _clock.UtcNow = new DateTime(2026, 9, 5, 12, 0, 0, DateTimeKind.Utc);
 
-        (await _runner.AskPermissionAsync(job.Id, GitPush)).IsAllowed.Should().BeTrue();
+        (await _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5))).IsAllowed.Should().BeTrue();
 
         var rule = _store.Rules.Should().ContainSingle().Subject;
         rule.Scope.Should().Be(RuleScope.Project);
@@ -144,7 +149,7 @@ public class AiJobServicePermissionTests : IDisposable
         rule.CreatedAt.Should().Be(_clock.UtcNow);
 
         // 次の同種の要求はダイアログ無しで通る
-        (await _runner.AskPermissionAsync(job.Id, GitPush with { ToolUseId = "toolu_2" })).IsAllowed.Should().BeTrue();
+        (await _runner.AskPermissionAsync(job.Id, GitPush with { ToolUseId = "toolu_2" }).WaitAsync(TimeSpan.FromSeconds(5))).IsAllowed.Should().BeTrue();
         _prompt.Asked.Should().ContainSingle();
     }
 
@@ -155,7 +160,7 @@ public class AiJobServicePermissionTests : IDisposable
         var job = await StartAsync();
         var write = new PermissionRequest("Write", """{"file_path":"C:\\work\\proj\\out.md","content":"x"}""", "toolu_3");
 
-        (await _runner.AskPermissionAsync(job.Id, write)).IsAllowed.Should().BeFalse();
+        (await _runner.AskPermissionAsync(job.Id, write).WaitAsync(TimeSpan.FromSeconds(5))).IsAllowed.Should().BeFalse();
 
         var rule = _store.Rules.Should().ContainSingle().Subject;
         rule.Scope.Should().Be(RuleScope.Global);
@@ -171,7 +176,7 @@ public class AiJobServicePermissionTests : IDisposable
         _prompt.Enqueue(new HumanDecision(RuleDecision.Allow, Remember: true, RuleScope.Project));
         var job = await StartAsync(withProject: false);
 
-        await _runner.AskPermissionAsync(job.Id, GitPush);
+        await _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5));
 
         var rule = _store.Rules.Should().ContainSingle().Subject;
         rule.Scope.Should().Be(RuleScope.Global);
@@ -185,10 +190,31 @@ public class AiJobServicePermissionTests : IDisposable
         var job = await StartAsync();
         var fetch = new PermissionRequest("WebFetch", """{"url":"https://example.com"}""", "toolu_4");
 
-        await _runner.AskPermissionAsync(job.Id, fetch);
+        await _runner.AskPermissionAsync(job.Id, fetch).WaitAsync(TimeSpan.FromSeconds(5));
 
         _prompt.Asked.Single().RememberPattern.Should().BeNull();
         _store.Rules.Single().Pattern.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task AskHuman_WhenThePromptFails_DeniesAndLeavesAwaitingApproval()
+    {
+        _prompt.ThrowOnAsk = new InvalidOperationException("ダイアログを表示できません");
+        var job = await StartAsync();
+
+        var decision = await _runner.AskPermissionAsync(job.Id, GitPush).WaitAsync(TimeSpan.FromSeconds(5));
+
+        decision.IsAllowed.Should().BeFalse();
+        decision.Message.Should().Be(Messages.ApprovalUiFailed);
+        job.Status.Should().Be(AiJobStatus.Running, "承認画面が壊れてもジョブを AwaitingApproval に取り残さない");
+        _store.Rules.Should().BeEmpty();
+
+        var events = await _service.GetEventsAsync(job.Id);
+        events.Select(e => e.Kind).Should().Equal(AiJobEventKind.PermissionAsked, AiJobEventKind.PermissionDecided);
+        using var decided = JsonDocument.Parse(events[1].Payload);
+        decided.RootElement.GetProperty("behavior").GetString().Should().Be("deny");
+        decided.RootElement.GetProperty("source").GetString().Should().Be("human", "source は rule / human / shutdown の 3 値契約");
+        decided.RootElement.GetProperty("message").GetString().Should().Be(Messages.ApprovalUiFailed);
     }
 
     public void Dispose()

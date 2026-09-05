@@ -290,8 +290,9 @@ public sealed class AiJobService : IAiJobService
             if (ev.Kind is AiJobEventKind.AssistantText or AiJobEventKind.ToolUse) entry.TurnCount++;
             if (ev.Result is { } info)
             {
-                job.NumTurns = info.NumTurns;
-                job.TotalCostUsd = info.TotalCostUsd;
+                // 値が無い result 行で、既に取れている値を潰さない（ExecuteAsync の完了時と同じ方針）。
+                job.NumTurns = info.NumTurns ?? job.NumTurns;
+                job.TotalCostUsd = info.TotalCostUsd ?? job.TotalCostUsd;
             }
             return await SaveQuietlyAsync().ConfigureAwait(false);
         }).ConfigureAwait(false);
@@ -384,7 +385,7 @@ public sealed class AiJobService : IAiJobService
         var pattern = PermissionPattern.ForRemembering(request);
         var context = new PermissionPromptContext(job, entry.TaskTitle, entry.ProjectId, request, pattern);
 
-        HumanDecision? human = null;
+        HumanDecision human;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(entry.PromptCts.Token, ct);
         try
         {
@@ -393,12 +394,17 @@ public sealed class AiJobService : IAiJobService
         catch (OperationCanceledException)
         {
             // 停止か終了。人が拒否したのだと誤解させない文言で deny を返す（仕様 §9）。
-        }
-
-        if (human is null)
-        {
             var message = entry.Reason == StopReason.Stop ? Messages.StoppedByUser : Messages.SuspendedByShutdown;
             return (PermissionDecision.Deny(message), "shutdown");
+        }
+        catch (Exception)
+        {
+            // ダイアログ側の失敗（Dispatcher の異常、画面破棄後の呼び出しなど）。承認要求はタイムアウトさせない
+            // 設計なので、ここで例外を素通しすると PermissionDecided が残らず AwaitingApproval のまま二度と
+            // 進まなくなる。安全側（拒否）に倒して必ず決定イベントを残す。
+            // source は "human" のまま: payload の source は rule / human / shutdown の 3 値契約で、
+            // 4 つ目を足すと Task 11 の整形が黙って取りこぼす。人に聞く経路の失敗なので "human" が正しい。
+            return (PermissionDecision.Deny(Messages.ApprovalUiFailed), "human");
         }
 
         if (human.Remember)

@@ -53,4 +53,5 @@ public static class Messages
     public static string PermissionRuleNotFound => Get(nameof(PermissionRuleNotFound));
     public static string DeniedByRule => Get(nameof(DeniedByRule));
     public static string DeniedByHuman => Get(nameof(DeniedByHuman));
+    public static string ApprovalUiFailed => Get(nameof(ApprovalUiFailed));
 }

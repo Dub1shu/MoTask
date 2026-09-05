@@ -10,11 +10,19 @@ public sealed class FakePermissionPrompt : IPermissionPrompt
 
     public List<PermissionPromptContext> Asked { get; } = new();
 
+    /// <summary>次の AskAsync でこれを投げる（ダイアログ側の失敗の再現）。1 回で消費する。</summary>
+    public Exception? ThrowOnAsk { get; set; }
+
     public void Enqueue(HumanDecision decision) => _answers.Enqueue(decision);
 
     public async Task<HumanDecision> AskAsync(PermissionPromptContext context, CancellationToken ct)
     {
         Asked.Add(context);
+        if (ThrowOnAsk is { } failure)
+        {
+            ThrowOnAsk = null;
+            throw failure;
+        }
         if (_answers.Count > 0) return _answers.Dequeue();
 
         var tcs = new TaskCompletionSource<HumanDecision>(TaskCreationOptions.RunContinuationsAsynchronously);
