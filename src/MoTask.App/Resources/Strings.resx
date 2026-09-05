@@ -97,4 +97,32 @@
 
 変更後:
 {1}</value></data>
+  <data name="AiLogToolUseFormat" xml:space="preserve"><value>▶ {0}: {1}</value></data>
+  <data name="AiLogToolUseNoArg" xml:space="preserve"><value>▶ {0}</value></data>
+  <data name="AiLogToolResultOkFormat" xml:space="preserve"><value>✓ {0}</value></data>
+  <data name="AiLogToolResultErrorFormat" xml:space="preserve"><value>✗ {0}</value></data>
+  <data name="AiLogToolResultEmpty" xml:space="preserve"><value>（出力なし）</value></data>
+  <data name="AiLogPermissionAskedFormat" xml:space="preserve"><value>承認待ち: {0} {1}</value></data>
+  <data name="AiLogPermissionDecidedFormat" xml:space="preserve"><value>{0}（{1}）</value></data>
+  <data name="AiLogAllow" xml:space="preserve"><value>許可</value></data>
+  <data name="AiLogDeny" xml:space="preserve"><value>拒否</value></data>
+  <data name="AiLogByRule" xml:space="preserve"><value>ルール</value></data>
+  <data name="AiLogByHuman" xml:space="preserve"><value>手動</value></data>
+  <data name="AiLogByShutdown" xml:space="preserve"><value>停止・終了</value></data>
+  <data name="AiLogSessionStartFormat" xml:space="preserve"><value>セッション開始（{0}）</value></data>
+  <data name="AiLogRateLimitFormat" xml:space="preserve"><value>レート制限: {0}</value></data>
+  <data name="AiLogCliDeniedFormat" xml:space="preserve"><value>CLI が拒否: {0}</value></data>
+  <data name="AiLogUnparsed" xml:space="preserve"><value>（解析できない行）</value></data>
+  <data name="AiLogSystem" xml:space="preserve"><value>（システム）</value></data>
+  <data name="AiLogErrorFormat" xml:space="preserve"><value>エラー: {0}</value></data>
+  <data name="AiLogResultFormat" xml:space="preserve"><value>完了: {0} ターン, ${1}</value></data>
+  <data name="AiLogResultErrorFormat" xml:space="preserve"><value>失敗: {0}</value></data>
+  <data name="HistoryAiStartedFormat" xml:space="preserve"><value>AI {0}を開始</value></data>
+  <data name="HistoryAiFinishedFormat" xml:space="preserve"><value>AI {0}が{1}</value></data>
+  <data name="AiKindResearch" xml:space="preserve"><value>調査</value></data>
+  <data name="AiKindExecute" xml:space="preserve"><value>遂行</value></data>
+  <data name="AiOutcomeSucceeded" xml:space="preserve"><value>完了</value></data>
+  <data name="AiOutcomeFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="AiOutcomeCancelled" xml:space="preserve"><value>停止</value></data>
+  <data name="AiOutcomeUnknown" xml:space="preserve"><value>終了</value></data>
 </root>

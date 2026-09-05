@@ -76,4 +76,36 @@ public class HistoryFormatterTests
 
         HistoryFormatter.Format(entry, Name, Tokyo).Should().Be($"9/4 9:05 {Strings.FieldUnknown} を変更");
     }
+
+    [Fact]
+    public void AiJobStarted_ShowsKind()
+    {
+        var entry = new HistoryEntry
+        {
+            At = new DateTime(2026, 9, 5, 0, 0, 0, DateTimeKind.Utc), Kind = HistoryKind.AiJobStarted,
+            Detail = AiJobHistoryDetail.Serialize(new AiJobHistoryDetail(AiJobKind.Research, null)),
+        };
+        HistoryFormatter.Format(entry, _ => "x").Should().EndWith(string.Format(Strings.HistoryAiStartedFormat, Strings.AiKindResearch));
+    }
+
+    [Fact]
+    public void AiJobFinished_ShowsKindAndOutcome()
+    {
+        string Line(AiJobStatus status) => HistoryFormatter.Format(new HistoryEntry
+        {
+            At = DateTime.UtcNow, Kind = HistoryKind.AiJobFinished,
+            Detail = AiJobHistoryDetail.Serialize(new AiJobHistoryDetail(AiJobKind.Execute, status)),
+        }, _ => "x");
+
+        Line(AiJobStatus.Succeeded).Should().EndWith(string.Format(Strings.HistoryAiFinishedFormat, Strings.AiKindExecute, Strings.AiOutcomeSucceeded));
+        Line(AiJobStatus.Failed).Should().EndWith(string.Format(Strings.HistoryAiFinishedFormat, Strings.AiKindExecute, Strings.AiOutcomeFailed));
+        Line(AiJobStatus.Cancelled).Should().EndWith(string.Format(Strings.HistoryAiFinishedFormat, Strings.AiKindExecute, Strings.AiOutcomeCancelled));
+    }
+
+    [Fact]
+    public void AiJob_WithBrokenDetail_FallsBackToUnknown()
+    {
+        var entry = new HistoryEntry { At = DateTime.UtcNow, Kind = HistoryKind.AiJobFinished, Detail = "{broken" };
+        HistoryFormatter.Format(entry, _ => "x").Should().EndWith(Strings.HistoryUnknown);
+    }
 }
