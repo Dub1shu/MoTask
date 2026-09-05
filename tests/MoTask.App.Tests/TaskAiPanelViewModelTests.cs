@@ -195,6 +195,71 @@ public class TaskAiPanelViewModelTests
         _vm.Detail!.Card.HasAiBadge.Should().BeFalse();
     }
 
+    /// <summary>
+    /// AiJobService は JobChanged を上げる前に BoardService でタスクを確認待ちへ動かす。
+    /// SyncCardsFromModel の VM 再利用は列ごとなので、先にカード VM を移し替えないと移動先が
+    /// 別インスタンスを作り、開いている詳細パネルのカードが孤児になって選択も外れる。
+    /// </summary>
+    [Fact]
+    public async Task JobChanged_Succeeded_KeepsTheCardViewModel_WhenTheTaskMovedToReview()
+    {
+        var board = TestBoards.Sample();
+        var review = new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review };
+        board.Columns.Add(review);
+        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(board)));
+        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        var ai = await OpenAsync();
+        var card = _vm.Detail!.Card;
+
+        TestBoards.Move(board.Columns[0], review, 10, int.MaxValue);
+        _jobs[0].Status = AiJobStatus.Succeeded;
+
+        RaiseChanged(new AiJobSnapshot(1, 10, AiJobKind.Execute, AiJobStatus.Succeeded, 3, null, null, @"C:\w"));
+        await ai.PendingLoad;
+
+        var reviewColumn = _vm.Columns.Single(c => c.Id == 4);
+        reviewColumn.AllCards.Should().ContainSingle().Which.Should().BeSameAs(card, "カード VM の同一性が保たれる");
+        reviewColumn.Cards.Should().ContainSingle().Which.Should().BeSameAs(card);
+        _vm.Columns.Single(c => c.Id == 1).AllCards.Select(c => c.Id).Should().Equal(11);
+        reviewColumn.SelectedCard.Should().BeSameAs(card, "移動後も選択が残る");
+        _vm.SelectedCard.Should().BeSameAs(card);
+        _vm.Detail!.Card.Should().BeSameAs(card);
+    }
+
+    /// <summary>
+    /// LoadAsync は Log.Clear() → await → Log.Add() なので、重なると 2 倍に増える。
+    /// 実際にこうなる: StartJobAsync が同期的に JobChanged を上げるため、ConfirmStartAsync が
+    /// まだ待っている間に OnJobChanged 経由の読み込みが始まり、その後 ConfirmStartAsync も読み込む。
+    /// substitute は同期完了するので、照会をゲートで止めて本当に重ねる。
+    /// </summary>
+    [Fact]
+    public async Task OverlappingLoads_DoNotDoubleTheLog()
+    {
+        _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
+        _events.Add(new AiJobEvent
+        {
+            JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.AssistantText,
+            Payload = """{"type":"assistant","message":{"content":[{"type":"text","text":"やります"}]}}""",
+        });
+        var ai = await OpenAsync();
+
+        var gate = new TaskCompletionSource();
+        async Task<IReadOnlyList<AiJobEvent>> Gated(int jobId)
+        {
+            await gate.Task;
+            return _events.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList();
+        }
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => Gated(ci.Arg<int>()));
+
+        var first = ai.LoadAsync();
+        var second = ai.LoadAsync();
+        gate.SetResult();
+        await Task.WhenAll(first, second).WaitAsync(TimeSpan.FromSeconds(5));
+
+        ai.Log.Should().ContainSingle("重なった読み込みでログが二重にならない");
+        ai.Artifacts.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task JobChanged_Failed_ShowsErrorMessage()
     {

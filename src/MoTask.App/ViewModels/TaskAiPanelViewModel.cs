@@ -24,6 +24,8 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
     private readonly TaskCardViewModel _card;
     private readonly BoardViewModel _board;
     private AiJob? _job;
+    /// <summary>重なった <see cref="LoadAsync"/> の世代。古い方は await から戻った時点で降りる。</summary>
+    private int _loadGeneration;
 
     [ObservableProperty] private bool _hasJob;
     [ObservableProperty] private bool _isActive;
@@ -56,10 +58,17 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         PendingLoad = LoadAsync();
     }
 
-    /// <summary>最新ジョブとそのイベントを読み直す。</summary>
+    /// <summary>
+    /// 最新ジョブとそのイベントを読み直す。5 か所から呼ばれ、Log.Clear() → await → Log.Add() の形なので、
+    /// 重なると「A が消す・B が消す・A が足す・B が足す」でログが 2 倍になる。実際に重なる:
+    /// AiJobService は StartJobAsync の中で同期的に JobChanged を上げるため、ConfirmStartAsync が
+    /// まだ待っている間に OnJobChanged 側の読み込みが始まる。世代番号で古い方を降ろす。
+    /// </summary>
     public async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
         var jobs = await _board.QueryAiJobsAsync(_card.Id);
+        if (generation != _loadGeneration) return;
         var latest = jobs.FirstOrDefault();
         Apply(latest);
         Log.Clear();
@@ -68,6 +77,7 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         if (latest is null) return;
 
         var events = await _board.QueryAiEventsAsync(latest.Id);
+        if (generation != _loadGeneration) return;
         foreach (var e in events) Log.Add(AiJobEventFormatter.Format(e));
         foreach (var path in AiJobEventFormatter.ArtifactPaths(events)) Artifacts.Add(new ArtifactItem(path));
         ResultText = AiJobEventFormatter.ResultText(events);
@@ -153,7 +163,8 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         ComposingKind = kind;
         ComposingTitle = kind == AiJobKind.Research ? Strings.AiComposeResearch : Strings.AiComposeExecute;
         var format = kind == AiJobKind.Research ? Strings.AiResearchInstructionFormat : Strings.AiExecuteInstructionFormat;
-        var description = string.IsNullOrWhiteSpace(_card.Model.Description) ? "（なし）" : _card.Model.Description;
+        // Instruction は編集用 TextBox に出るので、この穴埋めも人が読む文言になる。
+        var description = string.IsNullOrWhiteSpace(_card.Model.Description) ? Strings.AiNoDescription : _card.Model.Description;
         Instruction = string.Format(CultureInfo.CurrentCulture, format, _card.Model.Title, description);
         IsComposing = true;
     }

@@ -10,7 +10,9 @@ public static class ShellOpener
     {
         try
         {
-            Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+            // UseShellExecute = true では、既存プロセスに渡された等の理由で null が返ることがある。
+            // 返ってきたハンドルは使わないので、その場で閉じる。
+            using var started = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or System.IO.FileNotFoundException)
         {

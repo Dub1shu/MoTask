@@ -134,4 +134,5 @@ public static class Strings
     public static string AiComposeExecute => Get(nameof(AiComposeExecute));
     public static string AiResearchInstructionFormat => Get(nameof(AiResearchInstructionFormat));
     public static string AiExecuteInstructionFormat => Get(nameof(AiExecuteInstructionFormat));
+    public static string AiNoDescription => Get(nameof(AiNoDescription));
 }
