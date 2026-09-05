@@ -77,4 +77,19 @@ public static class Strings
     public static string DbRecreatedFormat => Get(nameof(DbRecreatedFormat));
     public static string DbRecreateFailedFormat => Get(nameof(DbRecreateFailedFormat));
     public static string StartupFailedFormat => Get(nameof(StartupFailedFormat));
+    public static string PermissionTitle => Get(nameof(PermissionTitle));
+    public static string PermissionToolFormat => Get(nameof(PermissionToolFormat));
+    public static string PermissionTask => Get(nameof(PermissionTask));
+    public static string PermissionWorkingDirectory => Get(nameof(PermissionWorkingDirectory));
+    public static string PermissionAllow => Get(nameof(PermissionAllow));
+    public static string PermissionDeny => Get(nameof(PermissionDeny));
+    public static string PermissionAllowAlways => Get(nameof(PermissionAllowAlways));
+    public static string PermissionDenyAlways => Get(nameof(PermissionDenyAlways));
+    public static string PermissionRememberFormat => Get(nameof(PermissionRememberFormat));
+    public static string PermissionRememberToolOnly => Get(nameof(PermissionRememberToolOnly));
+    public static string PermissionRememberBashFormat => Get(nameof(PermissionRememberBashFormat));
+    public static string PermissionRememberDirFormat => Get(nameof(PermissionRememberDirFormat));
+    public static string PermissionScopeProject => Get(nameof(PermissionScopeProject));
+    public static string PermissionScopeGlobal => Get(nameof(PermissionScopeGlobal));
+    public static string PermissionEditFormat => Get(nameof(PermissionEditFormat));
 }

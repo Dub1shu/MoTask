@@ -78,4 +78,23 @@
 {0}</value></data>
   <data name="StartupFailedFormat" xml:space="preserve"><value>起動できませんでした。
 {0}</value></data>
+  <data name="PermissionTitle" xml:space="preserve"><value>AI の操作を承認</value></data>
+  <data name="PermissionToolFormat" xml:space="preserve"><value>ツール: {0}</value></data>
+  <data name="PermissionTask" xml:space="preserve"><value>タスク</value></data>
+  <data name="PermissionWorkingDirectory" xml:space="preserve"><value>作業フォルダ</value></data>
+  <data name="PermissionAllow" xml:space="preserve"><value>許可</value></data>
+  <data name="PermissionDeny" xml:space="preserve"><value>拒否</value></data>
+  <data name="PermissionAllowAlways" xml:space="preserve"><value>今後も許可</value></data>
+  <data name="PermissionDenyAlways" xml:space="preserve"><value>今後も拒否</value></data>
+  <data name="PermissionRememberFormat" xml:space="preserve"><value>「今後も」で記憶する条件: {0}</value></data>
+  <data name="PermissionRememberToolOnly" xml:space="preserve"><value>{0} のすべての呼び出し</value></data>
+  <data name="PermissionRememberBashFormat" xml:space="preserve"><value>「{0}」で始まるコマンド</value></data>
+  <data name="PermissionRememberDirFormat" xml:space="preserve"><value>{0} 配下のファイル</value></data>
+  <data name="PermissionScopeProject" xml:space="preserve"><value>このプロジェクトだけ</value></data>
+  <data name="PermissionScopeGlobal" xml:space="preserve"><value>すべてのプロジェクト</value></data>
+  <data name="PermissionEditFormat" xml:space="preserve"><value>変更前:
+{0}
+
+変更後:
+{1}</value></data>
 </root>
