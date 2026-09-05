@@ -55,7 +55,6 @@ public sealed class MoTaskDbContext : DbContext
         {
             e.ToTable("Projects");
             e.Property(x => x.Name).IsRequired();
-            e.Ignore(x => x.WorkingDirectory);
         });
 
         b.Entity<Label>(e =>
