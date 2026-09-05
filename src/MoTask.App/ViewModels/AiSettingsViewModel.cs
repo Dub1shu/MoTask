@@ -26,8 +26,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [ObservableProperty] private string _claudeExecutablePath = "";
     [ObservableProperty] private string _model = "";
     [ObservableProperty] private string _maxTurnsText = "";
+    [ObservableProperty] private string _permissionMode = "";
+    [ObservableProperty] private string _terminalCommandTemplate = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _statusMessage;
+
+    /// <summary>CLI が受け付ける値だけを選ばせる（仕様 §4.3）。</summary>
+    public IReadOnlyList<string> PermissionModes => AiSettings.PermissionModes;
 
     public ObservableCollection<PermissionRuleRow> Rules { get; } = new();
 
@@ -45,6 +50,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         _claudeExecutablePath = s.ClaudeExecutablePath ?? "";
         _model = s.Model ?? "";
         _maxTurnsText = s.MaxTurns.ToString(CultureInfo.CurrentCulture);
+        _permissionMode = s.PermissionMode;
+        _terminalCommandTemplate = s.TerminalCommandTemplate ?? "";
         PendingLoad = LoadRulesAsync();
     }
 
@@ -92,10 +99,15 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             ErrorMessage = Strings.MaxTurnsMustBePositive;
             return;
         }
+        var mode = PermissionMode.Trim();
+        if (!AiSettings.PermissionModes.Contains(mode))
+        {
+            ErrorMessage = Strings.PermissionModeInvalid;
+            return;
+        }
 
-        var current = _store.Load();
         _store.Save(new AiSettings(dir, maxConcurrent, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model), maxTurns,
-            current.PermissionMode, current.TerminalCommandTemplate));
+            mode, NullIfBlank(TerminalCommandTemplate)));
         ErrorMessage = null;
         StatusMessage = Strings.SettingsSaved;
     }

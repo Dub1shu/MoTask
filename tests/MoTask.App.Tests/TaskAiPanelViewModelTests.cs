@@ -159,14 +159,16 @@ public class TaskAiPanelViewModelTests
     }
 
     [Fact]
-    public async Task JobChanged_AwaitingApproval_FlagsTheCard()
+    public async Task JobChanged_AwaitingApproval_DoesNotFlagTheCardAsWaitingForInput()
     {
+        // カードの「入力待ち」バッジは Stop フック（WaitingForInput）専用になった（タスク 9）。
+        // AwaitingApproval はタスク 10 で消えるまでの間、カードには通常の実行中バッジのまま出る。
         _jobs.Add(new AiJob { Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w" });
         var ai = await OpenAsync();
 
         RaiseChanged(new AiJobSnapshot(1, 10, AiJobKind.Execute, AiJobStatus.AwaitingApproval, 1, null, null, @"C:\w"));
 
-        _vm.Detail!.Card.IsAwaitingApproval.Should().BeTrue();
+        _vm.Detail!.Card.IsWaitingForInput.Should().BeFalse();
         ai.StatusText.Should().Be(Strings.AiStatusAwaiting);
     }
 
@@ -336,7 +338,8 @@ public class TaskAiPanelViewModelTests
         await _vm.LoadAsync();
 
         var cards = _vm.Columns.SelectMany(c => c.AllCards).ToDictionary(c => c.Id);
-        cards[11].AiBadgeText.Should().Be(Strings.AiStatusSuspended);
+        // カードのバッジは Suspended 専用の文言をもう出さない（タスク 9）。中断中も実行中と同じ書式で出る。
+        cards[11].AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusResearching, 0));
         cards[12].AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusExecuting, 6));
         cards[10].HasAiBadge.Should().BeFalse();
     }

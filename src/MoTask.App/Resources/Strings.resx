@@ -110,6 +110,10 @@
   <data name="AiLogByHuman" xml:space="preserve"><value>手動</value></data>
   <data name="AiLogByShutdown" xml:space="preserve"><value>停止・終了</value></data>
   <data name="AiLogSessionStartFormat" xml:space="preserve"><value>セッション開始（{0}）</value></data>
+  <data name="AiLogSessionStartedFormat" xml:space="preserve"><value>セッション開始（{0}）</value></data>
+  <data name="AiLogSessionEndedFormat" xml:space="preserve"><value>セッション終了（{0}）</value></data>
+  <data name="AiLogTurnEnded" xml:space="preserve"><value>応答が終わりました（入力待ち）</value></data>
+  <data name="AiLogTurnEndedFormat" xml:space="preserve"><value>応答が終わりました: {0}</value></data>
   <data name="AiLogRateLimitFormat" xml:space="preserve"><value>レート制限: {0}</value></data>
   <data name="AiLogCliDeniedFormat" xml:space="preserve"><value>CLI が拒否: {0}</value></data>
   <data name="AiLogUnparsed" xml:space="preserve"><value>（解析できない行）</value></data>
@@ -132,7 +136,8 @@
   <data name="AiStatusSucceeded" xml:space="preserve"><value>AI 完了</value></data>
   <data name="AiStatusFailed" xml:space="preserve"><value>AI 失敗</value></data>
   <data name="AiStatusCancelled" xml:space="preserve"><value>AI 停止</value></data>
-  <data name="AiStatusPending" xml:space="preserve"><value>AI 待機中</value></data>
+  <data name="AiStatusPending" xml:space="preserve"><value>端末を開いています</value></data>
+  <data name="AiStatusWaitingForInput" xml:space="preserve"><value>入力待ち</value></data>
   <data name="AiBadgeTurnsFormat" xml:space="preserve"><value>{0} · {1} ターン</value></data>
   <data name="AiCostFormat" xml:space="preserve"><value>${0:0.000} · {1} ターン</value></data>
   <data name="AiComposeResearch" xml:space="preserve"><value>調査の指示</value></data>
@@ -186,4 +191,7 @@
   <data name="MaxConcurrentTooLargeFormat" xml:space="preserve"><value>同時実行の上限は {0} 以下にしてください</value></data>
   <data name="MaxTurnsMustBePositive" xml:space="preserve"><value>最大ターン数は 1 以上の整数にしてください</value></data>
   <data name="DefaultWorkingDirectoryRequired" xml:space="preserve"><value>既定の作業フォルダを入力してください</value></data>
+  <data name="SettingsPermissionMode" xml:space="preserve"><value>ツール承認のモード（--permission-mode）。承認そのものは利用者の settings.json に従います</value></data>
+  <data name="SettingsTerminalTemplate" xml:space="preserve"><value>端末の起動コマンド（空なら既定。{cwd} と {command} が置き換わります）</value></data>
+  <data name="PermissionModeInvalid" xml:space="preserve"><value>権限モードは一覧から選んでください</value></data>
 </root>

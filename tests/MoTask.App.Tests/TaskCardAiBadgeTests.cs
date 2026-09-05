@@ -15,33 +15,36 @@ public class TaskCardAiBadgeTests
     private static TaskCardViewModel Card() => new(new TaskItem { Id = 10, Title = "t" });
 
     [Fact]
-    public void Running_ShowsKindAndTurns()
+    public void SetAiState_WaitingForInput_ShowsTheInputBadge()
     {
-        var card = Card();
-        card.SetAiState(Snapshot(AiJobKind.Research, AiJobStatus.Running, 3));
-        card.AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusResearching, 3));
+        var card = new TaskCardViewModel(new TaskItem { Id = 1, Title = "t" });
+
+        card.SetAiState(new AiJobSnapshot(1, 1, AiJobKind.Execute, AiJobStatus.WaitingForInput, 3, null, null, ""));
+
         card.HasAiBadge.Should().BeTrue();
-        card.IsAwaitingApproval.Should().BeFalse();
-
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.Running, 0));
-        card.AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusExecuting, 0));
+        card.IsWaitingForInput.Should().BeTrue();
+        card.AiBadgeText.Should().Be("入力待ち");
     }
 
     [Fact]
-    public void AwaitingApproval_IsFlagged()
+    public void SetAiState_Running_ShowsTheKindAndTurns()
     {
-        var card = Card();
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.AwaitingApproval, 2));
-        card.AiBadgeText.Should().Be(Strings.AiStatusAwaiting);
-        card.IsAwaitingApproval.Should().BeTrue();
+        var card = new TaskCardViewModel(new TaskItem { Id = 1, Title = "t" });
+
+        card.SetAiState(new AiJobSnapshot(1, 1, AiJobKind.Research, AiJobStatus.Running, 2, null, null, ""));
+
+        card.IsWaitingForInput.Should().BeFalse();
+        card.AiBadgeText.Should().Be("AI 調査中 · 2 ターン");
     }
 
     [Fact]
-    public void Suspended_ShowsSuspended()
+    public void SetAiState_Pending_ShowsNoBadgeYet()
     {
-        var card = Card();
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.Suspended));
-        card.AiBadgeText.Should().Be(Strings.AiStatusSuspended);
+        var card = new TaskCardViewModel(new TaskItem { Id = 1, Title = "t" });
+
+        card.SetAiState(new AiJobSnapshot(1, 1, AiJobKind.Execute, AiJobStatus.Pending, 0, null, null, ""));
+
+        card.HasAiBadge.Should().BeFalse();
     }
 
     [Fact]
@@ -55,7 +58,7 @@ public class TaskCardAiBadgeTests
 
         card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.AwaitingApproval));
         card.SetAiState(null);
-        card.IsAwaitingApproval.Should().BeFalse();
+        card.IsWaitingForInput.Should().BeFalse();
         card.HasAiBadge.Should().BeFalse();
     }
 

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
 using MoTask.App.Resources;
-using MoTask.Core.Ai;
 using MoTask.Core.Model;
 
 namespace MoTask.App.ViewModels;
@@ -44,11 +43,24 @@ public static class AiJobEventFormatter
         return list;
     }
 
+    /// <summary>
+    /// いま出せる「結果」。対話なので確定した最終回答は無い。直近の Stop フックが持つ
+    /// last_assistant_message を出す（作り替え前に保存された result 行も拾う）。
+    /// </summary>
     public static string? ResultText(IEnumerable<AiJobEvent> events)
     {
-        var last = events.LastOrDefault(e => e.Kind == AiJobEventKind.Result);
-        if (last is null) return null;
-        using var doc = TryParse(last.Payload);
+        var list = events as IReadOnlyList<AiJobEvent> ?? events.ToList();
+        var stop = list.LastOrDefault(e => e.Kind == AiJobEventKind.TurnEnded);
+        if (stop is not null)
+        {
+            using var stopped = TryParse(stop.Payload);
+            var message = stopped is null ? null : ReadString(stopped.RootElement, "last_assistant_message");
+            if (!string.IsNullOrWhiteSpace(message)) return message;
+        }
+
+        var result = list.LastOrDefault(e => e.Kind == AiJobEventKind.Result);
+        if (result is null) return null;
+        using var doc = TryParse(result.Payload);
         return doc is null ? null : ReadString(doc.RootElement, "result");
     }
 
@@ -69,10 +81,11 @@ public static class AiJobEventFormatter
             AiJobEventKind.AssistantText => (AssistantText(root), false),
             AiJobEventKind.ToolUse => (ToolUse(root, e.ToolName), false),
             AiJobEventKind.ToolResult => ToolResult(root),
-            AiJobEventKind.PermissionAsked => (PermissionAsked(root), false),
-            AiJobEventKind.PermissionDecided => (PermissionDecided(root), false),
             AiJobEventKind.Error => (string.Format(Strings.AiLogErrorFormat, ReadString(root, "message") ?? e.Payload), true),
             AiJobEventKind.Result => Result(root),
+            AiJobEventKind.SessionStarted => (string.Format(Strings.AiLogSessionStartedFormat, ReadString(root, "source") ?? "?"), false),
+            AiJobEventKind.SessionEnded => (string.Format(Strings.AiLogSessionEndedFormat, ReadString(root, "reason") ?? "?"), false),
+            AiJobEventKind.TurnEnded => (TurnEnded(root), false),
             _ => System(root),
         };
     }
@@ -88,12 +101,22 @@ public static class AiJobEventFormatter
 
     private static string ToolUse(JsonElement root, string? toolName)
     {
-        var name = toolName ?? "?";
-        var block = FindToolUse(root, toolName);
-        var summary = block is { } b && b.TryGetProperty("input", out var input) ? ArgumentSummary(name, input) : null;
+        var name = toolName ?? ReadString(root, "tool_name") ?? "?";
+        var summary = ToolInput(root, toolName) is { } input ? ArgumentSummary(name, input) : null;
         return summary is null
             ? string.Format(Strings.AiLogToolUseNoArg, name)
             : string.Format(Strings.AiLogToolUseFormat, name, summary);
+    }
+
+    /// <summary>
+    /// フックの PostToolUse は root.tool_input。作り替え前に保存された stream-json の行は
+    /// message.content[].input なので、そちらへも落ちる。
+    /// </summary>
+    private static JsonElement? ToolInput(JsonElement root, string? toolName)
+    {
+        if (root.TryGetProperty("tool_input", out var hookInput) && hookInput.ValueKind == JsonValueKind.Object) return hookInput;
+        var block = FindToolUse(root, toolName);
+        return block is { } b && b.TryGetProperty("input", out var input) ? input : null;
     }
 
     private static string? ArgumentSummary(string toolName, JsonElement input) => toolName switch
@@ -123,25 +146,10 @@ public static class AiJobEventFormatter
         _ => "",
     };
 
-    private static string PermissionAsked(JsonElement root)
+    private static string TurnEnded(JsonElement root)
     {
-        var tool = ReadString(root, "tool_name") ?? "?";
-        var subject = root.TryGetProperty("input", out var input)
-            ? PermissionPattern.Subject(new PermissionRequest(tool, input.GetRawText(), null))
-            : null;
-        return string.Format(Strings.AiLogPermissionAskedFormat, tool, subject ?? "").TrimEnd();
-    }
-
-    private static string PermissionDecided(JsonElement root)
-    {
-        var behavior = ReadString(root, "behavior") == "allow" ? Strings.AiLogAllow : Strings.AiLogDeny;
-        var source = ReadString(root, "source") switch
-        {
-            "rule" => Strings.AiLogByRule,
-            "human" => Strings.AiLogByHuman,
-            _ => Strings.AiLogByShutdown,
-        };
-        return string.Format(Strings.AiLogPermissionDecidedFormat, behavior, source);
+        var message = FirstLine(ReadString(root, "last_assistant_message") ?? "");
+        return message.Length == 0 ? Strings.AiLogTurnEnded : string.Format(Strings.AiLogTurnEndedFormat, message);
     }
 
     private static (string, bool) Result(JsonElement root)

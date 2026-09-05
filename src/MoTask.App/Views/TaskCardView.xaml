@@ -18,14 +18,14 @@
     </DockPanel>
     <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}"
                TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
-    <!-- AI 稼働中・承認待ちのバッジ（仕様 §10）。承認待ちは濃い段で目立たせる -->
+    <!-- AI 稼働中・入力待ちのバッジ（仕様 §10）。入力待ちは濃い段で目立たせる -->
     <Border Margin="{StaticResource Gap.Top.1}" Padding="{StaticResource Pad.Chip}" CornerRadius="3" HorizontalAlignment="Left"
             Visibility="{Binding HasAiBadge, Converter={StaticResource BoolToVisibility}}">
       <Border.Style>
         <Style TargetType="Border">
           <Setter Property="Background" Value="{StaticResource Brush.AccentSubtle}" />
           <Style.Triggers>
-            <DataTrigger Binding="{Binding IsAwaitingApproval}" Value="True">
+            <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
               <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
             </DataTrigger>
           </Style.Triggers>
@@ -36,7 +36,7 @@
           <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
             <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
             <Style.Triggers>
-              <DataTrigger Binding="{Binding IsAwaitingApproval}" Value="True">
+              <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
                 <Setter Property="Foreground" Value="{StaticResource Brush.OnAccent}" />
               </DataTrigger>
             </Style.Triggers>

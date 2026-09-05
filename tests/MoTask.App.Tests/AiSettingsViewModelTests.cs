@@ -114,6 +114,52 @@ public class AiSettingsViewModelTests
     }
 
     [Fact]
+    public async Task Save_PersistsThePermissionModeAndTemplate()
+    {
+        var vm = await OpenAsync();
+        vm.PermissionMode = "plan";
+        vm.TerminalCommandTemplate = "pwsh.exe -NoExit -Command {command}";
+
+        vm.SaveCommand.Execute(null);
+
+        _store.Received(1).Save(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 30,
+            "plan", "pwsh.exe -NoExit -Command {command}"));
+        vm.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Save_RejectsAPermissionModeTheCliDoesNotKnow()
+    {
+        var vm = await OpenAsync();
+        vm.PermissionMode = "すきなように";
+
+        vm.SaveCommand.Execute(null);
+
+        vm.ErrorMessage.Should().Be(Strings.PermissionModeInvalid);
+        _store.DidNotReceive().Save(Arg.Any<AiSettings>());
+    }
+
+    [Fact]
+    public async Task Save_TreatsABlankTemplateAsTheDefault()
+    {
+        var vm = await OpenAsync();
+        vm.TerminalCommandTemplate = "   ";
+
+        vm.SaveCommand.Execute(null);
+
+        _store.Received(1).Save(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 30,
+            AiSettings.DefaultPermissionMode, null));
+    }
+
+    [Fact]
+    public async Task PermissionModes_AreOfferedForTheDropDown()
+    {
+        var vm = await OpenAsync();
+
+        vm.PermissionModes.Should().Equal(AiSettings.PermissionModes);
+    }
+
+    [Fact]
     public async Task Rules_AreListed_WithDecisionPatternAndScope()
     {
         _rules.Add(new AiPermissionRule { Id = 1, Scope = RuleScope.Project, ProjectId = 100, ToolName = "Bash", Pattern = "git push", Decision = RuleDecision.Allow });

@@ -105,6 +105,10 @@ public static class Strings
     public static string AiLogByHuman => Get(nameof(AiLogByHuman));
     public static string AiLogByShutdown => Get(nameof(AiLogByShutdown));
     public static string AiLogSessionStartFormat => Get(nameof(AiLogSessionStartFormat));
+    public static string AiLogSessionStartedFormat => Get(nameof(AiLogSessionStartedFormat));
+    public static string AiLogSessionEndedFormat => Get(nameof(AiLogSessionEndedFormat));
+    public static string AiLogTurnEnded => Get(nameof(AiLogTurnEnded));
+    public static string AiLogTurnEndedFormat => Get(nameof(AiLogTurnEndedFormat));
     public static string AiLogRateLimitFormat => Get(nameof(AiLogRateLimitFormat));
     public static string AiLogCliDeniedFormat => Get(nameof(AiLogCliDeniedFormat));
     public static string AiLogUnparsed => Get(nameof(AiLogUnparsed));
@@ -128,6 +132,7 @@ public static class Strings
     public static string AiStatusFailed => Get(nameof(AiStatusFailed));
     public static string AiStatusCancelled => Get(nameof(AiStatusCancelled));
     public static string AiStatusPending => Get(nameof(AiStatusPending));
+    public static string AiStatusWaitingForInput => Get(nameof(AiStatusWaitingForInput));
     public static string AiBadgeTurnsFormat => Get(nameof(AiBadgeTurnsFormat));
     public static string AiCostFormat => Get(nameof(AiCostFormat));
     public static string AiComposeResearch => Get(nameof(AiComposeResearch));
@@ -171,4 +176,7 @@ public static class Strings
     public static string MaxConcurrentTooLargeFormat => Get(nameof(MaxConcurrentTooLargeFormat));
     public static string MaxTurnsMustBePositive => Get(nameof(MaxTurnsMustBePositive));
     public static string DefaultWorkingDirectoryRequired => Get(nameof(DefaultWorkingDirectoryRequired));
+    public static string SettingsPermissionMode => Get(nameof(SettingsPermissionMode));
+    public static string SettingsTerminalTemplate => Get(nameof(SettingsTerminalTemplate));
+    public static string PermissionModeInvalid => Get(nameof(PermissionModeInvalid));
 }

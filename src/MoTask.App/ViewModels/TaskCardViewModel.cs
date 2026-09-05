@@ -19,7 +19,7 @@ public sealed partial class TaskCardViewModel : ObservableObject
     [ObservableProperty] private DueStatus _dueStatus;
     [ObservableProperty] private bool _isDeleted;
     [ObservableProperty] private string? _aiBadgeText;
-    [ObservableProperty] private bool _isAwaitingApproval;
+    [ObservableProperty] private bool _isWaitingForInput;
     [ObservableProperty] private bool _hasAiBadge;
 
     public ObservableCollection<LabelChip> Labels { get; } = new();
@@ -60,19 +60,16 @@ public sealed partial class TaskCardViewModel : ObservableObject
         if (job is null || job.Status.IsTerminal() || job.Status == AiJobStatus.Pending)
         {
             AiBadgeText = null;
-            IsAwaitingApproval = false;
+            IsWaitingForInput = false;
             HasAiBadge = false;
             return;
         }
 
-        IsAwaitingApproval = job.Status == AiJobStatus.AwaitingApproval;
-        AiBadgeText = job.Status switch
-        {
-            AiJobStatus.AwaitingApproval => Strings.AiStatusAwaiting,
-            AiJobStatus.Suspended => Strings.AiStatusSuspended,
-            _ => string.Format(CultureInfo.CurrentCulture, Strings.AiBadgeTurnsFormat,
-                job.Kind == AiJobKind.Research ? Strings.AiStatusResearching : Strings.AiStatusExecuting, job.TurnCount),
-        };
+        IsWaitingForInput = job.Status == AiJobStatus.WaitingForInput;
+        AiBadgeText = IsWaitingForInput
+            ? Strings.AiStatusWaitingForInput
+            : string.Format(CultureInfo.CurrentCulture, Strings.AiBadgeTurnsFormat,
+                job.Kind == AiJobKind.Research ? Strings.AiStatusResearching : Strings.AiStatusExecuting, job.TurnCount);
         HasAiBadge = true;
     }
 }

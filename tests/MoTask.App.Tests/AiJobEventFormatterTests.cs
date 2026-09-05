@@ -79,27 +79,6 @@ public class AiJobEventFormatterTests
     }
 
     [Fact]
-    public void PermissionAsked_AndDecided_UseMoTaskPayloads()
-    {
-        const string asked = """{"type":"motask_permission_asked","tool_name":"Bash","tool_use_id":"t","input":{"command":"git push origin main"}}""";
-        AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionAsked, asked, "Bash")).Text
-            .Should().Be(string.Format(Strings.AiLogPermissionAskedFormat, "Bash", "git push origin main"));
-
-        const string allowed = """{"type":"motask_permission_decided","behavior":"allow","source":"rule","message":null}""";
-        AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionDecided, allowed, "Bash")).Text
-            .Should().Be(string.Format(Strings.AiLogPermissionDecidedFormat, Strings.AiLogAllow, Strings.AiLogByRule));
-
-        const string denied = """{"type":"motask_permission_decided","behavior":"deny","source":"human","message":"x"}""";
-        var line = AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionDecided, denied, "Bash"));
-        line.Text.Should().Be(string.Format(Strings.AiLogPermissionDecidedFormat, Strings.AiLogDeny, Strings.AiLogByHuman));
-        line.IsError.Should().BeFalse("人の拒否は異常ではない");
-
-        const string shutdown = """{"type":"motask_permission_decided","behavior":"deny","source":"shutdown","message":"x"}""";
-        AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionDecided, shutdown, "Bash")).Text
-            .Should().Be(string.Format(Strings.AiLogPermissionDecidedFormat, Strings.AiLogDeny, Strings.AiLogByShutdown));
-    }
-
-    [Fact]
     public void Result_ShowsTurnsAndCost_OrFailure()
     {
         var ok = AiJobEventFormatter.Format(Event(AiJobEventKind.Result, Bash[5]));
@@ -179,6 +158,81 @@ public class AiJobEventFormatterTests
         AiJobEventFormatter.ResultText(new[] { events[0] }).Should().BeNull();
     }
 
+    [Fact]
+    public void Format_SessionStarted_ShowsTheSource()
+    {
+        var line = AiJobEventFormatter.Format(
+            Event(AiJobEventKind.SessionStarted, """{"hook_event_name":"SessionStart","source":"startup"}"""));
+
+        line.Text.Should().Be("セッション開始（startup）");
+        line.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Format_SessionEnded_ShowsTheReason()
+    {
+        var line = AiJobEventFormatter.Format(
+            Event(AiJobEventKind.SessionEnded, """{"hook_event_name":"SessionEnd","reason":"exit"}"""));
+
+        line.Text.Should().Be("セッション終了（exit）");
+    }
+
+    [Fact]
+    public void Format_TurnEnded_ShowsTheLastMessage()
+    {
+        var line = AiJobEventFormatter.Format(
+            Event(AiJobEventKind.TurnEnded, """{"hook_event_name":"Stop","last_assistant_message":"見積りをまとめました。\n根拠は artifacts に置きました。"}"""));
+
+        line.Text.Should().Be("応答が終わりました: 見積りをまとめました。");
+    }
+
+    [Fact]
+    public void Format_TurnEnded_WithoutAMessage_StillReads()
+    {
+        AiJobEventFormatter.Format(Event(AiJobEventKind.TurnEnded, """{"hook_event_name":"Stop"}"""))
+            .Text.Should().Be("応答が終わりました（入力待ち）");
+    }
+
+    [Fact]
+    public void Format_ToolUse_ReadsTheHookToolInput()
+    {
+        var line = AiJobEventFormatter.Format(Event(AiJobEventKind.ToolUse,
+            """{"hook_event_name":"PostToolUse","tool_name":"Bash","tool_input":{"command":"dotnet test"}}""",
+            "Bash"));
+
+        line.Text.Should().Be("▶ Bash: dotnet test");
+    }
+
+    [Fact]
+    public void Format_ToolUse_StillReadsOldStreamJsonRows()
+    {
+        // 作り替え前に保存された行も、同じ画面に並ぶ
+        var line = AiJobEventFormatter.Format(Event(AiJobEventKind.ToolUse,
+            """{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Write","input":{"file_path":"C:\\a.md"}}]}}""",
+            "Write"));
+
+        line.Text.Should().Be(@"▶ Write: C:\a.md");
+    }
+
+    [Fact]
+    public void ResultText_TakesTheLatestStopMessage()
+    {
+        var events = new[]
+        {
+            Event(AiJobEventKind.TurnEnded, """{"last_assistant_message":"途中経過"}"""),
+            Event(AiJobEventKind.ToolUse, """{"tool_name":"Read"}""", "Read"),
+            Event(AiJobEventKind.TurnEnded, """{"last_assistant_message":"できました"}"""),
+        };
+
+        AiJobEventFormatter.ResultText(events).Should().Be("できました");
+    }
+
+    [Fact]
+    public void ResultText_IsNullWhenNothingHasBeenSaidYet()
+    {
+        AiJobEventFormatter.ResultText(new[] { Event(AiJobEventKind.SessionStarted, "{}") }).Should().BeNull();
+    }
+
     // ---- 堅牢性: 想定外の入力でも例外を投げない ----
 
     [Fact]
@@ -207,28 +261,6 @@ public class AiJobEventFormatterTests
 
         act.Should().NotThrow();
         act().Text.Should().Be(string.Format(Strings.AiLogToolUseNoArg, "Bash"));
-    }
-
-    [Fact]
-    public void PermissionAsked_MissingInput_OmitsSubjectWithoutThrowing()
-    {
-        const string payload = """{"type":"motask_permission_asked","tool_name":"Bash","tool_use_id":"t"}""";
-        var act = () => AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionAsked, payload, "Bash"));
-
-        act.Should().NotThrow();
-        act().Text.Should().Be(string.Format(Strings.AiLogPermissionAskedFormat, "Bash", "").TrimEnd());
-    }
-
-    [Fact]
-    public void PermissionDecided_MissingOrUnrecognizedSource_FallsBackGracefully()
-    {
-        const string missingSource = """{"type":"motask_permission_decided","behavior":"deny","message":null}""";
-        const string unrecognizedSource = """{"type":"motask_permission_decided","behavior":"deny","source":"bogus","message":null}""";
-
-        AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionDecided, missingSource, "Bash")).Text
-            .Should().Be(string.Format(Strings.AiLogPermissionDecidedFormat, Strings.AiLogDeny, Strings.AiLogByShutdown));
-        AiJobEventFormatter.Format(Event(AiJobEventKind.PermissionDecided, unrecognizedSource, "Bash")).Text
-            .Should().Be(string.Format(Strings.AiLogPermissionDecidedFormat, Strings.AiLogDeny, Strings.AiLogByShutdown));
     }
 
     [Fact]
