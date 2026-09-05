@@ -49,4 +49,6 @@
   <data name="DeniedByRule" xml:space="preserve"><value>MoTask の許可ルールにより拒否されました</value></data>
   <data name="DeniedByHuman" xml:space="preserve"><value>MoTask の利用者が拒否しました</value></data>
   <data name="ApprovalUiFailed" xml:space="preserve"><value>承認画面を表示できなかったため拒否しました</value></data>
+  <data name="HooksExecutableNotFound" xml:space="preserve"><value>フックの実行ファイル（hooks\MoTask.Hooks.exe）が見つかりません。MoTask をビルドし直してください</value></data>
+  <data name="JobFolderFailedFormat" xml:space="preserve"><value>ジョブフォルダを作成できません: {0}（{1}）</value></data>
 </root>

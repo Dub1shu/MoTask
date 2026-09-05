@@ -55,4 +55,6 @@ public static class Messages
     public static string DeniedByRule => Get(nameof(DeniedByRule));
     public static string DeniedByHuman => Get(nameof(DeniedByHuman));
     public static string ApprovalUiFailed => Get(nameof(ApprovalUiFailed));
+    public static string HooksExecutableNotFound => Get(nameof(HooksExecutableNotFound));
+    public static string JobFolderFailedFormat => Get(nameof(JobFolderFailedFormat));
 }

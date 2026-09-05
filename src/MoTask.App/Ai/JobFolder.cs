@@ -1,0 +1,91 @@
+using System.IO;
+using System.Text;
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using MoTask.Core;
+using MoTask.Core.Ai;
+
+namespace MoTask.App.Ai;
+
+/// <summary>
+/// ジョブフォルダの実体（仕様 §6）。cwd はここではなくプロジェクトの作業フォルダなので、
+/// このフォルダは --add-dir で読み書きを許す。
+/// </summary>
+public sealed class JobFolder : IJobFolder
+{
+    private static readonly UTF8Encoding Utf8 = new(encoderShouldEmitUTF8Identifier: false);
+
+    private static readonly JsonSerializerOptions JobJsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        Converters = { new JsonStringEnumConverter() },
+    };
+
+    private readonly IAiSettingsStore _settings;
+
+    public JobFolder(IAiSettingsStore settings)
+    {
+        _settings = settings;
+    }
+
+    /// <summary>MoTask.App のビルドが hooks\ へ運ぶ exe。テストは差し替える。</summary>
+    internal string HooksExecutable { get; set; } =
+        Path.Combine(AppContext.BaseDirectory, "hooks", "MoTask.Hooks.exe");
+
+    public Result<string> Create(JobFolderRequest request)
+    {
+        // フックが無いと端末は動くが盤面が一切追従しない。黙って走らせず、開始時に止める。
+        if (!File.Exists(HooksExecutable)) return Result.Fail<string>(Messages.HooksExecutableNotFound);
+
+        var root = Path.Combine(
+            _settings.Load().DefaultWorkingDirectory,
+            JobFolderPaths.JobsDirectoryName,
+            JobFolderPaths.FolderName(request.JobId, request.TaskTitle));
+        var paths = JobFolderPaths.For(root);
+        try
+        {
+            // 既にあっても作り直さない（--resume で開き直すときに同じフォルダへ戻る）
+            Directory.CreateDirectory(paths.ArtifactsDirectory);
+            File.WriteAllText(paths.InstructionMarkdown, request.Instruction, Utf8);
+            File.WriteAllText(paths.HooksJson, HooksJson.Build(HooksExecutable, paths.EventsJsonl), Utf8);
+            return Result.Ok(root);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return Result.Fail<string>(string.Format(Messages.JobFolderFailedFormat, root, ex.Message));
+        }
+    }
+
+    public void WriteJobJson(string root, JobDescriptor descriptor)
+    {
+        try
+        {
+            File.WriteAllText(JobFolderPaths.For(root).JobJson,
+                JsonSerializer.Serialize(descriptor, JobJsonOptions), Utf8);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // job.json は DB が壊れたときの保険。書けなくてもジョブは続ける。
+        }
+    }
+
+    public IReadOnlyList<string> ListArtifacts(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return Array.Empty<string>();
+        var artifacts = JobFolderPaths.For(root).ArtifactsDirectory;
+        try
+        {
+            if (!Directory.Exists(artifacts)) return Array.Empty<string>();
+            return Directory.EnumerateFiles(artifacts, "*", SearchOption.AllDirectories)
+                .OrderBy(Path.GetFileName, StringComparer.CurrentCulture)
+                .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 一覧が出ないだけで、ジョブの状態には関係しない
+            return Array.Empty<string>();
+        }
+    }
+}
