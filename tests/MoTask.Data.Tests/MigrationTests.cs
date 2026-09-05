@@ -94,5 +94,34 @@ public class MigrationTests : IDisposable
         DbPaths.DefaultSettings.Should().EndWith(Path.Combine("MoTask", "settings.json"));
     }
 
+    [Fact]
+    public async Task AiJob_JobFolder_RoundTrips()
+    {
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+            var board = new Board { Name = "b" };
+            var backlog = new Column { Name = "c", Role = ColumnRole.Backlog, Order = 0 };
+            board.Columns.Add(backlog);
+            ctx.Boards.Add(board);
+            await ctx.SaveChangesAsync();
+            var now = DateTime.UtcNow;
+            var task = new TaskItem { Title = "t", ColumnId = backlog.Id, CreatedAt = now, UpdatedAt = now };
+            ctx.Tasks.Add(task);
+            await ctx.SaveChangesAsync();
+            ctx.AiJobs.Add(new AiJob
+            {
+                TaskId = task.Id, Kind = AiJobKind.Execute, Status = AiJobStatus.Running,
+                SessionId = Guid.NewGuid(), JobFolder = @"C:\work\jobs\0001-t",
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            (await ctx.AiJobs.SingleAsync()).JobFolder.Should().Be(@"C:\work\jobs\0001-t");
+        }
+    }
+
     public void Dispose() => _db.Dispose();
 }
