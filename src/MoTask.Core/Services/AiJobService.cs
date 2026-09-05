@@ -1,6 +1,4 @@
 using System.Collections.Concurrent;
-using System.Text.Encodings.Web;
-using System.Text.Json;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
@@ -8,125 +6,50 @@ using MoTask.Core.Model;
 namespace MoTask.Core.Services;
 
 /// <summary>
-/// AI ジョブのライフサイクル（仕様 §7）。状態遷移・同時実行上限・完了時の列移動・承認の配線を持つ。
-/// DB は BoardService と共有の OperationGate で直列化する。ゲートの中から IBoardService を呼ぶと
-/// デッドロックするので、完了時の列移動（MoveToReviewAsync）はゲートの外で呼ぶ。
-/// JobChanged もゲートの外で上げる（購読側が同期的にサービスを呼び返しても詰まらないように）。
+/// AI ジョブのライフサイクル（仕様 §8）。MoTask はプロセスを所有せず、events.jsonl を読んで
+/// 状態を写すだけ。DB は BoardService と共有の OperationGate で直列化する。ゲートの中から
+/// IBoardService を呼ぶとデッドロックするので、完了時の列移動はゲートの外で呼ぶ。
+/// JobChanged もゲートの外で上げる。
 /// </summary>
 public sealed class AiJobService : IAiJobService
 {
-    private enum StopReason
+    /// <summary>追跡中のジョブの数え。DB には持たない。</summary>
+    private sealed class TrackedJob
     {
-        None,
-        Stop,
-        Suspend,
-    }
-
-    /// <summary>子プロセスが生きているジョブの制御ハンドル。DB には無い。</summary>
-    private sealed class RunningJob
-    {
-        /// <summary>まだ決定が返っていない承認要求。CLI は複数のツールを同時に呼ぶので 1 つとは限らない。</summary>
-        private readonly List<TaskCompletionSource> _pendingPermissions = new();
-        private StopReason _reason;
-
-        public required int JobId { get; init; }
         public required int TaskId { get; init; }
-        public required string TaskTitle { get; init; }
-        public required int? ProjectId { get; init; }
-        /// <summary>取り消すとランナーがプロセスを殺す。</summary>
-        public CancellationTokenSource ProcessCts { get; } = new();
-        /// <summary>取り消すと保留中の承認ダイアログが deny で返る。プロセスより先に取り消す。</summary>
-        public CancellationTokenSource PromptCts { get; } = new();
         public int Seq { get; set; }
-        public int TurnCount { get; set; }
-        public Task Completion { get; set; } = Task.CompletedTask;
-
-        /// <summary>停止・終了の理由。BeginShutdown で None 以外になり、以後は承認要求を受け付けない。</summary>
-        public StopReason Reason
-        {
-            get { lock (_pendingPermissions) return _reason; }
-        }
-
-        /// <summary>
-        /// 畳み始める。理由を立てて、待つべき保留要求のスナップショットを返す。受付と同じロックの中で
-        /// やるので、ここで返した一覧に漏れる要求は以後 1 件も受け付けられない。
-        /// </summary>
-        public IReadOnlyList<Task> BeginShutdown(StopReason reason)
-        {
-            lock (_pendingPermissions)
-            {
-                _reason = reason;
-                return _pendingPermissions.Select(p => p.Task).ToList();
-            }
-        }
-
-        /// <summary>
-        /// 承認要求の受付。決定が返るまでこの TaskCompletionSource が保留中として残る。
-        /// 畳み始めたあとは false を返す（呼び出し側が何も触らずに deny する）。
-        /// </summary>
-        public bool TryAddPendingPermission(out TaskCompletionSource pending)
-        {
-            lock (_pendingPermissions)
-            {
-                if (_reason != StopReason.None)
-                {
-                    pending = default!;
-                    return false;
-                }
-                pending = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-                _pendingPermissions.Add(pending);
-                return true;
-            }
-        }
-
-        public void RemovePendingPermission(TaskCompletionSource pending)
-        {
-            lock (_pendingPermissions) _pendingPermissions.Remove(pending);
-        }
-
-        /// <summary>この要求が最後の 1 件か（＝決めれば AwaitingApproval が解ける）。ゲートの中から呼ぶ。</summary>
-        public bool IsLastPendingPermission()
-        {
-            lock (_pendingPermissions) return _pendingPermissions.Count <= 1;
-        }
+        public int Turns { get; set; }
     }
-
-    private static readonly JsonSerializerOptions PayloadOptions = new()
-    {
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-    };
 
     private readonly IAiJobRepository _jobs;
-    private readonly IPermissionRuleRepository _rules;
     private readonly IBoardRepository _boards;
     private readonly IHistoryRepository _history;
     private readonly IUnitOfWork _uow;
     private readonly IClock _clock;
     private readonly OperationGate _gate;
-    private readonly IAgentRunner _runner;
-    private readonly IPermissionPolicy _policy;
-    private readonly IPermissionPrompt _prompt;
+    private readonly ISessionLauncher _launcher;
+    private readonly IJobFolder _folder;
+    private readonly IJobEventSource _events;
     private readonly IAiSettingsStore _settings;
     private readonly IBoardService _boardService;
-    private readonly ConcurrentDictionary<int, RunningJob> _running = new();
+    private readonly ConcurrentDictionary<int, TrackedJob> _tracked = new();
 
     public event EventHandler<AiJobChangedEventArgs>? JobChanged;
 
     public AiJobService(
-        IAiJobRepository jobs, IPermissionRuleRepository rules, IBoardRepository boards, IHistoryRepository history,
-        IUnitOfWork uow, IClock clock, OperationGate gate, IAgentRunner runner, IPermissionPolicy policy,
-        IPermissionPrompt prompt, IAiSettingsStore settings, IBoardService boardService)
+        IAiJobRepository jobs, IBoardRepository boards, IHistoryRepository history, IUnitOfWork uow,
+        IClock clock, OperationGate gate, ISessionLauncher launcher, IJobFolder folder,
+        IJobEventSource events, IAiSettingsStore settings, IBoardService boardService)
     {
         _jobs = jobs;
-        _rules = rules;
         _boards = boards;
         _history = history;
         _uow = uow;
         _clock = clock;
         _gate = gate;
-        _runner = runner;
-        _policy = policy;
-        _prompt = prompt;
+        _launcher = launcher;
+        _folder = folder;
+        _events = events;
         _settings = settings;
         _boardService = boardService;
     }
@@ -141,9 +64,18 @@ public sealed class AiJobService : IAiJobService
 
     public Task<IReadOnlyList<AiJob>> GetUnfinishedJobsAsync(CancellationToken ct = default)
         => _gate.RunAsync(() => _jobs.GetByStatusAsync(
-            new[] { AiJobStatus.Running, AiJobStatus.AwaitingApproval, AiJobStatus.Suspended }, ct), ct);
+            new[] { AiJobStatus.Pending, AiJobStatus.Running, AiJobStatus.WaitingForInput }, ct), ct);
 
-    public int TurnCountOf(int jobId) => _running.TryGetValue(jobId, out var entry) ? entry.TurnCount : 0;
+    public async Task<IReadOnlyList<string>> GetArtifactsAsync(int jobId, CancellationToken ct = default)
+    {
+        var job = await _gate.RunAsync(() => _jobs.GetAsync(jobId, ct), ct).ConfigureAwait(false);
+        // 一覧はファイルシステムが真実。ToolUse からは拾わない（仕様 §6）。
+        return job is null || job.JobFolder.Length == 0
+            ? Array.Empty<string>()
+            : _folder.ListArtifacts(job.JobFolder);
+    }
+
+    public int TurnCountOf(int jobId) => _tracked.TryGetValue(jobId, out var tracked) ? tracked.Turns : 0;
 
     // ---------- 開始 ----------
 
@@ -152,20 +84,21 @@ public sealed class AiJobService : IAiJobService
         instruction = instruction.Trim();
         if (instruction.Length == 0) return Result.Fail<AiJob>(Messages.InstructionRequired);
 
-        var available = _runner.CheckAvailable();
+        var available = _launcher.CheckAvailable();
         if (!available.IsSuccess) return Result.Fail<AiJob>(available.Error!);
 
         var settings = _settings.Load();
-        RunningJob? entry = null;
-        var result = await _gate.RunAsync(async () =>
+        var title = "";
+        var created = await _gate.RunAsync(async () =>
         {
             try
             {
                 var task = await _boards.GetTaskAsync(taskId, ct).ConfigureAwait(false);
                 if (task is null) return Result.Fail<AiJob>(Messages.TaskNotFound);
                 if (task.IsDeleted) return Result.Fail<AiJob>(Messages.TaskDeletedCannotRunAi);
-                if (_running.Values.Any(r => r.TaskId == taskId)) return Result.Fail<AiJob>(Messages.TaskAlreadyHasActiveJob);
-                if (LimitError(settings) is string limit) return Result.Fail<AiJob>(limit);
+                // 追跡中かどうかは DB で数える。MoTask を閉じても端末は走り続けるので記憶に頼れない。
+                var existing = await _jobs.GetForTaskAsync(taskId, ct).ConfigureAwait(false);
+                if (existing.Any(j => !j.Status.IsTerminal())) return Result.Fail<AiJob>(Messages.TaskAlreadyHasActiveJob);
 
                 var cwd = await ResolveWorkingDirectoryAsync(task, settings, ct).ConfigureAwait(false);
                 if (!cwd.IsSuccess) return Result.Fail<AiJob>(cwd.Error!);
@@ -173,7 +106,7 @@ public sealed class AiJobService : IAiJobService
                 var now = _clock.UtcNow;
                 var job = new AiJob
                 {
-                    TaskId = task.Id, Kind = kind, Status = AiJobStatus.Running, SessionId = Guid.NewGuid(),
+                    TaskId = task.Id, Kind = kind, Status = AiJobStatus.Pending, SessionId = Guid.NewGuid(),
                     Instruction = instruction, WorkingDirectory = cwd.Value!, StartedAt = now,
                 };
                 _jobs.Add(job);
@@ -183,9 +116,8 @@ public sealed class AiJobService : IAiJobService
                     Detail = AiJobHistoryDetail.Serialize(new AiJobHistoryDetail(kind, null)),
                 });
                 await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
-
-                // ゲートの中で登録しておくと、並行する開始要求が上限の数え漏れをしない
-                entry = Register(job, task, seq: 0);
+                title = task.Title;
+                _tracked[job.Id] = new TrackedJob { TaskId = task.Id };
                 return Result.Ok(job);
             }
             catch (PersistenceException ex)
@@ -194,16 +126,33 @@ public sealed class AiJobService : IAiJobService
             }
         }, ct).ConfigureAwait(false);
 
-        if (result.IsSuccess) Launch(result.Value!, entry!, instruction, resume: false);
-        return result;
-    }
+        if (!created.IsSuccess) return created;
+        var job = created.Value!;
 
-    private string? LimitError(AiSettings settings)
-    {
-        var active = _running.Count;
-        return active >= settings.MaxConcurrentJobs
-            ? string.Format(Messages.ConcurrencyLimitFormat, active, settings.MaxConcurrentJobs)
-            : null;
+        // ここから先はファイル操作と端末の起動なので、ゲートの外でやる。
+        var folder = _folder.Create(new JobFolderRequest(job.Id, title, instruction));
+        if (!folder.IsSuccess) return await FailAsync(job, folder.Error!).ConfigureAwait(false);
+
+        var command = _launcher.BuildCommand(
+            new SessionLaunchRequest(job.SessionId, folder.Value!, job.WorkingDirectory, Resume: false));
+        if (!command.IsSuccess) return await FailAsync(job, command.Error!).ConfigureAwait(false);
+
+        // job.json は起動コマンドまで決まってから書く（DB が壊れてもフォルダだけで素性が分かる）
+        _folder.WriteJobJson(folder.Value!, new JobDescriptor(
+            job.Id, job.SessionId, job.Kind, job.WorkingDirectory, command.Value!.Display, job.StartedAt ?? _clock.UtcNow));
+
+        var launched = _launcher.Launch(command.Value!);
+        if (!launched.IsSuccess) return await FailAsync(job, launched.Error!).ConfigureAwait(false);
+
+        var warning = await _gate.RunAsync(async () =>
+        {
+            job.JobFolder = folder.Value!;
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        Follow(job.Id, folder.Value!, skipLines: 0);
+        Raise(job, null, warning);
+        return Result.Ok(job);
     }
 
     /// <summary>
@@ -235,224 +184,196 @@ public sealed class AiJobService : IAiJobService
         return Result.Ok(fallback);
     }
 
-    private RunningJob Register(AiJob job, TaskItem task, int seq)
+    private async Task<Result<AiJob>> FailAsync(AiJob job, string error)
     {
-        var entry = new RunningJob { JobId = job.Id, TaskId = task.Id, TaskTitle = task.Title, ProjectId = task.ProjectId, Seq = seq };
-        _running[job.Id] = entry;
-        return entry;
-    }
-
-    private void Launch(AiJob job, RunningJob entry, string prompt, bool resume)
-    {
-        var request = new AgentRunRequest(
-            job.Id, job.SessionId, job.Kind, prompt, job.WorkingDirectory, resume,
-            (req, ct) => HandlePermissionAsync(job, entry, req, ct),
-            ev => RecordEventAsync(job, entry, ev));
-        entry.Completion = Task.Run(() => ExecuteAsync(job, entry, request, resume));
-        Raise(job, entry, null, null);
-    }
-
-    // ---------- 停止・中断・再開 ----------
-
-    public async Task<Result> StopJobAsync(int jobId, CancellationToken ct = default)
-    {
-        var exists = await _gate.RunAsync(async () => await _jobs.GetAsync(jobId, ct).ConfigureAwait(false) is not null, ct).ConfigureAwait(false);
-        if (!exists) return Result.Fail(Messages.AiJobNotFound);
-        if (!_running.TryGetValue(jobId, out var entry)) return Result.Fail(Messages.AiJobNotActive);
-
-        await ShutdownAsync(entry, StopReason.Stop).ConfigureAwait(false);
-        return Result.Ok();
-    }
-
-    public async Task SuspendAllAsync()
-    {
-        var entries = _running.Values.ToList();
-        // 承認ダイアログへの deny → プロセス終了 → Suspended の順。並行に畳んでよい。
-        await Task.WhenAll(entries.Select(e => ShutdownAsync(e, StopReason.Suspend))).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// 保留中の承認要求すべてに決定が付くのを待って（最大 2 秒）からプロセスを殺す。待つのは
-    /// HandlePermissionAsync が決定を返し終えるところまでで、その決定が子プロセスへ実際に書き込まれる
-    /// ことまではここでは保証しない（フラッシュは IAgentRunner の実装側の責務）。
-    /// 畳み始めたあとに届いた要求は RunningJob が受付を断り、HandlePermissionAsync が即 deny で返す。
-    /// 終了の理由は entry.Reason に残し、ExecuteAsync が最終状態を決める。
-    /// ゲートの外から呼ぶこと（承認の後始末も ExecuteAsync もゲートを取る）。
-    /// </summary>
-    private static async Task ShutdownAsync(RunningJob entry, StopReason reason)
-    {
-        try
+        await _gate.RunAsync(async () =>
         {
-            var pending = entry.BeginShutdown(reason);
-            Cancel(entry.PromptCts);
-            if (pending.Count > 0)
-            {
-                await Task.WhenAny(Task.WhenAll(pending), Task.Delay(TimeSpan.FromSeconds(2))).ConfigureAwait(false);
-            }
-            Cancel(entry.ProcessCts);
-            await entry.Completion.ConfigureAwait(false);
-        }
-        catch (Exception)
-        {
-            // ExecuteAsync は例外を握って状態を確定させるので、ここへ来るのは起動そのものの失敗と、
-            // 畳む手順自体がこけた場合だけ。アプリ終了時に SuspendAllAsync が投げ返さないよう握り潰す。
-        }
+            job.ErrorMessage = error;
+            Finish(job, AiJobStatus.Failed);
+            await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
+        _tracked.TryRemove(job.Id, out _);
+        Raise(job, null, null);
+        return Result.Fail<AiJob>(error);
     }
 
-    /// <summary>Cancel は登録済みコールバックの例外を AggregateException でまとめて投げうる。畳む手順を止めない。</summary>
-    private static void Cancel(CancellationTokenSource cts)
+    // ---------- 追従 ----------
+
+    private void Follow(int jobId, string jobFolder, int skipLines)
     {
-        try
-        {
-            cts.Cancel();
-        }
-        catch (Exception)
-        {
-            // 承認ダイアログやランナー側のコールバックの失敗で、プロセスの kill を落とさない
-        }
+        if (jobFolder.Length == 0) return;
+        _events.Follow(new JobEventSubscription(
+            jobId, JobFolderPaths.For(jobFolder).EventsJsonl, skipLines,
+            line => OnHookLineAsync(jobId, line),
+            message => OnProblemAsync(jobId, message)));
     }
 
-    public async Task<Result> ResumeJobAsync(int jobId, CancellationToken ct = default)
+    /// <summary>フックが 1 行書くたびに呼ばれる（行の順序どおり、直列）。</summary>
+    private async Task OnHookLineAsync(int jobId, string line)
     {
-        var available = _runner.CheckAvailable();
-        if (!available.IsSuccess) return Result.Fail(available.Error!);
-
-        var settings = _settings.Load();
-        RunningJob? entry = null;
+        var parsed = HookEventParser.Parse(line);
         AiJob? job = null;
-        var result = await _gate.RunAsync(async () =>
-        {
-            try
-            {
-                job = await _jobs.GetAsync(jobId, ct).ConfigureAwait(false);
-                if (job is null) return Result.Fail(Messages.AiJobNotFound);
-                if (job.Status != AiJobStatus.Suspended) return Result.Fail(Messages.AiJobNotSuspended);
-                // 中断中に同じタスクで別のジョブを始められる（Suspended は Active ではない）。
-                // その後で再開すると 1 タスクに実行中 2 件になるので、開始と同じ条件でここでも弾く。
-                if (_running.Values.Any(r => r.TaskId == job.TaskId)) return Result.Fail(Messages.TaskAlreadyHasActiveJob);
-                if (LimitError(settings) is string limit) return Result.Fail(limit);
+        AiJobEvent? stored = null;
+        var finished = false;
 
-                var task = await _boards.GetTaskAsync(job.TaskId, ct).ConfigureAwait(false);
-                if (task is null) return Result.Fail(Messages.TaskNotFound);
-                // 中断中に消されたタスクは再開しない（完了時の確認待ちへの移動が削除済みタスクを動かしてしまう）。
-                if (task.IsDeleted) return Result.Fail(Messages.TaskDeletedCannotRunAi);
-
-                var events = await _jobs.GetEventsAsync(job.Id, ct).ConfigureAwait(false);
-                job.Status = AiJobStatus.Running;
-                job.ErrorMessage = null;
-                await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
-                // 開始と同じくゲートの中で登録する。再開したジョブが _running に戻っていないと、
-                // 同じタスクの二重起動を弾く StartJobAsync の判定が空振りする。
-                entry = Register(job, task, seq: events.Count == 0 ? 0 : events.Max(e => e.Seq));
-                return Result.Ok();
-            }
-            catch (PersistenceException ex)
-            {
-                return Result.Fail($"{Messages.SaveFailed}: {ex.Message}");
-            }
-        }, ct).ConfigureAwait(false);
-
-        if (result.IsSuccess) Launch(job!, entry!, Messages.ResumeInstruction, resume: true);
-        return result;
-    }
-
-    public Task RecoverOnStartupAsync(CancellationToken ct = default) => _gate.RunAsync(async () =>
-    {
-        var orphans = await _jobs.GetByStatusAsync(new[] { AiJobStatus.Running, AiJobStatus.AwaitingApproval }, ct).ConfigureAwait(false);
-        if (orphans.Count == 0) return;
-        foreach (var job in orphans) job.Status = AiJobStatus.Suspended;
-        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
-    }, ct);
-
-    // ---------- ルール管理 ----------
-
-    public Task<IReadOnlyList<AiPermissionRule>> GetPermissionRulesAsync(CancellationToken ct = default)
-        => _gate.RunAsync(() => _rules.GetAllAsync(ct), ct);
-
-    public Task<Result> DeletePermissionRuleAsync(int ruleId, CancellationToken ct = default) => _gate.RunAsync(async () =>
-    {
-        var rule = await _rules.GetAsync(ruleId, ct).ConfigureAwait(false);
-        if (rule is null) return Result.Fail(Messages.PermissionRuleNotFound);
-        _rules.Remove(rule);
-        try
-        {
-            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
-            return Result.Ok();
-        }
-        catch (PersistenceException ex)
-        {
-            return Result.Fail($"{Messages.SaveFailed}: {ex.Message}");
-        }
-    }, ct);
-
-    // ---------- 実行と完了 ----------
-
-    private async Task ExecuteAsync(AiJob job, RunningJob entry, AgentRunRequest request, bool resume)
-    {
-        AgentRunOutcome? outcome = null;
-        string? failure = null;
-        try
-        {
-            outcome = await _runner.RunAsync(request, entry.ProcessCts.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // 停止・中断で殺した。理由は entry.Reason に入っている。
-        }
-        catch (Exception ex)
-        {
-            failure = ex.Message;
-        }
-
-        var final = AiJobStatus.Failed;
         var warning = await _gate.RunAsync(async () =>
         {
-            var now = _clock.UtcNow;
-            final = entry.Reason switch
+            var current = await _jobs.GetAsync(jobId).ConfigureAwait(false);
+            // 追跡をやめた後・完了にした後に届いた行は捨てる（終わったジョブを蘇らせない）
+            if (current is null || current.Status.IsTerminal()) return (string?)null;
+            job = current;
+
+            var tracked = await TrackedForAsync(current).ConfigureAwait(false);
+            tracked.Seq++;
+            stored = new AiJobEvent
             {
-                StopReason.Stop => AiJobStatus.Cancelled,
-                StopReason.Suspend => AiJobStatus.Suspended,
-                _ => outcome is { ExitCode: 0, Result: not { IsError: true } } && failure is null
-                    ? AiJobStatus.Succeeded
-                    : AiJobStatus.Failed,
+                JobId = jobId, Seq = tracked.Seq, At = _clock.UtcNow,
+                Kind = parsed.Kind, ToolName = parsed.ToolName, Payload = parsed.Payload,
             };
-            job.Status = final;
-            if (outcome?.Result is { } info)
+            _jobs.AddEvent(stored);
+
+            switch (parsed.Kind)
             {
-                job.NumTurns = info.NumTurns ?? job.NumTurns;
-                job.TotalCostUsd = info.TotalCostUsd ?? job.TotalCostUsd;
-            }
-            if (final != AiJobStatus.Suspended) job.EndedAt = now;
-            if (final == AiJobStatus.Failed) job.ErrorMessage = FailureMessage(outcome, failure, resume);
-            if (final.IsTerminal())
-            {
-                _history.Add(new HistoryEntry
-                {
-                    TaskId = job.TaskId, At = now, Kind = HistoryKind.AiJobFinished,
-                    Detail = AiJobHistoryDetail.Serialize(new AiJobHistoryDetail(job.Kind, final)),
-                });
+                case AiJobEventKind.SessionStarted:
+                case AiJobEventKind.ToolUse:
+                    current.Status = AiJobStatus.Running;
+                    break;
+                case AiJobEventKind.TurnEnded:
+                    current.Status = AiJobStatus.WaitingForInput;
+                    tracked.Turns++;
+                    current.NumTurns = tracked.Turns;
+                    break;
+                case AiJobEventKind.SessionEnded:
+                    Finish(current, AiJobStatus.Succeeded);
+                    finished = true;
+                    break;
             }
             return await SaveQuietlyAsync().ConfigureAwait(false);
         }).ConfigureAwait(false);
 
-        _running.TryRemove(job.Id, out _);
-        if (final == AiJobStatus.Succeeded)
+        if (job is null) return;
+        if (finished)
         {
-            // 保存に失敗していても列移動そのものは必ず試みる（?? = だと警告が立っている時に呼ばれない）。
-            // バナーは 1 本なので、先に立っている保存失敗の警告を優先し、無いときだけ移動側の警告を出す。
+            _events.StopFollowing(jobId);
+            _tracked.TryRemove(jobId, out _);
+            // 保存に失敗していても列移動は必ず試みる。バナーは 1 本なので保存失敗の方を優先する。
             var moveWarning = await MoveToReviewAsync(job.TaskId).ConfigureAwait(false);
             warning ??= moveWarning;
         }
-        Raise(job, entry, null, warning);
+        Raise(job, stored, warning);
     }
 
-    private static string FailureMessage(AgentRunOutcome? outcome, string? failure, bool resume)
+    /// <summary>events.jsonl が消えた／作り直された（仕様 §12）。状態は変えず、注意だけ出す。</summary>
+    private async Task OnProblemAsync(int jobId, string message)
     {
-        var detail = outcome?.Result?.ResultText;
-        if (string.IsNullOrWhiteSpace(detail)) detail = failure;
-        if (string.IsNullOrWhiteSpace(detail)) detail = outcome?.StderrTail?.Trim();
-        if (string.IsNullOrWhiteSpace(detail)) detail = string.Format(Messages.AgentExitedWithCodeFormat, outcome?.ExitCode ?? -1);
-        return string.Format(resume ? Messages.ResumeFailedFormat : Messages.AgentFailedFormat, detail);
+        _events.StopFollowing(jobId);
+        var job = await _gate.RunAsync(() => _jobs.GetAsync(jobId)).ConfigureAwait(false);
+        if (job is null) return;
+        Raise(job, null, message);
+    }
+
+    // ---------- 人の操作 ----------
+
+    public async Task<Result> ReopenTerminalAsync(int jobId, CancellationToken ct = default)
+    {
+        var available = _launcher.CheckAvailable();
+        if (!available.IsSuccess) return available;
+
+        AiJob? job = null;
+        var found = await _gate.RunAsync(async () =>
+        {
+            var current = await _jobs.GetAsync(jobId, ct).ConfigureAwait(false);
+            if (current is null) return Result.Fail(Messages.AiJobNotFound);
+            if (current.Status.IsTerminal()) return Result.Fail(Messages.AiJobAlreadyFinished);
+            if (current.JobFolder.Length == 0) return Result.Fail(Messages.AiJobFolderMissing);
+            job = current;
+            return Result.Ok();
+        }, ct).ConfigureAwait(false);
+        if (!found.IsSuccess) return found;
+
+        var command = _launcher.BuildCommand(
+            new SessionLaunchRequest(job!.SessionId, job.JobFolder, job.WorkingDirectory, Resume: true));
+        if (!command.IsSuccess) return Result.Fail(command.Error!);
+        var launched = _launcher.Launch(command.Value!);
+        if (!launched.IsSuccess) return launched;
+
+        // 前に追従が切れていても掛け直す。取り込み済みの行は読み飛ばす。
+        // 数える前に古い追従を止める。そうしないと、数えている間に古いループが取り込んだ行が
+        // SkipLines に反映されず、新しい購読でもう一度取り込まれて二重カウントになる。
+        _events.StopFollowing(jobId);
+        var events = await _gate.RunAsync(() => _jobs.GetEventsAsync(jobId, ct), ct).ConfigureAwait(false);
+        Follow(jobId, job.JobFolder, events.Count);
+        return Result.Ok();
+    }
+
+    public Task<Result> CompleteJobAsync(int jobId, CancellationToken ct = default)
+        => FinishByHandAsync(jobId, AiJobStatus.Succeeded, ct);
+
+    public Task<Result> StopTrackingAsync(int jobId, CancellationToken ct = default)
+        => FinishByHandAsync(jobId, AiJobStatus.Cancelled, ct);
+
+    private async Task<Result> FinishByHandAsync(int jobId, AiJobStatus status, CancellationToken ct)
+    {
+        AiJob? job = null;
+        string? warning = null;
+        var result = await _gate.RunAsync(async () =>
+        {
+            var current = await _jobs.GetAsync(jobId, ct).ConfigureAwait(false);
+            if (current is null) return Result.Fail(Messages.AiJobNotFound);
+            if (current.Status.IsTerminal()) return Result.Fail(Messages.AiJobAlreadyFinished);
+            job = current;
+            Finish(current, status);
+            warning = await SaveQuietlyAsync().ConfigureAwait(false);
+            return Result.Ok();
+        }, ct).ConfigureAwait(false);
+        if (!result.IsSuccess) return result;
+
+        _events.StopFollowing(jobId);
+        _tracked.TryRemove(jobId, out _);
+        // 「完了にする」は SessionEnd と同じ扱い。「追跡をやめる」は仕事が終わったわけではないので動かさない。
+        if (status == AiJobStatus.Succeeded) warning ??= await MoveToReviewAsync(job!.TaskId).ConfigureAwait(false);
+        Raise(job!, null, warning);
+        return result;
+    }
+
+    public async Task RecoverOnStartupAsync(CancellationToken ct = default)
+    {
+        var unfinished = await GetUnfinishedJobsAsync(ct).ConfigureAwait(false);
+        foreach (var job in unfinished)
+        {
+            if (job.JobFolder.Length == 0) continue;
+            var events = await _gate.RunAsync(() => _jobs.GetEventsAsync(job.Id, ct), ct).ConfigureAwait(false);
+            _tracked[job.Id] = new TrackedJob { TaskId = job.TaskId, Seq = events.Count, Turns = job.NumTurns ?? 0 };
+            Follow(job.Id, job.JobFolder, events.Count);
+        }
+    }
+
+    // ---------- 補助 ----------
+
+    /// <summary>
+    /// ゲートの中で呼ぶ。記憶に無ければ保存済みイベントから数え直す
+    /// （events.jsonl は「1 行 = 1 イベント」なので、件数がそのまま Seq とオフセットになる）。
+    /// </summary>
+    private async Task<TrackedJob> TrackedForAsync(AiJob job)
+    {
+        if (_tracked.TryGetValue(job.Id, out var tracked)) return tracked;
+        var events = await _jobs.GetEventsAsync(job.Id).ConfigureAwait(false);
+        tracked = new TrackedJob { TaskId = job.TaskId, Seq = events.Count, Turns = job.NumTurns ?? 0 };
+        _tracked[job.Id] = tracked;
+        return tracked;
+    }
+
+    /// <summary>ゲートの中で呼ぶ。終了状態を書いて履歴を残す（保存は呼び出し側）。</summary>
+    private void Finish(AiJob job, AiJobStatus status)
+    {
+        var now = _clock.UtcNow;
+        job.Status = status;
+        job.EndedAt = now;
+        _history.Add(new HistoryEntry
+        {
+            TaskId = job.TaskId, At = now, Kind = HistoryKind.AiJobFinished,
+            Detail = AiJobHistoryDetail.Serialize(new AiJobHistoryDetail(job.Kind, status)),
+        });
     }
 
     /// <summary>ゲートの外から呼ぶ（BoardService も同じゲートを取る）。戻り値はバナー向けの警告。</summary>
@@ -469,36 +390,7 @@ public sealed class AiJobService : IAiJobService
         return moved.Warnings.Count > 0 ? string.Join(" / ", moved.Warnings) : null;
     }
 
-    // ---------- イベント ----------
-
-    private async Task RecordEventAsync(AiJob job, RunningJob entry, AgentEvent ev)
-    {
-        AiJobEvent? stored = null;
-        var warning = await _gate.RunAsync(async () =>
-        {
-            stored = AddEvent(job, entry, ev.Kind, ev.ToolName, ev.Payload);
-            if (ev.Kind is AiJobEventKind.AssistantText or AiJobEventKind.ToolUse) entry.TurnCount++;
-            if (ev.Result is { } info)
-            {
-                // 値が無い result 行で、既に取れている値を潰さない（ExecuteAsync の完了時と同じ方針）。
-                job.NumTurns = info.NumTurns ?? job.NumTurns;
-                job.TotalCostUsd = info.TotalCostUsd ?? job.TotalCostUsd;
-            }
-            return await SaveQuietlyAsync().ConfigureAwait(false);
-        }).ConfigureAwait(false);
-        Raise(job, entry, stored, warning);
-    }
-
-    /// <summary>ゲートの中で呼ぶ。Seq を進めて追記する（保存は呼び出し側）。</summary>
-    private AiJobEvent AddEvent(AiJob job, RunningJob entry, AiJobEventKind kind, string? toolName, string payload)
-    {
-        entry.Seq++;
-        var stored = new AiJobEvent { JobId = job.Id, Seq = entry.Seq, At = _clock.UtcNow, Kind = kind, ToolName = toolName, Payload = payload };
-        _jobs.AddEvent(stored);
-        return stored;
-    }
-
-    /// <summary>ワーカースレッドからの保存失敗でジョブを殺さない。理由は警告として UI へ回す。</summary>
+    /// <summary>追従スレッドからの保存失敗でジョブを殺さない。理由は警告として UI へ回す。</summary>
     private async Task<string?> SaveQuietlyAsync()
     {
         try
@@ -512,158 +404,11 @@ public sealed class AiJobService : IAiJobService
         }
     }
 
-    // ---------- 承認 ----------
-
-    /// <summary>
-    /// 承認ツールから呼ばれる。ルールで決まればダイアログ無し。AskHuman なら IPermissionPrompt を待つ。
-    /// タイムアウトはさせない。停止・終了で PromptCts が取り消されたときだけ deny を返す。
-    /// 並行して何件でも来る（CLI は複数のツールを同時に呼ぶ）ので、保留中の要求は entry に積む。
-    /// 畳み始めたあとの要求は、状態もイベントも触らずに即 deny する。
-    /// </summary>
-    private async Task<PermissionDecision> HandlePermissionAsync(AiJob job, RunningJob entry, PermissionRequest request, CancellationToken ct)
+    private void Raise(AiJob job, AiJobEvent? newEvent, string? warning)
     {
-        // 停止・終了の deny を受け取った CLI が、プロセスが死ぬ前に次のツールを呼ぶことがある。
-        // ここで受け付けて AwaitingApproval を書くと、最終状態を確定した ExecuteAsync を追い越して
-        // 終了済みのジョブを Running に蘇らせてしまう（EndedAt と終了履歴が付いたまま実体が無い状態）。
-        // 受付の可否は保留一覧と同じロックの中で決まるので、ShutdownAsync が待つ一覧から漏れて
-        // なお受け付けられる、という隙間は無い。
-        if (!entry.TryAddPendingPermission(out var pending))
-        {
-            return PermissionDecision.Deny(
-                entry.Reason == StopReason.Stop ? Messages.StoppedByUser : Messages.SuspendedByShutdown);
-        }
-
-        try
-        {
-            AiJobEvent? asked = null;
-            var warning = await _gate.RunAsync(async () =>
-            {
-                job.Status = AiJobStatus.AwaitingApproval;
-                asked = AddEvent(job, entry, AiJobEventKind.PermissionAsked, request.ToolName, AskedPayload(request));
-                return await SaveQuietlyAsync().ConfigureAwait(false);
-            }).ConfigureAwait(false);
-            Raise(job, entry, asked, warning);
-
-            var rules = await _gate.RunAsync(() => _rules.GetAllAsync(ct), ct).ConfigureAwait(false);
-            var verdict = _policy.Evaluate(entry.ProjectId, rules, request);
-
-            PermissionDecision decision;
-            string source;
-            switch (verdict)
-            {
-                case PolicyVerdict.Allow:
-                    decision = PermissionDecision.Allow();
-                    source = "rule";
-                    break;
-                case PolicyVerdict.Deny:
-                    decision = PermissionDecision.Deny(Messages.DeniedByRule);
-                    source = "rule";
-                    break;
-                default:
-                    (decision, source) = await AskHumanAsync(job, entry, request, ct).ConfigureAwait(false);
-                    break;
-            }
-
-            AiJobEvent? decided = null;
-            warning = await _gate.RunAsync(async () =>
-            {
-                // まだ他の要求が保留中なら AwaitingApproval のまま。最後の 1 件が決まって初めて Running へ戻す。
-                // 数えるのはゲートの中（他の要求の受付・決定もゲートを通るので、ここでの数え方が競らない）。
-                if (job.Status == AiJobStatus.AwaitingApproval && entry.IsLastPendingPermission()) job.Status = AiJobStatus.Running;
-                decided = AddEvent(job, entry, AiJobEventKind.PermissionDecided, request.ToolName, DecidedPayload(decision, source));
-                return await SaveQuietlyAsync().ConfigureAwait(false);
-            }).ConfigureAwait(false);
-            Raise(job, entry, decided, warning);
-            return decision;
-        }
-        finally
-        {
-            pending.TrySetResult();
-            entry.RemovePendingPermission(pending);
-        }
-    }
-
-    private async Task<(PermissionDecision Decision, string Source)> AskHumanAsync(AiJob job, RunningJob entry, PermissionRequest request, CancellationToken ct)
-    {
-        var pattern = PermissionPattern.ForRemembering(request);
-        var context = new PermissionPromptContext(job, entry.TaskTitle, entry.ProjectId, request, pattern);
-
-        HumanDecision human;
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(entry.PromptCts.Token, ct);
-        try
-        {
-            human = await _prompt.AskAsync(context, linked.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException)
-        {
-            // 停止か終了。人が拒否したのだと誤解させない文言で deny を返す（仕様 §9）。
-            var message = entry.Reason == StopReason.Stop ? Messages.StoppedByUser : Messages.SuspendedByShutdown;
-            return (PermissionDecision.Deny(message), "shutdown");
-        }
-        catch (Exception)
-        {
-            // ダイアログ側の失敗（Dispatcher の異常、画面破棄後の呼び出しなど）。承認要求はタイムアウトさせない
-            // 設計なので、ここで例外を素通しすると PermissionDecided が残らず AwaitingApproval のまま二度と
-            // 進まなくなる。安全側（拒否）に倒して必ず決定イベントを残す。
-            // source は "human" のまま: payload の source は rule / human / shutdown の 3 値契約で、
-            // 4 つ目を足すと Task 11 の整形が黙って取りこぼす。人に聞く経路の失敗なので "human" が正しい。
-            return (PermissionDecision.Deny(Messages.ApprovalUiFailed), "human");
-        }
-
-        if (human.Remember)
-        {
-            var scope = human.Scope == RuleScope.Project && entry.ProjectId is not null ? RuleScope.Project : RuleScope.Global;
-            await _gate.RunAsync(async () =>
-            {
-                _rules.Add(new AiPermissionRule
-                {
-                    Scope = scope,
-                    ProjectId = scope == RuleScope.Project ? entry.ProjectId : null,
-                    ToolName = request.ToolName,
-                    Pattern = pattern,
-                    Decision = human.Decision,
-                    CreatedAt = _clock.UtcNow,
-                });
-                await SaveQuietlyAsync().ConfigureAwait(false);
-            }).ConfigureAwait(false);
-        }
-
-        var decision = human.Decision == RuleDecision.Allow
-            ? PermissionDecision.Allow()
-            : PermissionDecision.Deny(Messages.DeniedByHuman);
-        return (decision, "human");
-    }
-
-    private static string AskedPayload(PermissionRequest request)
-    {
-        object input;
-        try
-        {
-            using var doc = JsonDocument.Parse(request.InputJson);
-            input = doc.RootElement.Clone();
-        }
-        catch (JsonException)
-        {
-            input = request.InputJson;
-        }
-        return JsonSerializer.Serialize(new { type = "motask_permission_asked", tool_name = request.ToolName, tool_use_id = request.ToolUseId, input }, PayloadOptions);
-    }
-
-    private static string DecidedPayload(PermissionDecision decision, string source)
-        => JsonSerializer.Serialize(new
-        {
-            type = "motask_permission_decided",
-            behavior = decision.IsAllowed ? "allow" : "deny",
-            source,
-            message = decision.Message,
-        }, PayloadOptions);
-
-    // ---------- 通知 ----------
-
-    private void Raise(AiJob job, RunningJob? entry, AiJobEvent? newEvent, string? warning)
-    {
-        var turns = job.NumTurns ?? entry?.TurnCount ?? 0;
-        var snapshot = new AiJobSnapshot(job.Id, job.TaskId, job.Kind, job.Status, turns, job.TotalCostUsd, job.ErrorMessage, job.WorkingDirectory);
+        var snapshot = new AiJobSnapshot(
+            job.Id, job.TaskId, job.Kind, job.Status, job.NumTurns ?? TurnCountOf(job.Id),
+            job.ErrorMessage, job.WorkingDirectory, job.JobFolder);
         JobChanged?.Invoke(this, new AiJobChangedEventArgs(snapshot, newEvent, warning));
     }
 }

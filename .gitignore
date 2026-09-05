@@ -6,3 +6,5 @@ obj/
 *.db
 *.db-*
 TestResults/
+.worktrees/
+.claude/worktrees/

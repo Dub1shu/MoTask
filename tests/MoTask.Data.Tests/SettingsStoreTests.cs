@@ -20,7 +20,7 @@ public class SettingsStoreTests : IDisposable
     public void Save_ThenLoad_RoundTrips_AndCreatesTheDirectory()
     {
         var store = new JsonAiSettingsStore(PathOf("settings.json"));
-        var settings = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20);
+        var settings = new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5", AiSettings.DefaultPermissionMode, null);
 
         store.Save(settings);
 
@@ -37,23 +37,24 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void Load_WithMissingFields_FillsDefaults()
+    public void Load_WithMissingFields_FillsDefaults_AndIgnoresRetiredKeys()
     {
         Directory.CreateDirectory(_dir);
-        File.WriteAllText(PathOf("settings.json"), """{"MaxConcurrentJobs": 5}""");
+        // MaxConcurrentJobs / MaxTurns は廃止した。古い settings.json に残っていても黙って捨てる。
+        File.WriteAllText(PathOf("settings.json"), """{"Model": "claude-sonnet-5", "MaxConcurrentJobs": 5, "MaxTurns": 20}""");
         var loaded = new JsonAiSettingsStore(PathOf("settings.json")).Load();
-        loaded.MaxConcurrentJobs.Should().Be(5);
+        loaded.Model.Should().Be("claude-sonnet-5");
         loaded.DefaultWorkingDirectory.Should().Be(AiSettings.Default().DefaultWorkingDirectory);
-        loaded.MaxTurns.Should().Be(AiSettings.DefaultMaxTurns);
-        loaded.Model.Should().BeNull();
+        loaded.ClaudeExecutablePath.Should().BeNull();
+        loaded.PermissionMode.Should().Be(AiSettings.DefaultPermissionMode);
     }
 
     [Fact]
     public void Save_CalledAgain_ReplacesThePreviousFile_AndRoundTrips()
     {
         var store = new JsonAiSettingsStore(PathOf("settings.json"));
-        var first = new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20);
-        var second = new AiSettings(@"C:\other", 4, null, null, 30);
+        var first = new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5", AiSettings.DefaultPermissionMode, null);
+        var second = new AiSettings(@"C:\other", null, null, AiSettings.DefaultPermissionMode, null);
 
         store.Save(first);
         store.Save(second);
@@ -66,10 +67,36 @@ public class SettingsStoreTests : IDisposable
     {
         var store = new JsonAiSettingsStore(PathOf("settings.json"));
 
-        store.Save(new AiSettings(@"C:\work", 2, @"C:\tools\claude.exe", "claude-sonnet-5", 20));
+        store.Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5", AiSettings.DefaultPermissionMode, null));
 
         Directory.GetFiles(_dir).Should().Equal(PathOf("settings.json"));
         File.Exists(PathOf("settings.json.tmp")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Load_FallsBackWhenPermissionModeIsUnknown()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, """{"PermissionMode":"すきなように","TerminalCommandTemplate":"pwsh -c {command}"}""");
+
+        var settings = new JsonAiSettingsStore(path).Load();
+
+        settings.PermissionMode.Should().Be("auto");
+        settings.TerminalCommandTemplate.Should().Be("pwsh -c {command}");
+    }
+
+    [Fact]
+    public void Save_RoundTripsPermissionModeAndTemplate()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        var store = new JsonAiSettingsStore(path);
+
+        store.Save(AiSettings.Default() with { PermissionMode = "plan", TerminalCommandTemplate = "wt -d {cwd} {command}" });
+
+        var loaded = new JsonAiSettingsStore(path).Load();
+        loaded.PermissionMode.Should().Be("plan");
+        loaded.TerminalCommandTemplate.Should().Be("wt -d {cwd} {command}");
     }
 
     public void Dispose()

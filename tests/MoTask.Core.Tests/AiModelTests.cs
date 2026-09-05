@@ -8,13 +8,25 @@ namespace MoTask.Core.Tests;
 public class AiModelTests
 {
     [Fact]
-    public void AiJobStatus_IsActive_OnlyForRunningAndAwaitingApproval()
+    public void AiJobStatus_IsActive_ForEveryStatusThatIsNotFinished()
     {
+        AiJobStatus.Pending.IsActive().Should().BeTrue();
         AiJobStatus.Running.IsActive().Should().BeTrue();
-        AiJobStatus.AwaitingApproval.IsActive().Should().BeTrue();
-        AiJobStatus.Suspended.IsActive().Should().BeFalse();
-        AiJobStatus.Pending.IsActive().Should().BeFalse();
+        AiJobStatus.WaitingForInput.IsActive().Should().BeTrue();
         AiJobStatus.Succeeded.IsActive().Should().BeFalse();
+        AiJobStatus.Failed.IsActive().Should().BeFalse();
+        AiJobStatus.Cancelled.IsActive().Should().BeFalse();
+    }
+
+    [Fact]
+    public void AiJobStatus_KeepsTheExistingNumbers()
+    {
+        ((int)AiJobStatus.Pending).Should().Be(0);
+        ((int)AiJobStatus.Running).Should().Be(1);
+        ((int)AiJobStatus.Succeeded).Should().Be(4);
+        ((int)AiJobStatus.Failed).Should().Be(5);
+        ((int)AiJobStatus.Cancelled).Should().Be(6);
+        ((int)AiJobStatus.WaitingForInput).Should().Be(7);
     }
 
     [Fact]
@@ -23,8 +35,8 @@ public class AiModelTests
         AiJobStatus.Succeeded.IsTerminal().Should().BeTrue();
         AiJobStatus.Failed.IsTerminal().Should().BeTrue();
         AiJobStatus.Cancelled.IsTerminal().Should().BeTrue();
-        AiJobStatus.Suspended.IsTerminal().Should().BeFalse();
         AiJobStatus.Running.IsTerminal().Should().BeFalse();
+        AiJobStatus.WaitingForInput.IsTerminal().Should().BeFalse();
     }
 
     [Fact]
@@ -61,8 +73,8 @@ public class AiModelTests
     [Fact]
     public void Messages_ResolveAiStrings()
     {
-        Messages.SuspendedByShutdown.Should().Be("MoTask が終了したため中断しました");
-        string.Format(Messages.ConcurrencyLimitFormat, 3, 3).Should().Be("同時に実行できる AI ジョブは 3 件までです（現在 3 件が実行中）");
-        Messages.ResumeInstruction.Should().StartWith("中断されたところから続けてください");
+        Messages.TaskAlreadyHasActiveJob.Should().Be("このタスクには追跡中の AI ジョブがあります");
+        Messages.AiJobAlreadyFinished.Should().Be("このジョブは終了済みです");
+        string.Format(Messages.TerminalStartPromptFormat, "a.md", "b").Should().StartWith("a.md を読んで");
     }
 }

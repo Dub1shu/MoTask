@@ -35,6 +35,12 @@ namespace MoTask.Data.Migrations
                         .HasColumnType("TEXT")
                         .HasDefaultValue("");
 
+                    b.Property<string>("JobFolder")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -56,9 +62,6 @@ namespace MoTask.Data.Migrations
 
                     b.Property<int>("TaskId")
                         .HasColumnType("INTEGER");
-
-                    b.Property<decimal?>("TotalCostUsd")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("WorkingDirectory")
                         .IsRequired()
@@ -110,42 +113,6 @@ namespace MoTask.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("AiJobEvents", (string)null);
-                });
-
-            modelBuilder.Entity("MoTask.Core.Model.AiPermissionRule", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Decision")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Pattern")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int?>("ProjectId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Scope")
-                        .IsRequired()
-                        .HasMaxLength(16)
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ToolName")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProjectId");
-
-                    b.ToTable("AiPermissionRules", (string)null);
                 });
 
             modelBuilder.Entity("MoTask.Core.Model.Board", b =>
@@ -353,14 +320,6 @@ namespace MoTask.Data.Migrations
                         .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("MoTask.Core.Model.AiPermissionRule", b =>
-                {
-                    b.HasOne("MoTask.Core.Model.Project", null)
-                        .WithMany()
-                        .HasForeignKey("ProjectId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("MoTask.Core.Model.Column", b =>

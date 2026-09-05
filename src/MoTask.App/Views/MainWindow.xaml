@@ -11,7 +11,7 @@
         Icon="/Resources/motodo_icon.ico"
         Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
-        Loaded="OnLoaded" Closing="OnClosing" PreviewKeyDown="OnPreviewKeyDown">
+        Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>
     <!-- アプリの基準面。黒の濃淡と細い境界線でボードから分離する。 -->
     <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"

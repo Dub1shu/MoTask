@@ -13,9 +13,11 @@ public sealed class AiJob
     public string Instruction { get; set; } = "";
     /// <summary>実行時に解決した cwd のスナップショット。後でプロジェクトの作業フォルダを変えても、どこで走ったかが残る。</summary>
     public string WorkingDirectory { get; set; } = "";
+    /// <summary>ジョブフォルダの絶対パス（仕様 §6）。起動に失敗したジョブでは空のまま。</summary>
+    public string JobFolder { get; set; } = "";
     public DateTime? StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
+    /// <summary>Stop フックを数えたターン数（仕様 §9）。費用はフックに来ないので持たない。</summary>
     public int? NumTurns { get; set; }
-    public decimal? TotalCostUsd { get; set; }
     public string? ErrorMessage { get; set; }
 }

@@ -15,6 +15,8 @@
   <ItemGroup>
     <ProjectReference Include="..\MoTask.Core\MoTask.Core.csproj" />
     <ProjectReference Include="..\MoTask.Data\MoTask.Data.csproj" />
+    <!-- フックの exe。参照はビルド順のためだけで、アセンブリとしては使わない。 -->
+    <ProjectReference Include="..\MoTask.Hooks\MoTask.Hooks.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MoTask.App.Tests" />
@@ -31,5 +33,19 @@
     <EmbeddedResource Update="Resources\Strings.resx">
       <LogicalName>MoTask.App.Resources.Strings.resources</LogicalName>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <!--
+      hooks\ に実体を運ぶ。Content にしておくと MoTask.App を参照するプロジェクト
+      （App.Tests）の出力にも同じ相対位置で並ぶので、テストから実起動できる。
+      上の ProjectReference がビルド順を保証するので、コピー時には必ず存在する。
+      MoTask.Hooks は net10.0 固定・出力パスも既定なので、パスを直に書いてよい。
+    -->
+    <Content Include="..\MoTask.Hooks\bin\$(Configuration)\net10.0\MoTask.Hooks.exe"
+             Link="hooks\MoTask.Hooks.exe" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <Content Include="..\MoTask.Hooks\bin\$(Configuration)\net10.0\MoTask.Hooks.dll"
+             Link="hooks\MoTask.Hooks.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <Content Include="..\MoTask.Hooks\bin\$(Configuration)\net10.0\MoTask.Hooks.runtimeconfig.json"
+             Link="hooks\MoTask.Hooks.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 </Project>

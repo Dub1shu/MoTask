@@ -29,13 +29,15 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
 
     [ObservableProperty] private bool _hasJob;
     [ObservableProperty] private bool _isActive;
-    [ObservableProperty] private bool _isSuspended;
+    [ObservableProperty] private bool _isWaitingForInput;
+    /// <summary>「開き直す」「完了にする」「追跡をやめる」を出してよいか（＝まだ追跡中か）。</summary>
+    [ObservableProperty] private bool _canControl;
     [ObservableProperty] private bool _canStart;
     [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private string? _costText;
     [ObservableProperty] private string? _resultText;
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _workingDirectory;
+    [ObservableProperty] private string? _jobFolder;
 
     [ObservableProperty] private bool _isComposing;
     [ObservableProperty] private AiJobKind _composingKind;
@@ -79,8 +81,12 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         var events = await _board.QueryAiEventsAsync(latest.Id);
         if (generation != _loadGeneration) return;
         foreach (var e in events) Log.Add(AiJobEventFormatter.Format(e));
-        foreach (var path in AiJobEventFormatter.ArtifactPaths(events)) Artifacts.Add(new ArtifactItem(path));
         ResultText = AiJobEventFormatter.ResultText(events);
+
+        // 成果物はジョブフォルダの artifacts/ を見たサービスから来る（仕様 §6）
+        var artifacts = await _board.QueryAiArtifactsAsync(latest.Id);
+        if (generation != _loadGeneration) return;
+        foreach (var path in artifacts) Artifacts.Add(new ArtifactItem(path));
     }
 
     /// <summary>BoardViewModel から（UI スレッドで）呼ばれる。</summary>
@@ -98,14 +104,10 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         if (e.NewEvent is { } ev)
         {
             Log.Add(AiJobEventFormatter.Format(ev));
-            if (AiJobEventFormatter.ArtifactPathOf(ev) is { } path
-                && !Artifacts.Any(a => string.Equals(a.Path, path, StringComparison.OrdinalIgnoreCase)))
-            {
-                Artifacts.Add(new ArtifactItem(path));
-            }
-            if (ev.Kind == AiJobEventKind.Result) ResultText = AiJobEventFormatter.ResultText(new[] { ev });
+            // 成果物一覧は LoadAsync の読み直しで拾う（ToolUse からは組み立てない）
+            if (ev.Kind == AiJobEventKind.TurnEnded) ResultText = AiJobEventFormatter.ResultText(new[] { ev }) ?? ResultText;
         }
-        if (e.Job.Status.IsTerminal() || e.Job.Status == AiJobStatus.Suspended) PendingLoad = LoadAsync();
+        if (e.Job.Status.IsTerminal()) PendingLoad = LoadAsync();
     }
 
     private void Apply(AiJob? job)
@@ -115,39 +117,40 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         {
             HasJob = false;
             IsActive = false;
-            IsSuspended = false;
+            IsWaitingForInput = false;
+            CanControl = false;
             StatusText = "";
-            CostText = null;
             ErrorMessage = null;
             WorkingDirectory = null;
+            JobFolder = null;
             CanStart = !_card.IsDeleted;
             return;
         }
         ApplySnapshot(new AiJobSnapshot(job.Id, job.TaskId, job.Kind, job.Status,
-            job.NumTurns ?? _board.AiJobs.TurnCountOf(job.Id), job.TotalCostUsd, job.ErrorMessage, job.WorkingDirectory));
+            job.NumTurns ?? _board.AiJobs.TurnCountOf(job.Id), job.ErrorMessage, job.WorkingDirectory, job.JobFolder));
     }
 
     private void ApplySnapshot(AiJobSnapshot s)
     {
         HasJob = true;
         IsActive = s.Status.IsActive();
-        IsSuspended = s.Status == AiJobStatus.Suspended;
-        CanStart = !IsActive && !IsSuspended && !_card.IsDeleted;
+        IsWaitingForInput = s.Status == AiJobStatus.WaitingForInput;
+        // 追跡中のジョブがある間は新しい依頼を受けない
+        CanStart = !IsActive && !_card.IsDeleted;
+        // 追跡中なら「開き直す」「完了にする」「追跡をやめる」が押せる
+        CanControl = IsActive;
         WorkingDirectory = s.WorkingDirectory;
+        JobFolder = s.JobFolder;
         ErrorMessage = s.Status == AiJobStatus.Failed ? s.ErrorMessage : null;
         StatusText = s.Status switch
         {
             AiJobStatus.Running => s.Kind == AiJobKind.Research ? Strings.AiStatusResearching : Strings.AiStatusExecuting,
-            AiJobStatus.AwaitingApproval => Strings.AiStatusAwaiting,
-            AiJobStatus.Suspended => Strings.AiStatusSuspended,
+            AiJobStatus.WaitingForInput => Strings.AiStatusWaitingForInput,
             AiJobStatus.Succeeded => Strings.AiStatusSucceeded,
             AiJobStatus.Failed => Strings.AiStatusFailed,
             AiJobStatus.Cancelled => Strings.AiStatusCancelled,
             _ => Strings.AiStatusPending,
         };
-        CostText = s.TotalCostUsd is decimal cost
-            ? string.Format(CultureInfo.InvariantCulture, Strings.AiCostFormat, cost, s.TurnCount)
-            : null;
     }
 
     // ---- 依頼 ----
@@ -183,17 +186,24 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
     // ---- 制御 ----
 
     [RelayCommand]
-    private async Task StopAsync()
+    private async Task CompleteAsync()
     {
         if (_job is null) return;
-        await _board.StopAiJobAsync(_job.Id);
+        if (await _board.CompleteAiJobAsync(_job.Id)) await LoadAsync();
     }
 
     [RelayCommand]
-    private async Task ResumeAsync()
+    private async Task StopTrackingAsync()
     {
         if (_job is null) return;
-        if (await _board.ResumeAiJobAsync(_job.Id)) await LoadAsync();
+        if (await _board.StopTrackingAiJobAsync(_job.Id)) await LoadAsync();
+    }
+
+    [RelayCommand]
+    private async Task ReopenTerminalAsync()
+    {
+        if (_job is null) return;
+        await _board.ReopenAiTerminalAsync(_job.Id);
     }
 
     [RelayCommand]
@@ -203,5 +213,11 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
     private void OpenWorkingDirectory()
     {
         if (WorkingDirectory is { Length: > 0 } dir) _board.OpenPath(dir);
+    }
+
+    [RelayCommand]
+    private void OpenJobFolder()
+    {
+        if (JobFolder is { Length: > 0 } folder) _board.OpenPath(folder);
     }
 }

@@ -1,5 +1,4 @@
 using FluentAssertions;
-using MoTask.App.Resources;
 using MoTask.App.ViewModels;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
@@ -10,38 +9,41 @@ namespace MoTask.App.Tests;
 public class TaskCardAiBadgeTests
 {
     private static AiJobSnapshot Snapshot(AiJobKind kind, AiJobStatus status, int turns = 0)
-        => new(1, 10, kind, status, turns, null, null, @"C:\w");
+        => new(1, 10, kind, status, turns, null, @"C:\w", @"C:\w\jobs\0001-t");
 
     private static TaskCardViewModel Card() => new(new TaskItem { Id = 10, Title = "t" });
 
     [Fact]
-    public void Running_ShowsKindAndTurns()
+    public void SetAiState_WaitingForInput_ShowsTheInputBadge()
     {
         var card = Card();
-        card.SetAiState(Snapshot(AiJobKind.Research, AiJobStatus.Running, 3));
-        card.AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusResearching, 3));
+
+        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.WaitingForInput, 3));
+
         card.HasAiBadge.Should().BeTrue();
-        card.IsAwaitingApproval.Should().BeFalse();
-
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.Running, 0));
-        card.AiBadgeText.Should().Be(string.Format(Strings.AiBadgeTurnsFormat, Strings.AiStatusExecuting, 0));
+        card.IsWaitingForInput.Should().BeTrue();
+        card.AiBadgeText.Should().Be("入力待ち");
     }
 
     [Fact]
-    public void AwaitingApproval_IsFlagged()
+    public void SetAiState_Running_ShowsTheKindAndTurns()
     {
         var card = Card();
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.AwaitingApproval, 2));
-        card.AiBadgeText.Should().Be(Strings.AiStatusAwaiting);
-        card.IsAwaitingApproval.Should().BeTrue();
+
+        card.SetAiState(Snapshot(AiJobKind.Research, AiJobStatus.Running, 2));
+
+        card.IsWaitingForInput.Should().BeFalse();
+        card.AiBadgeText.Should().Be("AI 調査中 · 2 ターン");
     }
 
     [Fact]
-    public void Suspended_ShowsSuspended()
+    public void SetAiState_Pending_ShowsNoBadgeYet()
     {
         var card = Card();
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.Suspended));
-        card.AiBadgeText.Should().Be(Strings.AiStatusSuspended);
+
+        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.Pending));
+
+        card.HasAiBadge.Should().BeFalse();
     }
 
     [Fact]
@@ -53,9 +55,9 @@ public class TaskCardAiBadgeTests
         card.AiBadgeText.Should().BeNull();
         card.HasAiBadge.Should().BeFalse();
 
-        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.AwaitingApproval));
+        card.SetAiState(Snapshot(AiJobKind.Execute, AiJobStatus.WaitingForInput, 1));
         card.SetAiState(null);
-        card.IsAwaitingApproval.Should().BeFalse();
+        card.IsWaitingForInput.Should().BeFalse();
         card.HasAiBadge.Should().BeFalse();
     }
 
