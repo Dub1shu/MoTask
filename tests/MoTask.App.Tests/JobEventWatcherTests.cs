@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using System.Text;
 using FluentAssertions;
 using MoTask.App.Ai;
@@ -114,6 +116,36 @@ public class JobEventWatcherTests : IDisposable
 
         await EventuallyAsync(() => _problems.Count == 1);
         _problems.Single().Should().Contain(_events);
+    }
+
+    [Fact]
+    public async Task Follow_ReportsAnUnexpectedFailureInsteadOfDyingSilently()
+    {
+        // IOException 以外の例外（アクセス拒否など）でも、追従が黙って死なないことを確認する。
+        // 自分自身に対して読み取りを ACL で拒否すると、FileStream を開く際に必ず
+        // UnauthorizedAccessException が飛ぶ（IOException の派生ではないので、既存の
+        // catch (IOException) では捕まらない）。
+        Append(_events, "{\"a\":1}");
+        var fileInfo = new FileInfo(_events);
+        var security = fileInfo.GetAccessControl();
+        var user = WindowsIdentity.GetCurrent()!.User!;
+        var deny = new FileSystemAccessRule(user, FileSystemRights.Read, AccessControlType.Deny);
+        security.AddAccessRule(deny);
+        fileInfo.SetAccessControl(security);
+
+        try
+        {
+            _watcher.Follow(Subscription());
+
+            await EventuallyAsync(() => _problems.Count == 1);
+            _problems.Single().Should().Contain(_events);
+            _lines.Should().BeEmpty("読み取りが拒否されているので、1 行も届かないはず");
+        }
+        finally
+        {
+            security.RemoveAccessRule(deny);
+            fileInfo.SetAccessControl(security);
+        }
     }
 
     [Fact]

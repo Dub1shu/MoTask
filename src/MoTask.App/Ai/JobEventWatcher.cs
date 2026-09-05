@@ -134,14 +134,25 @@ public sealed class JobEventWatcher : IJobEventSource, IDisposable
         {
             // StopFollowing / Dispose
         }
+        catch (Exception ex)
+        {
+            // IOException 以外の予期しない例外（UnauthorizedAccessException 等）。
+            // ここで飲み込まずに Task.Run が未観測の失敗タスクとして終わると、
+            // 購読側に「追従が止まった」ことがまったく伝わらなくなる。
+            await ReportAsync(subscription,
+                string.Format(Messages.EventsWatchFailedFormat, subscription.EventsPath, ex.Message))
+                .ConfigureAwait(false);
+        }
     }
 
-    private static async Task ReportAsync(JobEventSubscription subscription)
+    private static Task ReportAsync(JobEventSubscription subscription)
+        => ReportAsync(subscription, string.Format(Messages.EventsFileGoneFormat, subscription.EventsPath));
+
+    private static async Task ReportAsync(JobEventSubscription subscription, string message)
     {
         try
         {
-            await subscription.OnProblem(string.Format(Messages.EventsFileGoneFormat, subscription.EventsPath))
-                .ConfigureAwait(false);
+            await subscription.OnProblem(message).ConfigureAwait(false);
         }
         catch (Exception)
         {

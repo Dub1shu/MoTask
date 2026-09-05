@@ -54,4 +54,5 @@
   <data name="TerminalLaunchFailedFormat" xml:space="preserve"><value>端末を起動できませんでした: {0}</value></data>
   <data name="TerminalStartPromptFormat" xml:space="preserve"><value>{0} を読んで作業を始めてください。調査に使ったファイルと成果物は {1} に出してください。</value></data>
   <data name="EventsFileGoneFormat" xml:space="preserve"><value>イベントログを追えなくなりました（削除されたか作り直されました）: {0}</value></data>
+  <data name="EventsWatchFailedFormat" xml:space="preserve"><value>イベントログの追従中に予期しないエラーが発生しました: {0}（{1}）</value></data>
 </root>
