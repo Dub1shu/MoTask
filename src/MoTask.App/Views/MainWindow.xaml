@@ -12,7 +12,7 @@
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>
-    <!-- トップバー。ボード面（Brush.Bg）と区別が付くよう、ここだけ Surface を敷く。 -->
+    <!-- アプリの基準面。黒の濃淡と細い境界線でボードから分離する。 -->
     <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"
             BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
             Padding="{StaticResource Pad.Bar}">
@@ -20,17 +20,16 @@
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">
-          <TextBlock Text="{x:Static res:Strings.Brand}" Style="{StaticResource Text.Brand}" VerticalAlignment="Center" />
-          <Border Margin="{StaticResource Gap.Left.8}" BorderBrush="{StaticResource Brush.Accent}"
+          <Border BorderBrush="{StaticResource Brush.Accent}"
                   BorderThickness="0,0,0,2" Padding="{StaticResource Pad.Tab}">
-            <TextBlock Text="{x:Static res:Strings.ViewBoard}" Foreground="{StaticResource Brush.Accent.700}" FontWeight="Medium" />
+            <TextBlock Text="{x:Static res:Strings.ViewBoard}" Foreground="{StaticResource Brush.Accent}" FontWeight="Medium" />
           </Border>
         </StackPanel>
       </DockPanel>
     </Border>
 
     <!-- 保存失敗などの非モーダルバナー -->
-    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Accent.100}" BorderBrush="{StaticResource Brush.Danger}"
+    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.AccentSubtle}" BorderBrush="{StaticResource Brush.Danger}"
             BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}"
             Visibility="{Binding BannerMessage, Converter={StaticResource NullToVisibility}}">
       <DockPanel>

@@ -12,7 +12,7 @@
     </Style>
   </UserControl.Resources>
   <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
-          Background="{StaticResource Brush.Bg}">
+          Background="{StaticResource Brush.Surface}">
     <DockPanel>
       <DockPanel DockPanel.Dock="Top">
         <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource Btn.Ghost}" Command="{Binding CloseCommand}"
@@ -33,7 +33,7 @@
         <StackPanel>
           <!-- タイトル: フォーカスアウトで保存、Esc で取り消し -->
           <TextBox Text="{Binding Title, UpdateSourceTrigger=LostFocus}" Margin="{StaticResource Gap.Top.2}"
-                   FontFamily="{StaticResource Font.Heading}" FontSize="{StaticResource FontSize.H4}" FontWeight="SemiBold"
+                   FontFamily="{StaticResource Font.Heading}" FontSize="{StaticResource FontSize.DetailTitle}" FontWeight="SemiBold"
                    KeyDown="EditBox_KeyDown">
             <TextBox.Style>
               <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">

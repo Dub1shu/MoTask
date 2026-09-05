@@ -10,12 +10,14 @@
     <DockPanel>
       <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" Style="{StaticResource Text.Caption}"
                  Foreground="{Binding DueStatus, Converter={StaticResource DueStatusBrush}}" FontWeight="Medium" />
-      <Border Background="{StaticResource Brush.Neutral.200}" Padding="{StaticResource Pad.Chip}" HorizontalAlignment="Left"
+      <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
+              CornerRadius="3" HorizontalAlignment="Left"
               Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
-        <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Neutral.800}" />
+        <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
       </Border>
     </DockPanel>
-    <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
+    <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}"
+               TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
     <ItemsControl ItemsSource="{Binding Labels}" Margin="{StaticResource Gap.Top.2}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -23,7 +25,7 @@
       <ItemsControl.ItemTemplate>
         <DataTemplate>
           <!-- 文字色は段の濃さから選んだ TextColor を使う（濃いラベルの上でも読めるように）。 -->
-          <Border Background="{Binding Color, Converter={StaticResource RampBrush}}"
+          <Border Background="{Binding Color, Converter={StaticResource RampBrush}}" CornerRadius="3"
                   Padding="{StaticResource Pad.Chip}" Margin="{StaticResource Gap.Chip}">
             <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Caption}"
                        Foreground="{Binding TextColor, Converter={StaticResource RampBrush}}" />

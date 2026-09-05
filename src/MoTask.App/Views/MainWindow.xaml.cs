@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using MoTask.App.Resources;
+using MoTask.App.Themes;
 using MoTask.App.ViewModels;
 
 namespace MoTask.App.Views;
@@ -17,6 +18,7 @@ public partial class MainWindow : Window
         _vm = vm;
         DataContext = vm;
         InitializeComponent();
+        DarkWindowChrome.Apply(this);
     }
 
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>

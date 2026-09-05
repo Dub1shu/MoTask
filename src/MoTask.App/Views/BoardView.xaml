@@ -23,8 +23,9 @@
       </ItemsControl>
 
       <!-- 列を追加 -->
-      <Border Width="{StaticResource Size.Column}" VerticalAlignment="Top" BorderBrush="{StaticResource Brush.Divider}"
-              BorderThickness="1" Padding="{StaticResource Pad.Box}">
+      <Border Width="{StaticResource Size.Column}" VerticalAlignment="Top" Background="{StaticResource Brush.Surface}"
+              BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1" CornerRadius="10"
+              Padding="{StaticResource Pad.Box}">
         <Grid>
           <Button Content="{x:Static res:Strings.AddColumn}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
                   Command="{Binding BeginAddColumnCommand}"
