@@ -5,16 +5,22 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
+using MoTask.Core.Ai;
+using MoTask.Core.Services;
 
 namespace MoTask.App.Views;
 
 public partial class MainWindow : Window
 {
     private readonly BoardViewModel _vm;
+    private readonly IAiJobService _aiJobs;
+    private readonly IAiSettingsStore _settings;
 
-    public MainWindow(BoardViewModel vm)
+    public MainWindow(BoardViewModel vm, IAiJobService aiJobs, IAiSettingsStore settings)
     {
         _vm = vm;
+        _aiJobs = aiJobs;
+        _settings = settings;
         DataContext = vm;
         InitializeComponent();
     }
@@ -42,6 +48,17 @@ public partial class MainWindow : Window
         {
             Owner = this,
             DataContext = new ManageClassificationsViewModel(_vm),
+        };
+        dialog.ShowDialog();
+    }
+
+    /// <summary>AI 設定ダイアログ。ルールの削除は VM 内で完結するので、ここは開いて閉じるだけ。</summary>
+    private void OnAiSettingsClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new AiSettingsDialog
+        {
+            Owner = this,
+            DataContext = new AiSettingsViewModel(_settings, _aiJobs, _vm.Projects),
         };
         dialog.ShowDialog();
     }

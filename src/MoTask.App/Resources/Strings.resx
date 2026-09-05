@@ -165,4 +165,24 @@
   <data name="AiResult" xml:space="preserve"><value>結果</value></data>
   <data name="ProjectWorkingDirectory" xml:space="preserve"><value>作業フォルダ</value></data>
   <data name="ProjectWorkingDirectoryHint" xml:space="preserve"><value>AI がこのプロジェクトのタスクを実行するフォルダ。空なら設定の既定フォルダ</value></data>
+  <data name="AiSettings" xml:space="preserve"><value>AI 設定</value></data>
+  <data name="SettingsDefaultWorkingDirectory" xml:space="preserve"><value>既定の作業フォルダ（プロジェクトに作業フォルダが無いときに使う）</value></data>
+  <data name="SettingsMaxConcurrent" xml:space="preserve"><value>同時実行の上限</value></data>
+  <data name="SettingsClaudePath" xml:space="preserve"><value>claude 実行ファイルのパス（空なら PATH から探す）</value></data>
+  <data name="SettingsModel" xml:space="preserve"><value>モデル（空なら CLI の既定）</value></data>
+  <data name="SettingsMaxTurns" xml:space="preserve"><value>最大ターン数（--max-turns）</value></data>
+  <data name="SettingsRules" xml:space="preserve"><value>記憶した許可ルール</value></data>
+  <data name="SettingsNoRules" xml:space="preserve"><value>まだありません</value></data>
+  <data name="SettingsSave" xml:space="preserve"><value>保存</value></data>
+  <data name="SettingsSaved" xml:space="preserve"><value>保存しました</value></data>
+  <data name="SettingsRuleFormat" xml:space="preserve"><value>{0}: {1} — {2}</value></data>
+  <data name="SettingsRuleAllow" xml:space="preserve"><value>許可</value></data>
+  <data name="SettingsRuleDeny" xml:space="preserve"><value>拒否</value></data>
+  <data name="SettingsRuleAllTool" xml:space="preserve"><value>すべて</value></data>
+  <data name="SettingsScopeGlobal" xml:space="preserve"><value>すべてのプロジェクト</value></data>
+  <data name="SettingsScopeProjectFormat" xml:space="preserve"><value>プロジェクト「{0}」</value></data>
+  <data name="SettingsDeleteRule" xml:space="preserve"><value>削除</value></data>
+  <data name="MaxConcurrentMustBePositive" xml:space="preserve"><value>同時実行の上限は 1 以上の整数にしてください</value></data>
+  <data name="MaxTurnsMustBePositive" xml:space="preserve"><value>最大ターン数は 1 以上の整数にしてください</value></data>
+  <data name="DefaultWorkingDirectoryRequired" xml:space="preserve"><value>既定の作業フォルダを入力してください</value></data>
 </root>

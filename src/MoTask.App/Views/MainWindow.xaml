@@ -18,6 +18,8 @@
             Padding="{StaticResource Pad.Bar}">
       <DockPanel>
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
+                Content="{x:Static res:Strings.AiSettings}" Click="OnAiSettingsClick" Margin="{StaticResource Gap.Left.2}" />
+        <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">
           <TextBlock Text="{x:Static res:Strings.Brand}" Style="{StaticResource Text.Brand}" VerticalAlignment="Center" />

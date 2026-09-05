@@ -150,4 +150,24 @@ public static class Strings
     public static string AiResult => Get(nameof(AiResult));
     public static string ProjectWorkingDirectory => Get(nameof(ProjectWorkingDirectory));
     public static string ProjectWorkingDirectoryHint => Get(nameof(ProjectWorkingDirectoryHint));
+    public static string AiSettings => Get(nameof(AiSettings));
+    public static string SettingsDefaultWorkingDirectory => Get(nameof(SettingsDefaultWorkingDirectory));
+    public static string SettingsMaxConcurrent => Get(nameof(SettingsMaxConcurrent));
+    public static string SettingsClaudePath => Get(nameof(SettingsClaudePath));
+    public static string SettingsModel => Get(nameof(SettingsModel));
+    public static string SettingsMaxTurns => Get(nameof(SettingsMaxTurns));
+    public static string SettingsRules => Get(nameof(SettingsRules));
+    public static string SettingsNoRules => Get(nameof(SettingsNoRules));
+    public static string SettingsSave => Get(nameof(SettingsSave));
+    public static string SettingsSaved => Get(nameof(SettingsSaved));
+    public static string SettingsRuleFormat => Get(nameof(SettingsRuleFormat));
+    public static string SettingsRuleAllow => Get(nameof(SettingsRuleAllow));
+    public static string SettingsRuleDeny => Get(nameof(SettingsRuleDeny));
+    public static string SettingsRuleAllTool => Get(nameof(SettingsRuleAllTool));
+    public static string SettingsScopeGlobal => Get(nameof(SettingsScopeGlobal));
+    public static string SettingsScopeProjectFormat => Get(nameof(SettingsScopeProjectFormat));
+    public static string SettingsDeleteRule => Get(nameof(SettingsDeleteRule));
+    public static string MaxConcurrentMustBePositive => Get(nameof(MaxConcurrentMustBePositive));
+    public static string MaxTurnsMustBePositive => Get(nameof(MaxTurnsMustBePositive));
+    public static string DefaultWorkingDirectoryRequired => Get(nameof(DefaultWorkingDirectoryRequired));
 }
