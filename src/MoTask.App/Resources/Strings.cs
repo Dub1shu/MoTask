@@ -135,4 +135,19 @@ public static class Strings
     public static string AiResearchInstructionFormat => Get(nameof(AiResearchInstructionFormat));
     public static string AiExecuteInstructionFormat => Get(nameof(AiExecuteInstructionFormat));
     public static string AiNoDescription => Get(nameof(AiNoDescription));
+    public static string AiSection => Get(nameof(AiSection));
+    public static string AiResearch => Get(nameof(AiResearch));
+    public static string AiExecute => Get(nameof(AiExecute));
+    public static string AiStart => Get(nameof(AiStart));
+    public static string AiCancel => Get(nameof(AiCancel));
+    public static string AiProgress => Get(nameof(AiProgress));
+    public static string AiArtifacts => Get(nameof(AiArtifacts));
+    public static string AiNoArtifacts => Get(nameof(AiNoArtifacts));
+    public static string AiOpenWorkingDirectory => Get(nameof(AiOpenWorkingDirectory));
+    public static string AiStop => Get(nameof(AiStop));
+    public static string AiResume => Get(nameof(AiResume));
+    public static string AiCost => Get(nameof(AiCost));
+    public static string AiResult => Get(nameof(AiResult));
+    public static string ProjectWorkingDirectory => Get(nameof(ProjectWorkingDirectory));
+    public static string ProjectWorkingDirectoryHint => Get(nameof(ProjectWorkingDirectoryHint));
 }

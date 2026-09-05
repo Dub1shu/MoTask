@@ -16,6 +16,21 @@
       </Border>
     </DockPanel>
     <TextBlock Text="{Binding Title}" TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
+    <!-- AI 稼働中・承認待ちのバッジ（仕様 §10）。承認待ちは濃い段で目立たせる -->
+    <Border Margin="{StaticResource Gap.Top.1}" Padding="{StaticResource Pad.Chip}" HorizontalAlignment="Left"
+            Visibility="{Binding HasAiBadge, Converter={StaticResource BoolToVisibility}}">
+      <Border.Style>
+        <Style TargetType="Border">
+          <Setter Property="Background" Value="{StaticResource Brush.Accent.100}" />
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding IsAwaitingApproval}" Value="True">
+              <Setter Property="Background" Value="{StaticResource Brush.Accent.300}" />
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <TextBlock Text="{Binding AiBadgeText}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent.800}" FontWeight="Medium" />
+    </Border>
     <ItemsControl ItemsSource="{Binding Labels}" Margin="{StaticResource Gap.Top.2}">
       <ItemsControl.ItemsPanel>
         <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>

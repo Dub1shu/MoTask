@@ -150,4 +150,19 @@
 詳細:
 {1}</value></data>
   <data name="AiNoDescription" xml:space="preserve"><value>（なし）</value></data>
+  <data name="AiSection" xml:space="preserve"><value>AI に任せる</value></data>
+  <data name="AiResearch" xml:space="preserve"><value>調査させる</value></data>
+  <data name="AiExecute" xml:space="preserve"><value>遂行させる</value></data>
+  <data name="AiStart" xml:space="preserve"><value>開始</value></data>
+  <data name="AiCancel" xml:space="preserve"><value>取り消し</value></data>
+  <data name="AiProgress" xml:space="preserve"><value>進行状況</value></data>
+  <data name="AiArtifacts" xml:space="preserve"><value>成果物</value></data>
+  <data name="AiNoArtifacts" xml:space="preserve"><value>Write / Edit で作られたファイルはありません（リダイレクトで作ったファイルは作業フォルダを開いて確認）</value></data>
+  <data name="AiOpenWorkingDirectory" xml:space="preserve"><value>作業フォルダを開く</value></data>
+  <data name="AiStop" xml:space="preserve"><value>停止</value></data>
+  <data name="AiResume" xml:space="preserve"><value>再開</value></data>
+  <data name="AiCost" xml:space="preserve"><value>費用</value></data>
+  <data name="AiResult" xml:space="preserve"><value>結果</value></data>
+  <data name="ProjectWorkingDirectory" xml:space="preserve"><value>作業フォルダ</value></data>
+  <data name="ProjectWorkingDirectoryHint" xml:space="preserve"><value>AI がこのプロジェクトのタスクを実行するフォルダ。空なら設定の既定フォルダ</value></data>
 </root>
