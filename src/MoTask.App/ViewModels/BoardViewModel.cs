@@ -27,6 +27,8 @@ public sealed partial class BoardViewModel : ObservableObject
     private readonly SynchronizationContext? _ui;
     private Board? _board;
     private bool _syncingSelection;
+    /// <summary>重なった <see cref="ReloadAsync"/> の世代。古い方は await から戻った時点で降りる。</summary>
+    private int _reloadGeneration;
 
     public IAiJobService AiJobs { get; }
 
@@ -54,7 +56,7 @@ public sealed partial class BoardViewModel : ObservableObject
         new ColumnRoleOption(ColumnRole.Review, Strings.RoleReview),
     };
 
-    public BoardViewModel(IBoardService service, IClock clock, IAiJobService aiJobs)
+    public BoardViewModel(IBoardService service, IClock clock, IAiJobService aiJobs, IBoardChangeSource externalChanges)
     {
         _service = service;
         _clock = clock;
@@ -68,6 +70,8 @@ public sealed partial class BoardViewModel : ObservableObject
         _newColumnRole = DefaultColumnRole();
         Filter.Changed += (_, _) => ApplyFilter();
         aiJobs.JobChanged += (_, e) => Post(() => OnJobChanged(e));
+        // MCP 経由の書き込みはこの ViewModel を通らないので、丸ごと読み直す。
+        externalChanges.BoardChanged += (_, _) => Post(() => _ = ReloadAsync());
     }
 
     private void Post(Action action)
@@ -86,23 +90,31 @@ public sealed partial class BoardViewModel : ObservableObject
 
     public Task LoadAsync() => ReloadAsync();
 
-    /// <summary>起動時と、保存の失敗からの復帰時にだけ呼ぶ。</summary>
+    /// <summary>
+    /// 起動時と、保存の失敗からの復帰時にだけ呼ぶ……はずだったが、外部変更（MCP 経由の書き込み）の
+    /// 通知でも呼ばれるようになった。連続で発火しうるので、重なった実行が Columns を組み直す前に
+    /// 世代番号で古い方を降ろす（TaskAiPanelViewModel.LoadAsync と同じ手筋）。
+    /// </summary>
     public async Task ReloadAsync()
     {
+        var generation = ++_reloadGeneration;
         // 照会は例外を Result にしてくれないので、必ずここで包む（さもないと DB エラーでプロセスが落ちる）。
         var board = await GuardAsync(() => _service.GetBoardAsync());
+        if (generation != _reloadGeneration) return;
         if (!board.IsSuccess)
         {
             ShowFailure(board);
             return;
         }
         var projects = await QueryAsync(() => _service.GetProjectsAsync());
+        if (generation != _reloadGeneration) return;
         if (!projects.IsSuccess)
         {
             ShowFailure(projects);
             return;
         }
         var labels = await QueryAsync(() => _service.GetLabelsAsync());
+        if (generation != _reloadGeneration) return;
         if (!labels.IsSuccess)
         {
             ShowFailure(labels);
@@ -125,6 +137,7 @@ public sealed partial class BoardViewModel : ObservableObject
         }
         ApplyFilter();
         await ApplyAiStatesAsync();
+        if (generation != _reloadGeneration) return;
         SelectCard(selectedId is int id ? AllCards().FirstOrDefault(c => c.Id == id) : null);
         IsLoaded = true;
     }

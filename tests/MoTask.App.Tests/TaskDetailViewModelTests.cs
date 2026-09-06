@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentAssertions;
+using MoTask.App.Ai;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
@@ -31,7 +32,7 @@ public class TaskDetailViewModelTests
         _service.UpdateTaskAsync(Arg.Any<TaskUpdate>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
         _service.MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Ok()));
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), Substitute.For<IBoardChangeSource>());
     }
 
     private async Task<TaskDetailViewModel> OpenAsync(int taskId)

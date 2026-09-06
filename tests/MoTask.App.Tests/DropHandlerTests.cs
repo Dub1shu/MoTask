@@ -1,6 +1,7 @@
 using System.Collections;
 using FluentAssertions;
 using GongSolutions.Wpf.DragDrop;
+using MoTask.App.Ai;
 using MoTask.App.DragDrop;
 using MoTask.App.ViewModels;
 using MoTask.Core;
@@ -33,7 +34,7 @@ public class DropHandlerTests
             .Returns(Task.FromResult(Result.Ok()));
         _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Ok()));
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), Substitute.For<IBoardChangeSource>());
     }
 
     private static IDropInfo Info(object? data, IEnumerable? targetCollection, int insertIndex)

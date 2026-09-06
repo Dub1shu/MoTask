@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
 using MoTask.Core;
@@ -46,7 +47,7 @@ public class TaskAiPanelViewModelTests
         _ai.StopTrackingAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
         _ai.ReopenTerminalAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
 
-        _vm = new BoardViewModel(_service, new TestClock(), _ai) { OpenPath = _opened.Add };
+        _vm = new BoardViewModel(_service, new TestClock(), _ai, Substitute.For<IBoardChangeSource>()) { OpenPath = _opened.Add };
     }
 
     private async Task<TaskAiPanelViewModel> OpenAsync(int taskId = 10)

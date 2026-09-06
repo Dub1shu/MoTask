@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using FluentAssertions;
+using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
 using MoTask.Core;
@@ -14,6 +15,7 @@ namespace MoTask.App.Tests;
 public class BoardViewModelTests
 {
     private readonly IBoardService _service = Substitute.For<IBoardService>();
+    private readonly IBoardChangeSource _externalChanges = Substitute.For<IBoardChangeSource>();
     private readonly Label _urgent = TestBoards.Urgent();
     private readonly Board _board;
     private readonly BoardViewModel _vm;
@@ -28,13 +30,74 @@ public class BoardViewModelTests
             .Returns(Task.FromResult<IReadOnlyList<Label>>(new[] { _urgent }));
         _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>()));
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), _externalChanges);
     }
 
     private static int[] Ids(ColumnViewModel c) => c.Cards.Select(x => x.Id).ToArray();
 
     /// <summary>BoardService が永続化の失敗を伝えるときの文言。検証による却下と区別される。</summary>
     private static string SaveFailure(string detail) => $"{Messages.SaveFailed}: {detail}";
+
+    [Fact]
+    public async Task ExternalBoardChange_ReloadsTheBoard()
+    {
+        await _vm.LoadAsync();
+        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+
+        _externalChanges.BoardChanged += Raise.Event<EventHandler>(this, EventArgs.Empty);
+
+        await _service.Received(2).GetBoardAsync(Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// BoardChanged は短時間に連続発火しうる（MCP から add_task を続けて呼ぶなど）。ガードを入れる前は、
+    /// 先に始まった読み込みが後から終わると、後から始まって先に終わった読み込みの結果を古いデータで
+    /// 上書きしていた。世代番号（_reloadGeneration）で古い方が実際に降りることを固定する。
+    /// </summary>
+    [Fact]
+    public async Task OverlappingExternalReloads_DoNotOverwriteNewerDataWithStaleData()
+    {
+        await _vm.LoadAsync();
+        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+
+        var staleBoard = _board;
+        var freshBoard = TestBoards.Sample(_urgent);
+        freshBoard.Columns[0].Name = "更新後";
+
+        var staleGate = new TaskCompletionSource();
+        var callCount = 0;
+        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            callCount++;
+            // 1 回目（先に始まる読み込み）はゲートで止め、2 回目（後から始まって先に終わる読み込み）は即座に返す。
+            return callCount == 1 ? WaitThenReturnAsync(staleGate.Task, staleBoard) : Task.FromResult(Result.Ok(freshBoard));
+        });
+
+        // 1 回目: GetBoardAsync がまだ戻っていない（先に始まった読み込み）。
+        _externalChanges.BoardChanged += Raise.Event<EventHandler>(this, EventArgs.Empty);
+        // 2 回目: GetBoardAsync が同期的に戻る（後から始まって先に終わる読み込み）。
+        _externalChanges.BoardChanged += Raise.Event<EventHandler>(this, EventArgs.Empty);
+
+        _vm.Columns[0].Name.Should().Be("更新後", "後から始まった読み込みが先に終わっている");
+
+        staleGate.SetResult();
+
+        // 継続は既定では SetResult を呼んだこのスレッド上で同期的に走るはずだが、
+        // 念のため短時間だけ安定を待ってから確認する（成功時は待たずに抜ける）。
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (_vm.Columns[0].Name != "更新後" && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        _vm.Columns[0].Name.Should().Be("更新後", "遅れて戻った古い読み込みは新しい表示を上書きしない");
+    }
+
+    private static async Task<Result<Board>> WaitThenReturnAsync(Task gate, Board board)
+    {
+        await gate;
+        return Result.Ok(board);
+    }
 
     [Fact]
     public async Task Load_BuildsColumnsAndCards()

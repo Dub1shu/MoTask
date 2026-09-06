@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MoTask.App.Ai;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
@@ -48,7 +49,7 @@ public class ManageClassificationsViewModelTests
             _urgent.Archived = false;
             return Task.FromResult(Result.Ok());
         });
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>());
+        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), Substitute.For<IBoardChangeSource>());
     }
 
     private async Task<ManageClassificationsViewModel> OpenAsync()

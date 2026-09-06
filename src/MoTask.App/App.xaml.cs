@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.App.Views;
+using MoTask.Core;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Ai;
 using MoTask.Core.Services;
@@ -16,10 +17,21 @@ namespace MoTask.App;
 public partial class App : Application
 {
     private IHost? _host;
+    /// <summary>多重起動を防ぐ Mutex。取れたインスタンスだけが保持し、終了時に手放す（仕様 §5.3）。</summary>
+    private Mutex? _instanceLock;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        // 2 つ目のインスタンスは何も出さずに終わる（仕様 §5.3）。ブリッジからの自動起動が
+        // 起動済みのアプリを二重に立ち上げても、SQLite の書き手は 1 つのままになる。
+        _instanceLock = SingleInstance.TryAcquire(SingleInstance.MutexName);
+        if (_instanceLock is null)
+        {
+            Shutdown();
+            return;
+        }
 
         // async void なので例外が漏れるとプロセスごと落ちる。ここで受け止めて必ず通常終了させる。
         try
@@ -33,6 +45,14 @@ public partial class App : Application
                 Shutdown();
                 return;
             }
+
+            // MCP サーバはアプリに 1 つだけ。外部セッションが繋ぎに来る前に立っていればよい。
+            var mcp = _host.Services.GetRequiredService<MoTaskMcpServer>();
+            mcp.Start();
+            // 外部セッション（MoTask.Mcp ブリッジ）が繋ぎに来る先を置く（仕様 §5）。
+            // Start の後でなければ McpUrl / BoardToken は取れない。
+            McpEndpointFile.Write(AppPaths.EndpointFile,
+                new McpEndpoint(mcp.McpUrl!.ToString(), mcp.BoardToken, Environment.ProcessId));
 
             // 前回閉じたあとも端末は走り続けている。未完了ジョブの events.jsonl に追いつく（仕様 §8）
             await _host.Services.GetRequiredService<IAiJobService>().RecoverOnStartupAsync();
@@ -66,6 +86,10 @@ public partial class App : Application
         builder.Services.AddSingleton<IJobFolder, JobFolder>();
         builder.Services.AddSingleton<JobEventWatcher>();
         builder.Services.AddSingleton<IJobEventSource>(sp => sp.GetRequiredService<JobEventWatcher>());
+        // MCP の board ツール。BoardToolHost 自身が外部変更の通知元なので、同じインスタンスを両方に配る。
+        builder.Services.AddSingleton<Ai.BoardTools.BoardToolHost>();
+        builder.Services.AddSingleton<IBoardChangeSource>(sp => sp.GetRequiredService<Ai.BoardTools.BoardToolHost>());
+        builder.Services.AddSingleton<MoTaskMcpServer>();
         builder.Services.AddSingleton<IAiJobService, AiJobService>();
         builder.Services.AddSingleton<ViewModels.BoardViewModel>();
         builder.Services.AddSingleton<MainWindow>();
@@ -109,7 +133,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Mutex を取れずに終わった 2 つ目のインスタンスは、1 つ目の endpoint.json を消してはいけない。
+        if (_instanceLock is not null) McpEndpointFile.Delete(AppPaths.EndpointFile);
         _host?.Dispose();
+        _instanceLock?.Dispose();
         base.OnExit(e);
     }
 }

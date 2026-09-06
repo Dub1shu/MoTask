@@ -35,6 +35,17 @@ public class HostWiringTests : IDisposable
             .GetField("_gate", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(service)!;
 
+    [Fact]
+    public void BuildHost_GivesTheMcpServerAndTheViewModel_TheSameBoardToolHost()
+    {
+        Directory.CreateDirectory(_dir);
+        using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
+
+        var tools = host.Services.GetRequiredService<MoTask.App.Ai.BoardTools.BoardToolHost>();
+        host.Services.GetRequiredService<MoTask.App.Ai.IBoardChangeSource>().Should().BeSameAs(tools);
+        host.Services.GetRequiredService<MoTask.App.Ai.MoTaskMcpServer>().Should().NotBeNull();
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }
