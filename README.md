@@ -184,6 +184,7 @@ dotnet run --project src/MoTask.App
 ### 9. TODO 操作 I/F（MCP）
 
 前提: 下の「発行と登録」を済ませ、`claude mcp list` に `motask` が出ていること。
+仕様は `docs/superpowers/specs/2026-09-05-motask-mcp-interface-design.md`。
 
 - [ ] `claude` を起動して `/mcp` を開くと `motask` に 6 つのツールが並ぶ。
 - [ ] MoTask を閉じた状態で「MoTask の TODO を見せて」と頼むと、MoTask が立ち上がり
