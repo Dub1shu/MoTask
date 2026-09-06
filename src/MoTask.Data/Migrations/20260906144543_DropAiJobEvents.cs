@@ -11,6 +11,11 @@ namespace MoTask.Data.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // テーブルを落とす前に、取り込み済み行数を AiJob へ移す。ここで拾わないと、
+            // 移行時に進行中だったジョブが events.jsonl を先頭から読み直し、ターン数が二重に増える。
+            migrationBuilder.Sql(
+                "UPDATE AiJobs SET ProcessedLines = (SELECT COUNT(*) FROM AiJobEvents e WHERE e.JobId = AiJobs.Id)");
+
             migrationBuilder.DropTable(
                 name: "AiJobEvents");
         }

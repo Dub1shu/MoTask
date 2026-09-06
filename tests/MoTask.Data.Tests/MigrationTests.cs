@@ -215,10 +215,46 @@ public class MigrationTests : IDisposable
         await db.Database.MigrateAsync();
 
         var names = await db.Database
-            .SqlQuery<string>($"select name from sqlite_master where type = 'table'")
+            .SqlQuery<string>($"select name AS Value from sqlite_master where type = 'table'")
             .ToListAsync();
 
         names.Should().NotContain("AiJobEvents");
+    }
+
+    /// <summary>
+    /// DropAiJobEvents はテーブルを落とす前に件数を AiJob.ProcessedLines へ移す。ここを飛ばすと、
+    /// 移行時に進行中だったジョブが events.jsonl を先頭から読み直し、ターン数が二重に増える（仕様 §9）。
+    /// </summary>
+    [Fact]
+    public async Task Migrate_SeedsProcessedLinesFromTheDroppedEventsTable()
+    {
+        await using (var old = _db.CreateContext())
+        {
+            // 落とす直前（AiJobProcessedLines まで）の DB を作る
+            await old.Database.GetInfrastructure().GetRequiredService<IMigrator>().MigrateAsync("20260906142042_AiJobProcessedLines");
+            var board = new Board { Name = "b" };
+            var column = new Column { Name = "未着手", Role = ColumnRole.Backlog, Order = 0 };
+            board.Columns.Add(column);
+            old.Boards.Add(board);
+            await old.SaveChangesAsync();
+            old.Tasks.Add(new TaskItem { Id = 1, Title = "t", ColumnId = column.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+            await old.SaveChangesAsync();
+            // 移行前に進行中だったジョブ（復旧処理を経ないまま ProcessedLines = 0 で残っている）を再現する
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO AiJobs (TaskId, Kind, Status, SessionId, Instruction, WorkingDirectory, JobFolder, StartedAt) " +
+                "VALUES (1, 'Execute', 'Running', '00000000-0000-0000-0000-000000000001', 'i', 'C:\\w', '', '2026-09-06 00:00:00')");
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO AiJobEvents (At, JobId, Kind, Payload, Seq, ToolName) VALUES " +
+                "('2026-09-06 00:00:00', 1, 'ToolUse', '{{}}', 1, 'Read'), " +
+                "('2026-09-06 00:00:01', 1, 'ToolUse', '{{}}', 2, 'Bash'), " +
+                "('2026-09-06 00:00:02', 1, 'TurnEnded', '{{}}', 3, NULL)");
+        }
+
+        await using var ctx = _db.CreateContext();
+        await ctx.Database.MigrateAsync();
+
+        var job = await ctx.Set<AiJob>().SingleAsync();
+        job.ProcessedLines.Should().Be(3, "移行前に AiJobEvents にあった行数がそのまま引き継がれる");
     }
 
     public void Dispose() => _db.Dispose();

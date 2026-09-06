@@ -318,10 +318,13 @@ public sealed class AiJobService : IAiJobService
         if (!launched.IsSuccess) return launched;
 
         // 前に追従が切れていても掛け直す。取り込み済みの行は読み飛ばす。
-        // 数える前に古い追従を止める。そうしないと、数えている間に古いループが取り込んだ行が
-        // SkipLines に反映されず、新しい購読でもう一度取り込まれて二重カウントになる。
+        // 先に古い追従を止め、その後ゲート越しに件数を読む。ゲートを介さず job.ProcessedLines を
+        // 直接読むと、ちょうど取り込み中の 1 行がまだ反映されておらず 1 少ない値を拾うことがある。
+        // 短い位置から追従を始めるとその行を二重に取り込み、以後 ProcessedLines が実際より
+        // 先に進んで、次の再開で本物の行を 1 つ読み飛ばしてしまう（SessionEnd 消失の原因）。
         _events.StopFollowing(jobId);
-        Follow(jobId, job.JobFolder, job.ProcessedLines);
+        var skip = await _gate.RunAsync(() => Task.FromResult(job.ProcessedLines), ct).ConfigureAwait(false);
+        Follow(jobId, job.JobFolder, skip);
         return Result.Ok();
     }
 
