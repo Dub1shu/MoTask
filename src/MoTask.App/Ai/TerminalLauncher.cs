@@ -62,6 +62,11 @@ public sealed class TerminalLauncher : ISessionLauncher
             parts.Add("--model");
             parts.Add(model.Trim());
         }
+        // オプションの終わりをここで閉じる。--add-dir は可変長（<directories...>）なので、
+        // -- を挟まずにプロンプトを続けると、プロンプトが 2 つ目の許可ディレクトリとして
+        // 飲み込まれ、claude はプロンプト無しの対話セッションとして起動してしまう
+        // （端末は開くが何も始まらない。Claude Code 2.1.261 で確認）。
+        parts.Add("--");
         // 指示文そのものは渡さない。長文の引用符・改行をコマンドラインに持ち込まないため（仕様 §7）。
         parts.Add(string.Format(Messages.TerminalStartPromptFormat, paths.InstructionMarkdown, paths.ArtifactsDirectory));
 

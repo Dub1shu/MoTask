@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.Core;
@@ -82,6 +82,30 @@ public class TerminalLauncherTests : IDisposable
         command.Arguments.Should()
             .Contain(@"C:\work\jobs\0042-見積り\instruction.md")
             .And.Contain(@"C:\work\jobs\0042-見積り\artifacts");
+    }
+
+    /// <summary>
+    /// --add-dir は可変長（&lt;directories...&gt;）なので、その直後に置いたプロンプトは
+    /// 2 つ目の許可ディレクトリとして飲み込まれ、claude はプロンプト無しで起動してしまう
+    /// （Claude Code 2.1.261 で確認）。オプションの終わりを -- で閉じてから渡す。
+    /// </summary>
+    [Fact]
+    public void BuildCommand_ClosesTheOptionsBeforeThePrompt()
+    {
+        var command = Launcher().BuildCommand(_request).Value!;
+
+        command.Arguments.Should().Contain(@"""--"" ""C:\work\jobs\0042-見積り\instruction.md");
+    }
+
+    /// <summary>モデルを設定してもしなくても、プロンプトの直前は -- のままにする。</summary>
+    [Fact]
+    public void BuildCommand_ClosesTheOptionsBeforeThePromptWithAModelToo()
+    {
+        _store.Save(_store.Load() with { Model = "claude-opus-5" });
+
+        var command = Launcher().BuildCommand(_request).Value!;
+
+        command.Arguments.Should().Contain(@"""--"" ""C:\work\jobs\0042-見積り\instruction.md");
     }
 
     [Fact]
