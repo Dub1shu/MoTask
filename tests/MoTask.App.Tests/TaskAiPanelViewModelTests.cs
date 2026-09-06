@@ -32,8 +32,8 @@ public class TaskAiPanelViewModelTests
         _ai.GetUnfinishedJobsAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => !j.Status.IsTerminal()).ToList()));
         _ai.GetJobsForTaskAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => j.TaskId == ci.Arg<int>()).OrderByDescending(j => j.Id).ToList()));
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<IReadOnlyList<AiJobEvent>>(_events.Where(e => e.JobId == ci.Arg<int>()).OrderBy(e => e.Seq).ToList()));
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IReadOnlyList<AiJobEvent>>(_events.Where(e => e.JobId == ci.ArgAt<int>(0)).OrderBy(e => e.Seq).ToList()));
         _ai.GetArtifactsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<IReadOnlyList<string>>(_artifacts.ToList()));
         _ai.StartJobAsync(Arg.Any<int>(), Arg.Any<AiJobKind>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ci =>
@@ -283,7 +283,7 @@ public class TaskAiPanelViewModelTests
             await gate.Task;
             return _events.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList();
         }
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => Gated(ci.Arg<int>()));
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => Gated(ci.ArgAt<int>(0)));
 
         var first = ai.LoadAsync();
         var second = ai.LoadAsync();
@@ -441,5 +441,26 @@ public class TaskAiPanelViewModelTests
         var panel = await PanelWithRunningJobAsync();
 
         panel.Artifacts.Should().ContainSingle().Which.FileName.Should().Be("report.md");
+    }
+
+    private static AiJobEvent Event(int seq, AiJobEventKind kind, string toolName)
+        => new() { JobId = 1, Seq = seq, At = DateTime.UtcNow, Kind = kind, ToolName = toolName, Payload = "" };
+
+    [Fact]
+    public async Task Panel_ShowsOnlyTheLastThreeLogLines()
+    {
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new AiJobEvent[]
+            {
+                Event(1, AiJobEventKind.ToolUse, "Read"),
+                Event(2, AiJobEventKind.ToolUse, "Grep"),
+                Event(3, AiJobEventKind.ToolUse, "Bash"),
+                Event(4, AiJobEventKind.ToolUse, "Write"),
+                Event(5, AiJobEventKind.ToolUse, "Edit"),
+            });
+
+        var panel = await PanelWithRunningJobAsync();
+
+        panel.Log.Should().HaveCount(3);
     }
 }

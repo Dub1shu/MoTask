@@ -59,8 +59,25 @@ public sealed class AiJobService : IAiJobService
     public Task<IReadOnlyList<AiJob>> GetJobsForTaskAsync(int taskId, CancellationToken ct = default)
         => _gate.RunAsync(() => _jobs.GetForTaskAsync(taskId, ct), ct);
 
-    public Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, CancellationToken ct = default)
-        => _gate.RunAsync(() => _jobs.GetEventsAsync(jobId, ct), ct);
+    public async Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, int lines, CancellationToken ct = default)
+    {
+        var job = await _gate.RunAsync(() => _jobs.GetAsync(jobId, ct), ct).ConfigureAwait(false);
+        if (job is null || job.JobFolder.Length == 0) return Array.Empty<AiJobEvent>();
+
+        var tail = _folder.ReadTail(job.JobFolder, lines);
+        var events = new List<AiJobEvent>(tail.Count);
+        var seq = 0;
+        foreach (var line in tail)
+        {
+            var parsed = HookEventParser.Parse(line);
+            events.Add(new AiJobEvent
+            {
+                JobId = jobId, Seq = ++seq, At = _clock.UtcNow,
+                Kind = parsed.Kind, ToolName = parsed.ToolName, Payload = parsed.Payload,
+            });
+        }
+        return events;
+    }
 
     public Task<IReadOnlyList<AiJob>> GetUnfinishedJobsAsync(CancellationToken ct = default)
         => _gate.RunAsync(() => _jobs.GetByStatusAsync(

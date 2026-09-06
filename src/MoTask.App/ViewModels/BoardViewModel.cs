@@ -244,9 +244,9 @@ public sealed partial class BoardViewModel : ObservableObject
         return Array.Empty<AiJob>();
     }
 
-    public async Task<IReadOnlyList<AiJobEvent>> QueryAiEventsAsync(int jobId)
+    public async Task<IReadOnlyList<AiJobEvent>> QueryAiEventsAsync(int jobId, int lines)
     {
-        var events = await QueryAsync(() => AiJobs.GetEventsAsync(jobId));
+        var events = await QueryAsync(() => AiJobs.GetEventsAsync(jobId, lines));
         if (events.IsSuccess) return events.Value!;
         ShowFailure(events);
         return Array.Empty<AiJobEvent>();

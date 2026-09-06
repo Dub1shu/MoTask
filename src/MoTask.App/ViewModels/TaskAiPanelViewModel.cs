@@ -21,6 +21,12 @@ public sealed record ArtifactItem(string Path)
 /// </summary>
 public sealed partial class TaskAiPanelViewModel : ObservableObject
 {
+    /// <summary>画面に残すログの行数。進行は端末で見えるので、直近だけ出す。</summary>
+    private const int LogLines = 3;
+
+    /// <summary>結果（最終回答）を探しに遡る行数。これより古い Stop は諦める。</summary>
+    private const int ResultScanLines = 200;
+
     private readonly TaskCardViewModel _card;
     private readonly BoardViewModel _board;
     private AiJob? _job;
@@ -78,9 +84,10 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         ResultText = null;
         if (latest is null) return;
 
-        var events = await _board.QueryAiEventsAsync(latest.Id);
+        // 結果は末尾 3 行の外にあることが多いので、広めに読んでから表示だけ絞る
+        var events = await _board.QueryAiEventsAsync(latest.Id, ResultScanLines);
         if (generation != _loadGeneration) return;
-        foreach (var e in events) Log.Add(AiJobEventFormatter.Format(e));
+        foreach (var e in events.TakeLast(LogLines)) Log.Add(AiJobEventFormatter.Format(e));
         ResultText = AiJobEventFormatter.ResultText(events);
 
         // 成果物はジョブフォルダの artifacts/ を見たサービスから来る（仕様 §6）
@@ -104,6 +111,7 @@ public sealed partial class TaskAiPanelViewModel : ObservableObject
         if (e.NewEvent is { } ev)
         {
             Log.Add(AiJobEventFormatter.Format(ev));
+            while (Log.Count > LogLines) Log.RemoveAt(0);
             // 成果物一覧は LoadAsync の読み直しで拾う（ToolUse からは組み立てない）
             if (ev.Kind == AiJobEventKind.TurnEnded) ResultText = AiJobEventFormatter.ResultText(new[] { ev }) ?? ResultText;
         }

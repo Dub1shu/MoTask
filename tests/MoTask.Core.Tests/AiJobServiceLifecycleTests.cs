@@ -290,4 +290,46 @@ public class AiJobServiceLifecycleTests : IDisposable
 
         (await _service.GetArtifactsAsync(job.Id)).Should().ContainSingle();
     }
+
+    [Fact]
+    public async Task GetEvents_ReadsTheTailOfTheEventsFile()
+    {
+        var job = await StartAsync();
+        _folder.Lines.Add(FakeJobEventSource.SessionStart());
+        _folder.Lines.Add(FakeJobEventSource.PostToolUse("Read"));
+        _folder.Lines.Add(FakeJobEventSource.PostToolUse("Bash"));
+        _folder.Lines.Add(FakeJobEventSource.Stop("できました"));
+
+        var events = await _service.GetEventsAsync(job.Id, 3);
+
+        events.Should().HaveCount(3);
+        events[0].Kind.Should().Be(AiJobEventKind.ToolUse);
+        events[0].ToolName.Should().Be("Read");
+        events[2].Kind.Should().Be(AiJobEventKind.TurnEnded);
+        events.Select(e => e.Seq).Should().Equal(1, 2, 3);
+    }
+
+    [Fact]
+    public async Task GetEvents_ReturnsEmptyForAJobWithoutAFolder()
+    {
+        var job = await StartAsync();
+        _store.Jobs.Single(j => j.Id == job.Id).JobFolder = "";
+
+        (await _service.GetEventsAsync(job.Id, 3)).Should().BeEmpty();
+    }
+
+    /// <summary>結果（最終回答）は末尾 3 行の外にあることが多い。広く読めば届くことを固定する。</summary>
+    [Fact]
+    public async Task GetEvents_ReachesAnEarlierTurnWhenAskedForMoreLines()
+    {
+        var job = await StartAsync();
+        _folder.Lines.Add(FakeJobEventSource.Stop("まとめました"));
+        for (var i = 0; i < 5; i++) _folder.Lines.Add(FakeJobEventSource.PostToolUse("Read"));
+
+        var forTheLog = await _service.GetEventsAsync(job.Id, 3);
+        var forTheResult = await _service.GetEventsAsync(job.Id, 200);
+
+        forTheLog.Should().OnlyContain(e => e.Kind == AiJobEventKind.ToolUse);
+        forTheResult.Should().Contain(e => e.Kind == AiJobEventKind.TurnEnded);
+    }
 }
