@@ -76,7 +76,7 @@
     [Fact]
     public void ReadTail_ReturnsEmptyWhenThereIsNoFolder()
     {
-        Folder().ReadTail(Path.Combine(_dir, "no-such-job"), 3).Should().BeEmpty();
+        _folder.ReadTail(Path.Combine(_root, "no-such-job"), 3).Should().BeEmpty();
     }
 
     [Fact]
@@ -84,7 +84,7 @@
     {
         var root = WriteEvents("a\nb\n");
 
-        Folder().ReadTail(root, 3).Should().Equal("a", "b");
+        _folder.ReadTail(root, 3).Should().Equal("a", "b");
     }
 
     [Fact]
@@ -92,7 +92,7 @@
     {
         var root = WriteEvents("1\n2\n3\n4\n5\n");
 
-        Folder().ReadTail(root, 3).Should().Equal("3", "4", "5");
+        _folder.ReadTail(root, 3).Should().Equal("3", "4", "5");
     }
 
     [Fact]
@@ -100,7 +100,7 @@
     {
         var root = WriteEvents("1\n2\n3");
 
-        Folder().ReadTail(root, 2).Should().Equal("2", "3");
+        _folder.ReadTail(root, 2).Should().Equal("2", "3");
     }
 
     [Fact]
@@ -108,7 +108,7 @@
     {
         var root = WriteEvents("1\n\n2\n\n");
 
-        Folder().ReadTail(root, 3).Should().Equal("1", "2");
+        _folder.ReadTail(root, 3).Should().Equal("1", "2");
     }
 
     [Fact]
@@ -117,7 +117,7 @@
         var line = new string('x', 40_000);
         var root = WriteEvents("short\n" + line + "\n");
 
-        Folder().ReadTail(root, 1).Should().Equal(line);
+        _folder.ReadTail(root, 1).Should().Equal(line);
     }
 
     [Fact]
@@ -125,22 +125,21 @@
     {
         var root = WriteEvents("1\n2\n");
 
-        Folder().ReadTail(root, 0).Should().BeEmpty();
+        _folder.ReadTail(root, 0).Should().BeEmpty();
     }
 
     /// <summary>events.jsonl だけを持つジョブフォルダを作り、その root を返す。</summary>
     private string WriteEvents(string content)
     {
-        var root = Path.Combine(_dir, "0001-tail");
+        var root = Path.Combine(_root, "0001-tail");
         Directory.CreateDirectory(root);
         File.WriteAllText(JobFolderPaths.For(root).EventsJsonl, content, new UTF8Encoding(false));
         return root;
     }
 ```
 
-必要なら `using System.Text;` と `using MoTask.Core.Ai;` をファイル先頭に足す（既にあれば足さない）。
-`Folder()` と `_dir` はこのテストクラスに既にあるものを使う。無い名前だった場合は、
-このクラスが `JobFolder` を組み立てている既存のやり方に合わせること。
+`_folder`（`JobFolder` の実体）と `_root`（一時フォルダ）はこのテストクラスの既存フィールド。
+`using System.Text;` と `using MoTask.Core.Ai;` はファイル先頭に既にある。
 
 - [ ] **Step 2: テストが落ちることを確かめる**
 
@@ -247,7 +246,7 @@ git commit -m "feat(core): read the tail of events.jsonl through the job folder 
     [Fact]
     public async Task AiJob_ProcessedLines_RoundTrips()
     {
-        await using var db = _database.CreateContext();
+        await using var db = _db.CreateContext();
         await db.Database.MigrateAsync();
         var board = new Board { Name = "b" };
         var column = new BoardColumn { Board = board, Name = "c", Order = 0 };
@@ -264,14 +263,14 @@ git commit -m "feat(core): read the tail of events.jsonl through the job folder 
         });
         await db.SaveChangesAsync();
 
-        await using var reopened = _database.CreateContext();
+        await using var reopened = _db.CreateContext();
         var stored = await reopened.AiJobs.SingleAsync();
         stored.ProcessedLines.Should().Be(7);
     }
 ```
 
-`_database` / `CreateContext` は同ファイルの既存テストと同じものを使う。ボードと列の組み立ても、
-同ファイルの既存テスト（`AiJob_JobFolder_RoundTrips`）と同じ形に合わせること。
+`_db` は同ファイルの `SqliteTestDatabase` フィールド。ボードと列の組み立ては、同ファイルの既存テスト
+`AiJob_JobFolder_RoundTrips` と同じ形に合わせること。
 
 - [ ] **Step 2: テストが落ちることを確かめる**
 
@@ -715,7 +714,7 @@ Expected: 出力なし
     [Fact]
     public async Task Migrate_DropsTheAiJobEventsTable()
     {
-        await using var db = _database.CreateContext();
+        await using var db = _db.CreateContext();
         await db.Database.MigrateAsync();
 
         var names = await db.Database
