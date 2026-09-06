@@ -26,7 +26,7 @@ public class MigrationTests : IDisposable
         tables.Should().Contain(new[]
         {
             "Boards", "Columns", "Tasks", "Projects", "Labels", "TaskLabels", "History",
-            "AiJobs", "AiJobEvents",
+            "AiJobs",
         });
     }
 
@@ -58,12 +58,6 @@ public class MigrationTests : IDisposable
                 "(1, 'Execute', 'AwaitingApproval', '00000000-0000-0000-0000-000000000002', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
                 "(1, 'Execute', 'Running', '00000000-0000-0000-0000-000000000003', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
                 "(1, 'Execute', 'Pending', '00000000-0000-0000-0000-000000000004', 'i', 'C:\\w', '', '2026-09-05 00:00:00')");
-            // Payload は波かっこを含むので、SQL 文字列に直接埋めず引数で渡す（{0} が書式指定と衝突する）
-            await old.Database.ExecuteSqlRawAsync(
-                "INSERT INTO AiJobEvents (JobId, Seq, At, Kind, Payload) " +
-                "VALUES (1, 1, '2026-09-05 00:00:00', 'PermissionAsked', {0}), " +
-                "(1, 2, '2026-09-05 00:00:00', 'PermissionDecided', {1})",
-                """{"a":1}""", """{"b":2}""");
         }
 
         await using var ctx = _db.CreateContext();
@@ -73,9 +67,6 @@ public class MigrationTests : IDisposable
         jobs.Select(j => j.Status).Should().Equal(
             AiJobStatus.Cancelled, AiJobStatus.Cancelled, AiJobStatus.Cancelled, AiJobStatus.Cancelled);
         jobs.Should().OnlyContain(j => j.EndedAt != null, "追跡をやめた時刻を StartedAt で埋める");
-        var events = await ctx.Set<AiJobEvent>().OrderBy(e => e.Seq).ToListAsync();
-        events.Select(e => e.Kind).Should().Equal(AiJobEventKind.System, AiJobEventKind.System);
-        events[0].Payload.Should().Be("""{"a":1}""", "原文は残す");
     }
 
     [Fact]
@@ -215,6 +206,19 @@ public class MigrationTests : IDisposable
         {
             (await ctx.AiJobs.SingleAsync()).ProcessedLines.Should().Be(7);
         }
+    }
+
+    [Fact]
+    public async Task Migrate_DropsTheAiJobEventsTable()
+    {
+        await using var db = _db.CreateContext();
+        await db.Database.MigrateAsync();
+
+        var names = await db.Database
+            .SqlQuery<string>($"select name from sqlite_master where type = 'table'")
+            .ToListAsync();
+
+        names.Should().NotContain("AiJobEvents");
     }
 
     public void Dispose() => _db.Dispose();

@@ -28,7 +28,7 @@ public class AiRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task AiJob_WithEvents_RoundTrips_AndOrdersAsSpecified()
+    public async Task AiJob_RoundTrips_AndOrdersAsSpecified()
     {
         var taskId = await SeedTaskAsync();
         var session = Guid.NewGuid();
@@ -39,9 +39,6 @@ public class AiRepositoryTests : IDisposable
             var newer = new AiJob { TaskId = taskId, Kind = AiJobKind.Execute, Status = AiJobStatus.WaitingForInput, SessionId = session, Instruction = "やる", WorkingDirectory = @"C:\w" };
             repo.Add(older);
             repo.Add(newer);
-            await ctx.SaveChangesAsync();
-            repo.AddEvent(new AiJobEvent { JobId = newer.Id, Seq = 2, At = DateTime.UtcNow, Kind = AiJobEventKind.ToolUse, ToolName = "Bash", Payload = "{\"b\":2}" });
-            repo.AddEvent(new AiJobEvent { JobId = newer.Id, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.SessionStarted, Payload = "{\"a\":1}" });
             await ctx.SaveChangesAsync();
         }
 
@@ -55,11 +52,6 @@ public class AiRepositoryTests : IDisposable
 
             var unfinished = await repo.GetByStatusAsync(new[] { AiJobStatus.WaitingForInput, AiJobStatus.Running });
             unfinished.Should().ContainSingle().Which.Status.Should().Be(AiJobStatus.WaitingForInput);
-
-            var events = await repo.GetEventsAsync(forTask[0].Id);
-            events.Select(e => e.Seq).Should().Equal(1, 2);
-            events[1].ToolName.Should().Be("Bash");
-            events[1].Kind.Should().Be(AiJobEventKind.ToolUse);
         }
     }
 
@@ -108,7 +100,7 @@ public class AiRepositoryTests : IDisposable
         job.Status.Should().Be(AiJobStatus.Succeeded);
         job.NumTurns.Should().Be(1);
         job.JobFolder.Should().Be(NoopJobFolder.Root);
-        (await ctx.Set<AiJobEvent>().CountAsync()).Should().Be(3);
+        job.ProcessedLines.Should().Be(3);
         (await ctx.History.OrderBy(h => h.Id).Select(h => h.Kind).ToListAsync())
             .Should().Equal(HistoryKind.Created, HistoryKind.AiJobStarted, HistoryKind.AiJobFinished, HistoryKind.Moved);
     }

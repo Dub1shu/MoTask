@@ -244,12 +244,13 @@ public sealed class AiJobService : IAiJobService
 
             var tracked = await TrackedForAsync(current).ConfigureAwait(false);
             tracked.Seq++;
+            current.ProcessedLines = tracked.Seq;
+            // DB には残さない。画面に出す 1 件だけを組み立てて JobChanged で渡す。
             stored = new AiJobEvent
             {
                 JobId = jobId, Seq = tracked.Seq, At = _clock.UtcNow,
                 Kind = parsed.Kind, ToolName = parsed.ToolName, Payload = parsed.Payload,
             };
-            _jobs.AddEvent(stored);
 
             switch (parsed.Kind)
             {
@@ -320,8 +321,7 @@ public sealed class AiJobService : IAiJobService
         // 数える前に古い追従を止める。そうしないと、数えている間に古いループが取り込んだ行が
         // SkipLines に反映されず、新しい購読でもう一度取り込まれて二重カウントになる。
         _events.StopFollowing(jobId);
-        var events = await _gate.RunAsync(() => _jobs.GetEventsAsync(jobId, ct), ct).ConfigureAwait(false);
-        Follow(jobId, job.JobFolder, events.Count);
+        Follow(jobId, job.JobFolder, job.ProcessedLines);
         return Result.Ok();
     }
 
@@ -361,25 +361,23 @@ public sealed class AiJobService : IAiJobService
         foreach (var job in unfinished)
         {
             if (job.JobFolder.Length == 0) continue;
-            var events = await _gate.RunAsync(() => _jobs.GetEventsAsync(job.Id, ct), ct).ConfigureAwait(false);
-            _tracked[job.Id] = new TrackedJob { TaskId = job.TaskId, Seq = events.Count, Turns = job.NumTurns ?? 0 };
-            Follow(job.Id, job.JobFolder, events.Count);
+            _tracked[job.Id] = new TrackedJob { TaskId = job.TaskId, Seq = job.ProcessedLines, Turns = job.NumTurns ?? 0 };
+            Follow(job.Id, job.JobFolder, job.ProcessedLines);
         }
     }
 
     // ---------- 補助 ----------
 
     /// <summary>
-    /// ゲートの中で呼ぶ。記憶に無ければ保存済みイベントから数え直す
+    /// ゲートの中で呼ぶ。記憶に無ければ ProcessedLines から数え直す
     /// （events.jsonl は「1 行 = 1 イベント」なので、件数がそのまま Seq とオフセットになる）。
     /// </summary>
-    private async Task<TrackedJob> TrackedForAsync(AiJob job)
+    private Task<TrackedJob> TrackedForAsync(AiJob job)
     {
-        if (_tracked.TryGetValue(job.Id, out var tracked)) return tracked;
-        var events = await _jobs.GetEventsAsync(job.Id).ConfigureAwait(false);
-        tracked = new TrackedJob { TaskId = job.TaskId, Seq = events.Count, Turns = job.NumTurns ?? 0 };
+        if (_tracked.TryGetValue(job.Id, out var tracked)) return Task.FromResult(tracked);
+        tracked = new TrackedJob { TaskId = job.TaskId, Seq = job.ProcessedLines, Turns = job.NumTurns ?? 0 };
         _tracked[job.Id] = tracked;
-        return tracked;
+        return Task.FromResult(tracked);
     }
 
     /// <summary>ゲートの中で呼ぶ。終了状態を書いて履歴を残す（保存は呼び出し側）。</summary>

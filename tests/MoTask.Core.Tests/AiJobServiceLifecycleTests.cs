@@ -93,8 +93,7 @@ public class AiJobServiceLifecycleTests : IDisposable
         await _events.EmitAsync(job.Id, FakeJobEventSource.SessionStart());
 
         job.Status.Should().Be(AiJobStatus.Running);
-        _store.JobEvents.Should().ContainSingle()
-            .Which.Kind.Should().Be(AiJobEventKind.SessionStarted);
+        _changes.Last().NewEvent!.Kind.Should().Be(AiJobEventKind.SessionStarted);
     }
 
     [Fact]
@@ -119,7 +118,7 @@ public class AiJobServiceLifecycleTests : IDisposable
         await _events.EmitAsync(job.Id, FakeJobEventSource.PostToolUse("Read"));
 
         job.Status.Should().Be(AiJobStatus.Running);
-        _store.JobEvents.Last().ToolName.Should().Be("Read");
+        _changes.Last().NewEvent!.ToolName.Should().Be("Read");
     }
 
     [Fact]
@@ -147,8 +146,9 @@ public class AiJobServiceLifecycleTests : IDisposable
         await _events.EmitAsync(job.Id, line);
         await _events.EmitAsync(job.Id, FakeJobEventSource.PostToolUse());
 
-        _store.JobEvents.Select(e => e.Seq).Should().Equal(1, 2);
-        _store.JobEvents[0].Payload.Should().Be(line);
+        var raised = _changes.Where(c => c.NewEvent is not null).ToList();
+        raised.Select(c => c.NewEvent!.Seq).Should().Equal(1, 2);
+        raised[0].NewEvent!.Payload.Should().Be(line);
     }
 
     [Fact]
@@ -160,8 +160,8 @@ public class AiJobServiceLifecycleTests : IDisposable
         await _events.EmitAsync(job.Id, "これは JSON ではない");
 
         job.Status.Should().Be(AiJobStatus.Running);
-        _store.JobEvents.Last().Kind.Should().Be(AiJobEventKind.System);
-        _store.JobEvents.Last().Payload.Should().Be("これは JSON ではない");
+        _changes.Last().NewEvent!.Kind.Should().Be(AiJobEventKind.System);
+        _changes.Last().NewEvent!.Payload.Should().Be("これは JSON ではない");
     }
 
     [Fact]
@@ -197,11 +197,11 @@ public class AiJobServiceLifecycleTests : IDisposable
     {
         var job = await StartAsync();
         await _service.StopTrackingAsync(job.Id);
-        var before = _store.JobEvents.Count;
+        var before = _changes.Count;
 
         await _events.EmitAsync(job.Id, FakeJobEventSource.Stop());
 
-        _store.JobEvents.Should().HaveCount(before);
+        _changes.Should().HaveCount(before);
         job.Status.Should().Be(AiJobStatus.Cancelled);
     }
 
@@ -343,5 +343,27 @@ public class AiJobServiceLifecycleTests : IDisposable
         var events = await _service.GetEventsAsync(job.Id, 1);
 
         events.Should().ContainSingle().Which.At.Should().Be(default);
+    }
+
+    [Fact]
+    public async Task HookLine_AdvancesTheProcessedLineCount()
+    {
+        var job = await StartAsync();
+
+        await _events.EmitAsync(job.Id, FakeJobEventSource.SessionStart());
+        await _events.EmitAsync(job.Id, FakeJobEventSource.PostToolUse("Read"));
+
+        _store.Jobs.Single(j => j.Id == job.Id).ProcessedLines.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Recover_SkipsTheLinesAlreadyTakenIn()
+    {
+        var job = await StartAsync();
+        _store.Jobs.Single(j => j.Id == job.Id).ProcessedLines = 5;
+
+        await _service.RecoverOnStartupAsync();
+
+        _events.SkipLinesOf(job.Id).Should().Be(5);
     }
 }
