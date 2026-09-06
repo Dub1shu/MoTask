@@ -15,6 +15,8 @@ public sealed class AiJob
     public string WorkingDirectory { get; set; } = "";
     /// <summary>ジョブフォルダの絶対パス（仕様 §6）。起動に失敗したジョブでは空のまま。</summary>
     public string JobFolder { get; set; } = "";
+    /// <summary>events.jsonl から取り込み済みの行数。追従を張り直すときの読み飛ばし数になる。</summary>
+    public int ProcessedLines { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
     /// <summary>Stop フックを数えたターン数（仕様 §9）。費用はフックに来ないので持たない。</summary>

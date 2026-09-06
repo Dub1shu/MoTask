@@ -83,6 +83,7 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.Instruction).IsRequired().HasDefaultValue("");
             e.Property(x => x.WorkingDirectory).IsRequired().HasDefaultValue("");
             e.Property(x => x.JobFolder).IsRequired().HasDefaultValue("");
+            e.Property(x => x.ProcessedLines).HasDefaultValue(0);
             e.HasIndex(x => x.TaskId);
             e.HasIndex(x => x.Status);
             e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
