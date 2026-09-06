@@ -22,10 +22,6 @@ public sealed class BoardToolHost : IBoardChangeSource
     public const string UpdateTask = "update_task";
     public const string MoveTask = "move_task";
 
-    /// <summary>Claude Code の --tools 許可リストに載せるための一覧（mcp__motask__ を前置して使う）。</summary>
-    public static readonly IReadOnlyList<string> ToolNames =
-        new[] { GetBoard, ListTasks, GetTask, AddTask, UpdateTask, MoveTask };
-
     private readonly IBoardService _service;
     private readonly IClock _clock;
     private readonly IReadOnlyList<McpTool> _tools;

@@ -25,8 +25,6 @@ namespace MoTask.App.Ai;
 /// </summary>
 public sealed class MoTaskMcpServer : IDisposable
 {
-    public const string ServerName = McpProtocol.ServerName;
-
     /// <summary>Dispose 時に進行中のリクエストを待つ上限。後始末が万一詰まった場合に
     /// アプリの終了処理を無限に止めないための保険。</summary>
     private static readonly TimeSpan DrainTimeout = TimeSpan.FromSeconds(5);

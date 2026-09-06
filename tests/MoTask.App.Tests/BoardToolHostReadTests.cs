@@ -48,7 +48,6 @@ public class BoardToolHostReadTests
         {
             JsonSerializer.SerializeToElement(tool.InputSchema).GetProperty("type").GetString().Should().Be("object");
         }
-        BoardToolHost.ToolNames.Should().Equal(_host.Tools.Select(t => t.Name));
     }
 
     [Fact]
