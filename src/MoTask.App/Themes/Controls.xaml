@@ -427,6 +427,7 @@
     </Setter>
   </Style>
   <Style TargetType="ToolTip">
+    <Setter Property="FontFamily" Value="{StaticResource Font.Body}" />
     <Setter Property="Background" Value="{StaticResource Brush.SurfaceRaised}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />

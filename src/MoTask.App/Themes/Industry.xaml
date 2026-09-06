@@ -125,10 +125,9 @@
   <!-- 列の幅。列本体と「＋ 列を追加」の箱で揃える。 -->
   <sys:Double x:Key="Size.Column">280</sys:Double>
 
-  <!-- 字体。埋め込みフォントは相対 URI で指す。pack:// にはコンマが含まれ、
-       FontFamily のフォールバック一覧の区切り文字と衝突するため。 -->
-  <FontFamily x:Key="Font.Heading">/Fonts/#Barlow Condensed, Noto Sans JP, Yu Gothic UI</FontFamily>
-  <FontFamily x:Key="Font.Body">/Fonts/#Barlow, Noto Sans JP, Yu Gothic UI</FontFamily>
+  <!-- 見出し・本文ともに Yu Gothic UI に統一する。 -->
+  <FontFamily x:Key="Font.Heading">Yu Gothic UI</FontFamily>
+  <FontFamily x:Key="Font.Body">Yu Gothic UI</FontFamily>
   <sys:Double x:Key="FontSize.Body">15</sys:Double>
   <sys:Double x:Key="FontSize.Control">14</sys:Double>
   <sys:Double x:Key="FontSize.Small">13</sys:Double>
