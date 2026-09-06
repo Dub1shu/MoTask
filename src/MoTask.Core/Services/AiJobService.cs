@@ -72,7 +72,9 @@ public sealed class AiJobService : IAiJobService
             var parsed = HookEventParser.Parse(line);
             events.Add(new AiJobEvent
             {
-                JobId = jobId, Seq = ++seq, At = _clock.UtcNow,
+                // フックの行には時刻が無いので、読んだ時刻（今）を実際の発生時刻として偽らない。
+                // 表示側（AiJobEventFormatter）が At == default を「時刻なし」として扱う。
+                JobId = jobId, Seq = ++seq, At = default,
                 Kind = parsed.Kind, ToolName = parsed.ToolName, Payload = parsed.Payload,
             });
         }

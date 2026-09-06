@@ -332,4 +332,16 @@ public class AiJobServiceLifecycleTests : IDisposable
         forTheLog.Should().OnlyContain(e => e.Kind == AiJobEventKind.ToolUse);
         forTheResult.Should().Contain(e => e.Kind == AiJobEventKind.TurnEnded);
     }
+
+    /// <summary>フックの行には時刻が無い。読んだ時刻を実際の発生時刻として偽らないことを固定する。</summary>
+    [Fact]
+    public async Task GetEvents_DoNotStampAReadTime_TheHookLineCarriesNone()
+    {
+        var job = await StartAsync();
+        _folder.Lines.Add(FakeJobEventSource.PostToolUse("Read"));
+
+        var events = await _service.GetEventsAsync(job.Id, 1);
+
+        events.Should().ContainSingle().Which.At.Should().Be(default);
+    }
 }
