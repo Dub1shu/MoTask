@@ -1,11 +1,11 @@
 using Microsoft.Data.Sqlite;
+using MoTask.Core;
 
 namespace MoTask.Data;
 
 public static class DbPaths
 {
-    public static string DefaultDirectory
-        => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MoTask");
+    public static string DefaultDirectory => AppPaths.DataDirectory;
 
     public static string DefaultDatabase => Path.Combine(DefaultDirectory, "motask.db");
 

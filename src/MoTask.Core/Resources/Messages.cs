@@ -50,4 +50,12 @@ public static class Messages
     public static string TerminalStartPromptFormat => Get(nameof(TerminalStartPromptFormat));
     public static string EventsFileGoneFormat => Get(nameof(EventsFileGoneFormat));
     public static string EventsWatchFailedFormat => Get(nameof(EventsWatchFailedFormat));
+
+    // ---- MCP ブリッジ（MoTask.Mcp）----
+    public static string McpAppNotFoundFormat => Get(nameof(McpAppNotFoundFormat));
+    public static string McpAppStartTimeout => Get(nameof(McpAppStartTimeout));
+    public static string McpUnauthorized => Get(nameof(McpUnauthorized));
+    public static string McpUnexpectedStatusFormat => Get(nameof(McpUnexpectedStatusFormat));
+    public static string McpConnectionLost => Get(nameof(McpConnectionLost));
+    public static string McpUnexpectedFailure => Get(nameof(McpUnexpectedFailure));
 }

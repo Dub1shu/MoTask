@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>MoTask.Mcp</RootNamespace>
+    <AssemblyName>MoTask.Mcp</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- EF Core を持ち込まないため、参照は Core だけ（仕様 §4） -->
+    <ProjectReference Include="..\MoTask.Core\MoTask.Core.csproj" />
+  </ItemGroup>
+</Project>

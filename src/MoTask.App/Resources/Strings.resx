@@ -155,4 +155,17 @@
   <data name="SettingsPermissionMode" xml:space="preserve"><value>ツール承認のモード（--permission-mode）。承認そのものは利用者の settings.json に従います</value></data>
   <data name="SettingsTerminalTemplate" xml:space="preserve"><value>端末の起動コマンド（空なら既定。{cwd} と {command} が置き換わります。{cwd} は " で囲んでください）</value></data>
   <data name="PermissionModeInvalid" xml:space="preserve"><value>権限モードは一覧から選んでください</value></data>
+  <data name="McpKindColumn" xml:space="preserve"><value>列</value></data>
+  <data name="McpKindProject" xml:space="preserve"><value>プロジェクト</value></data>
+  <data name="McpKindLabel" xml:space="preserve"><value>ラベル</value></data>
+  <data name="McpRefNotFoundFormat" xml:space="preserve"><value>{0}が見つかりません: {1}（候補: {2}）</value></data>
+  <data name="McpRefAmbiguousFormat" xml:space="preserve"><value>{0}の名前が複数一致しました: {1}（候補: {2}）</value></data>
+  <data name="McpRefInvalidFormat" xml:space="preserve"><value>{0}は id（整数）か名前（文字列）で指定してください。</value></data>
+  <data name="McpTaskRequired" xml:space="preserve"><value>task（タスクの id）は必須です。</value></data>
+  <data name="McpTaskNotAnInteger" xml:space="preserve"><value>task（タスクの id）は整数で指定してください。</value></data>
+  <data name="McpAddTaskPartialFormat" xml:space="preserve"><value>タスク id {0} は作成済みです（同じタスクを作り直さないでください）。ただし続く更新に失敗しました: {1}</value></data>
+  <data name="McpColumnRequired" xml:space="preserve"><value>column（列の id か名前）は必須です。</value></data>
+  <data name="McpDueInvalidFormat" xml:space="preserve"><value>due は YYYY-MM-DD 形式で指定してください: {0}</value></data>
+  <data name="McpDueFilterInvalidFormat" xml:space="preserve"><value>due には all / today / this_week / overdue のいずれかを指定してください: {0}</value></data>
+  <data name="McpBoardHasNoColumn" xml:space="preserve"><value>ボードに列がありません。</value></data>
 </root>

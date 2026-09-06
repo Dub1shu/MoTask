@@ -144,4 +144,19 @@ public static class Strings
     public static string SettingsPermissionMode => Get(nameof(SettingsPermissionMode));
     public static string SettingsTerminalTemplate => Get(nameof(SettingsTerminalTemplate));
     public static string PermissionModeInvalid => Get(nameof(PermissionModeInvalid));
+
+    // ---- MCP（TODO 操作 I/F）----
+    public static string McpKindColumn => Get(nameof(McpKindColumn));
+    public static string McpKindProject => Get(nameof(McpKindProject));
+    public static string McpKindLabel => Get(nameof(McpKindLabel));
+    public static string McpRefNotFoundFormat => Get(nameof(McpRefNotFoundFormat));
+    public static string McpRefAmbiguousFormat => Get(nameof(McpRefAmbiguousFormat));
+    public static string McpRefInvalidFormat => Get(nameof(McpRefInvalidFormat));
+    public static string McpTaskRequired => Get(nameof(McpTaskRequired));
+    public static string McpTaskNotAnInteger => Get(nameof(McpTaskNotAnInteger));
+    public static string McpAddTaskPartialFormat => Get(nameof(McpAddTaskPartialFormat));
+    public static string McpColumnRequired => Get(nameof(McpColumnRequired));
+    public static string McpDueInvalidFormat => Get(nameof(McpDueInvalidFormat));
+    public static string McpDueFilterInvalidFormat => Get(nameof(McpDueFilterInvalidFormat));
+    public static string McpBoardHasNoColumn => Get(nameof(McpBoardHasNoColumn));
 }

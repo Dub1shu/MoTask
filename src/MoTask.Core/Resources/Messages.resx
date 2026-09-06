@@ -44,4 +44,10 @@
   <data name="TerminalStartPromptFormat" xml:space="preserve"><value>{0} を読んで作業を始めてください。調査に使ったファイルと成果物は {1} に出してください。</value></data>
   <data name="EventsFileGoneFormat" xml:space="preserve"><value>イベントログを追えなくなりました（削除されたか作り直されました）: {0}</value></data>
   <data name="EventsWatchFailedFormat" xml:space="preserve"><value>イベントログの追従中に予期しないエラーが発生しました: {0}（{1}）</value></data>
+  <data name="McpAppNotFoundFormat" xml:space="preserve"><value>MoTask の実行ファイルが見つかりません: {0}</value></data>
+  <data name="McpAppStartTimeout" xml:space="preserve"><value>MoTask の起動を確認してください（30 秒待っても接続できませんでした）。</value></data>
+  <data name="McpUnauthorized" xml:space="preserve"><value>MoTask への接続が拒否されました。MoTask を再起動してから試してください。</value></data>
+  <data name="McpUnexpectedStatusFormat" xml:space="preserve"><value>MoTask が予期しない応答を返しました（HTTP {0}）。</value></data>
+  <data name="McpConnectionLost" xml:space="preserve"><value>MoTask との接続が切れました（MoTask が終了した可能性があります）。MoTask を起動したまま、もう一度実行してください。</value></data>
+  <data name="McpUnexpectedFailure" xml:space="preserve"><value>MoTask との通信で予期しない問題が起きました。MoTask を再起動してから試してください（詳細は MCP サーバのログに出ています）。</value></data>
 </root>
