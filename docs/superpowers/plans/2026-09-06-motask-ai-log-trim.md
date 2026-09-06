@@ -674,10 +674,14 @@ Expected: 出力なし
 - [ ] **Step 7: テーブルを落とすマイグレーションを作る**
 
 ```bash
-dotnet ef migrations add DropAiJobEvents --project src/MoTask.Data --startup-project src/MoTask.App
+dotnet ef migrations add DropAiJobEvents --project src/MoTask.Data --startup-project src/MoTask.Data
 ```
 
 生成物に手は入れない。`Up` が `AiJobEvents` を `DropTable` していることだけ目で確かめる。
+
+（`--startup-project` は `src/MoTask.App` ではなく `src/MoTask.Data` を指す。App 側の Design
+パッケージは `PrivateAssets=all` で deps.json に載らず、Data 側に `IDesignTimeDbContextFactory` がある。
+Task 2 で実測済み。）
 
 - [ ] **Step 8: 落ちるテストを直す**
 
