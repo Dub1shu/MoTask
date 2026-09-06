@@ -120,6 +120,10 @@ public class MoTaskMcpServerTests : IDisposable
 
         status.Should().Be(HttpStatusCode.Unauthorized);
         await _board.DidNotReceive().GetBoardAsync(Arg.Any<CancellationToken>());
+
+        // 認証はメソッドで分岐する前に効く。ツール一覧も無トークンでは覗けない。
+        var (listStatus, _) = await PostAsync(null, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
+        listStatus.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]

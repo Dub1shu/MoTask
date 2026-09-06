@@ -44,6 +44,8 @@ public class HostWiringTests : IDisposable
         var tools = host.Services.GetRequiredService<MoTask.App.Ai.BoardTools.BoardToolHost>();
         host.Services.GetRequiredService<MoTask.App.Ai.IBoardChangeSource>().Should().BeSameAs(tools);
         host.Services.GetRequiredService<MoTask.App.Ai.MoTaskMcpServer>().Should().NotBeNull();
+        // ViewModel まで実際に解決して、購読側を含む DI グラフが組み上がることを見る。
+        host.Services.GetRequiredService<MoTask.App.ViewModels.BoardViewModel>().Should().NotBeNull();
     }
 
     public void Dispose()
