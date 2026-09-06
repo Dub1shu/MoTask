@@ -102,6 +102,18 @@
     <Setter Property="Padding" Value="6.8,3.4" />
   </Style>
 
+  <!-- 枠も塗りも無いまま「押せる」ことを色で示すボタン。Btn.Ghost は muted なので、
+       同じ色のラベル（Text.Caption 系）と見分けが付かない。開く・たどる操作はこちらを使う。
+       ホバーの背景は既定 Button のトリガから継承する。 -->
+  <Style x:Key="Btn.Link" TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
+    <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Accent.300}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
   <!-- TextBox -->
   <Style TargetType="TextBox">
     <Setter Property="Background" Value="{StaticResource Brush.Input}" />

@@ -7,8 +7,11 @@
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:TaskDetailViewModel}">
   <UserControl.Resources>
+    <!-- 見出しが中身に負けないように、Text.Label の 11px ではなく 13px にする
+         （このパネルのコントロールは 14px なので、11px だと階層が逆さに見える）。 -->
     <Style x:Key="Field.Label" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
       <Setter Property="Margin" Value="{StaticResource Gap.FieldLabel}" />
+      <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
     </Style>
   </UserControl.Resources>
   <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
@@ -129,7 +132,7 @@
               <ItemsControl ItemsSource="{Binding Artifacts}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate>
-                    <Button Content="{Binding FileName}" ToolTip="{Binding Path}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
+                    <Button Content="{Binding FileName}" ToolTip="{Binding Path}" Style="{StaticResource Btn.Link}" HorizontalAlignment="Left"
                             Command="{Binding DataContext.OpenArtifactCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                             CommandParameter="{Binding}" />
                   </DataTemplate>
@@ -151,9 +154,9 @@
               <TextBlock Text="{x:Static res:Strings.AiOperations}" Style="{StaticResource Field.Label}" />
               <WrapPanel>
                 <Button Content="{x:Static res:Strings.AiOpenJobFolder}" Command="{Binding OpenJobFolderCommand}"
-                        Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}" />
+                        Style="{StaticResource Btn.Link}" Margin="{StaticResource Gap.Right.4}" />
                 <Button Content="{x:Static res:Strings.AiOpenWorkingDirectory}" Command="{Binding OpenWorkingDirectoryCommand}"
-                        Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}" />
+                        Style="{StaticResource Btn.Link}" Margin="{StaticResource Gap.Right.4}" />
                 <Button Content="{x:Static res:Strings.AiReopenTerminal}" Command="{Binding ReopenTerminalCommand}"
                         Margin="{StaticResource Gap.Right.4}"
                         Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
