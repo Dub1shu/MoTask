@@ -14,7 +14,11 @@ public interface IAiJobService
     Task<Result<AiJob>> StartJobAsync(int taskId, AiJobKind kind, string instruction, CancellationToken ct = default);
 
     Task<IReadOnlyList<AiJob>> GetJobsForTaskAsync(int taskId, CancellationToken ct = default);
-    Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, CancellationToken ct = default);
+    /// <summary>
+    /// events.jsonl の末尾 lines 行を古い順で返す。DB には記録していないので、毎回ファイルを読む。
+    /// Seq は返す並びに 1 から振り直したもので、ジョブ内の通し番号ではない（表示順にしか使わない）。
+    /// </summary>
+    Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, int lines, CancellationToken ct = default);
     /// <summary>Pending / Running / WaitingForInput。カードのバッジ初期化と起動時の追いつきに使う。</summary>
     Task<IReadOnlyList<AiJob>> GetUnfinishedJobsAsync(CancellationToken ct = default);
     /// <summary>ジョブフォルダの artifacts/ にある実ファイル（仕様 §6）。</summary>

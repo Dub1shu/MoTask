@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MoTask.Data;
 
@@ -10,9 +11,11 @@ using MoTask.Data;
 namespace MoTask.Data.Migrations
 {
     [DbContext(typeof(MoTaskDbContext))]
-    partial class MoTaskDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906142042_AiJobProcessedLines")]
+    partial class AiJobProcessedLines
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -81,6 +84,43 @@ namespace MoTask.Data.Migrations
                     b.HasIndex("TaskId");
 
                     b.ToTable("AiJobs", (string)null);
+                });
+
+            modelBuilder.Entity("MoTask.Core.Model.AiJobEvent", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("JobId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<int>("Seq")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ToolName")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JobId", "Seq")
+                        .IsUnique();
+
+                    b.ToTable("AiJobEvents", (string)null);
                 });
 
             modelBuilder.Entity("MoTask.Core.Model.Board", b =>
@@ -277,6 +317,15 @@ namespace MoTask.Data.Migrations
                     b.HasOne("MoTask.Core.Model.TaskItem", null)
                         .WithMany()
                         .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("MoTask.Core.Model.AiJobEvent", b =>
+                {
+                    b.HasOne("MoTask.Core.Model.AiJob", null)
+                        .WithMany()
+                        .HasForeignKey("JobId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

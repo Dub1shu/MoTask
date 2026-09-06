@@ -30,12 +30,4 @@ public sealed class AiJobRepository : IAiJobRepository
             .OrderBy(j => j.Id)
             .ToListAsync(ct);
     }
-
-    public void AddEvent(AiJobEvent entry) => _db.AiJobEvents.Add(entry);
-
-    public async Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, CancellationToken ct = default)
-        => await _db.AiJobEvents.AsNoTracking()
-            .Where(e => e.JobId == jobId)
-            .OrderBy(e => e.Seq)
-            .ToListAsync(ct);
 }

@@ -1,9 +1,8 @@
 namespace MoTask.Core.Model;
 
-/// <summary>追記専用。更新も削除もしない（HistoryEntry と同じ思想）。</summary>
+/// <summary>画面に出す 1 行。DB には保存しない（events.jsonl が実体）。</summary>
 public sealed class AiJobEvent
 {
-    public long Id { get; set; }
     public int JobId { get; set; }
     /// <summary>ジョブ内の順序（1 から）。</summary>
     public int Seq { get; set; }

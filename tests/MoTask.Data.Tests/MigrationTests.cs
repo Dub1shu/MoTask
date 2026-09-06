@@ -26,7 +26,7 @@ public class MigrationTests : IDisposable
         tables.Should().Contain(new[]
         {
             "Boards", "Columns", "Tasks", "Projects", "Labels", "TaskLabels", "History",
-            "AiJobs", "AiJobEvents",
+            "AiJobs",
         });
     }
 
@@ -58,12 +58,6 @@ public class MigrationTests : IDisposable
                 "(1, 'Execute', 'AwaitingApproval', '00000000-0000-0000-0000-000000000002', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
                 "(1, 'Execute', 'Running', '00000000-0000-0000-0000-000000000003', 'i', 'C:\\w', '', '2026-09-05 00:00:00'), " +
                 "(1, 'Execute', 'Pending', '00000000-0000-0000-0000-000000000004', 'i', 'C:\\w', '', '2026-09-05 00:00:00')");
-            // Payload は波かっこを含むので、SQL 文字列に直接埋めず引数で渡す（{0} が書式指定と衝突する）
-            await old.Database.ExecuteSqlRawAsync(
-                "INSERT INTO AiJobEvents (JobId, Seq, At, Kind, Payload) " +
-                "VALUES (1, 1, '2026-09-05 00:00:00', 'PermissionAsked', {0}), " +
-                "(1, 2, '2026-09-05 00:00:00', 'PermissionDecided', {1})",
-                """{"a":1}""", """{"b":2}""");
         }
 
         await using var ctx = _db.CreateContext();
@@ -73,9 +67,6 @@ public class MigrationTests : IDisposable
         jobs.Select(j => j.Status).Should().Equal(
             AiJobStatus.Cancelled, AiJobStatus.Cancelled, AiJobStatus.Cancelled, AiJobStatus.Cancelled);
         jobs.Should().OnlyContain(j => j.EndedAt != null, "追跡をやめた時刻を StartedAt で埋める");
-        var events = await ctx.Set<AiJobEvent>().OrderBy(e => e.Seq).ToListAsync();
-        events.Select(e => e.Kind).Should().Equal(AiJobEventKind.System, AiJobEventKind.System);
-        events[0].Payload.Should().Be("""{"a":1}""", "原文は残す");
     }
 
     [Fact]
@@ -185,6 +176,85 @@ public class MigrationTests : IDisposable
         {
             (await ctx.AiJobs.SingleAsync()).JobFolder.Should().Be(@"C:\work\jobs\0001-t");
         }
+    }
+
+    [Fact]
+    public async Task AiJob_ProcessedLines_RoundTrips()
+    {
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+            var board = new Board { Name = "b" };
+            var backlog = new Column { Name = "c", Role = ColumnRole.Backlog, Order = 0 };
+            board.Columns.Add(backlog);
+            ctx.Boards.Add(board);
+            await ctx.SaveChangesAsync();
+            var now = DateTime.UtcNow;
+            var task = new TaskItem { Title = "t", ColumnId = backlog.Id, CreatedAt = now, UpdatedAt = now };
+            ctx.Tasks.Add(task);
+            await ctx.SaveChangesAsync();
+            ctx.AiJobs.Add(new AiJob
+            {
+                TaskId = task.Id, Kind = AiJobKind.Execute, Status = AiJobStatus.Running,
+                SessionId = Guid.NewGuid(), JobFolder = @"C:\work\jobs\0001-t",
+                ProcessedLines = 7,
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            (await ctx.AiJobs.SingleAsync()).ProcessedLines.Should().Be(7);
+        }
+    }
+
+    [Fact]
+    public async Task Migrate_DropsTheAiJobEventsTable()
+    {
+        await using var db = _db.CreateContext();
+        await db.Database.MigrateAsync();
+
+        var names = await db.Database
+            .SqlQuery<string>($"select name AS Value from sqlite_master where type = 'table'")
+            .ToListAsync();
+
+        names.Should().NotContain("AiJobEvents");
+    }
+
+    /// <summary>
+    /// DropAiJobEvents はテーブルを落とす前に件数を AiJob.ProcessedLines へ移す。ここを飛ばすと、
+    /// 移行時に進行中だったジョブが events.jsonl を先頭から読み直し、ターン数が二重に増える（仕様 §9）。
+    /// </summary>
+    [Fact]
+    public async Task Migrate_SeedsProcessedLinesFromTheDroppedEventsTable()
+    {
+        await using (var old = _db.CreateContext())
+        {
+            // 落とす直前（AiJobProcessedLines まで）の DB を作る
+            await old.Database.GetInfrastructure().GetRequiredService<IMigrator>().MigrateAsync("20260906142042_AiJobProcessedLines");
+            var board = new Board { Name = "b" };
+            var column = new Column { Name = "未着手", Role = ColumnRole.Backlog, Order = 0 };
+            board.Columns.Add(column);
+            old.Boards.Add(board);
+            await old.SaveChangesAsync();
+            old.Tasks.Add(new TaskItem { Id = 1, Title = "t", ColumnId = column.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow });
+            await old.SaveChangesAsync();
+            // 移行前に進行中だったジョブ（復旧処理を経ないまま ProcessedLines = 0 で残っている）を再現する
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO AiJobs (TaskId, Kind, Status, SessionId, Instruction, WorkingDirectory, JobFolder, StartedAt) " +
+                "VALUES (1, 'Execute', 'Running', '00000000-0000-0000-0000-000000000001', 'i', 'C:\\w', '', '2026-09-06 00:00:00')");
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO AiJobEvents (At, JobId, Kind, Payload, Seq, ToolName) VALUES " +
+                "('2026-09-06 00:00:00', 1, 'ToolUse', '{{}}', 1, 'Read'), " +
+                "('2026-09-06 00:00:01', 1, 'ToolUse', '{{}}', 2, 'Bash'), " +
+                "('2026-09-06 00:00:02', 1, 'TurnEnded', '{{}}', 3, NULL)");
+        }
+
+        await using var ctx = _db.CreateContext();
+        await ctx.Database.MigrateAsync();
+
+        var job = await ctx.Set<AiJob>().SingleAsync();
+        job.ProcessedLines.Should().Be(3, "移行前に AiJobEvents にあった行数がそのまま引き継がれる");
     }
 
     public void Dispose() => _db.Dispose();

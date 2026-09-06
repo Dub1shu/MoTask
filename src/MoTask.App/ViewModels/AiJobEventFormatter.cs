@@ -17,7 +17,9 @@ public static class AiJobEventFormatter
 
     public static AiLogLine Format(AiJobEvent e, TimeZoneInfo? timeZone = null)
     {
-        var time = HistoryFormatter.Timestamp(e.At, timeZone);
+        // At == default は「ファイルの末尾から作り直した行で、実際の時刻が分からない」印。
+        // 分からない時刻を HistoryFormatter に渡して嘘の時刻を表示させるより、空にする。
+        var time = e.At == default ? "" : HistoryFormatter.Timestamp(e.At, timeZone);
         var (text, isError) = Body(e);
         return new AiLogLine(time, text, isError);
     }

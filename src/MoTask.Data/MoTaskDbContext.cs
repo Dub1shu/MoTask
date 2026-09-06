@@ -16,7 +16,6 @@ public sealed class MoTaskDbContext : DbContext
     public DbSet<Label> Labels => Set<Label>();
     public DbSet<HistoryEntry> History => Set<HistoryEntry>();
     public DbSet<AiJob> AiJobs => Set<AiJob>();
-    public DbSet<AiJobEvent> AiJobEvents => Set<AiJobEvent>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -83,18 +82,10 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.Instruction).IsRequired().HasDefaultValue("");
             e.Property(x => x.WorkingDirectory).IsRequired().HasDefaultValue("");
             e.Property(x => x.JobFolder).IsRequired().HasDefaultValue("");
+            e.Property(x => x.ProcessedLines).HasDefaultValue(0);
             e.HasIndex(x => x.TaskId);
             e.HasIndex(x => x.Status);
             e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        b.Entity<AiJobEvent>(e =>
-        {
-            e.ToTable("AiJobEvents");
-            e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(24);
-            e.Property(x => x.Payload).IsRequired().HasDefaultValue("");
-            e.HasIndex(x => new { x.JobId, x.Seq }).IsUnique();
-            e.HasOne<AiJob>().WithMany().HasForeignKey(x => x.JobId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

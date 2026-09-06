@@ -32,8 +32,8 @@ public class TaskAiPanelViewModelTests
         _ai.GetUnfinishedJobsAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => !j.Status.IsTerminal()).ToList()));
         _ai.GetJobsForTaskAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(ci => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => j.TaskId == ci.Arg<int>()).OrderByDescending(j => j.Id).ToList()));
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<IReadOnlyList<AiJobEvent>>(_events.Where(e => e.JobId == ci.Arg<int>()).OrderBy(e => e.Seq).ToList()));
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IReadOnlyList<AiJobEvent>>(_events.Where(e => e.JobId == ci.ArgAt<int>(0)).OrderBy(e => e.Seq).ToList()));
         _ai.GetArtifactsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
             .Returns(_ => Task.FromResult<IReadOnlyList<string>>(_artifacts.ToList()));
         _ai.StartJobAsync(Arg.Any<int>(), Arg.Any<AiJobKind>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ci =>
@@ -283,7 +283,7 @@ public class TaskAiPanelViewModelTests
             await gate.Task;
             return _events.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList();
         }
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => Gated(ci.Arg<int>()));
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => Gated(ci.ArgAt<int>(0)));
 
         var first = ai.LoadAsync();
         var second = ai.LoadAsync();
@@ -441,5 +441,52 @@ public class TaskAiPanelViewModelTests
         var panel = await PanelWithRunningJobAsync();
 
         panel.Artifacts.Should().ContainSingle().Which.FileName.Should().Be("report.md");
+    }
+
+    /// <summary>Payload は "{}"（有効な JSON）にして、ToolName ごとに違うテキストへ整形されるようにする。</summary>
+    private static AiJobEvent Event(int seq, AiJobEventKind kind, string toolName)
+        => new() { JobId = 1, Seq = seq, At = DateTime.UtcNow, Kind = kind, ToolName = toolName, Payload = "{}" };
+
+    /// <summary>
+    /// Take(3) でも Log.Count は 3 になってしまうので、件数だけでは末尾が生き残っていることを
+    /// 固定できない。最新の行の中身と、最古の行の中身が消えていることの両方を確かめる。
+    /// </summary>
+    [Fact]
+    public async Task Panel_ShowsOnlyTheLastThreeLogLines()
+    {
+        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns(new AiJobEvent[]
+            {
+                Event(1, AiJobEventKind.ToolUse, "Read"),
+                Event(2, AiJobEventKind.ToolUse, "Grep"),
+                Event(3, AiJobEventKind.ToolUse, "Bash"),
+                Event(4, AiJobEventKind.ToolUse, "Write"),
+                Event(5, AiJobEventKind.ToolUse, "Edit"),
+            });
+
+        var panel = await PanelWithRunningJobAsync();
+
+        panel.Log.Should().HaveCount(3);
+        panel.Log.Last().Text.Should().Be(AiJobEventFormatter.Format(Event(5, AiJobEventKind.ToolUse, "Edit")).Text);
+        panel.Log.Select(l => l.Text).Should().NotContain(
+            AiJobEventFormatter.Format(Event(1, AiJobEventKind.ToolUse, "Read")).Text,
+            "一番古い行は末尾 3 件から外れている");
+    }
+
+    /// <summary>ライブ経路（OnJobChanged）の間引きは LoadAsync とは別の場所（115 行付近）にあり、これまで未検証だった。</summary>
+    [Fact]
+    public async Task JobChanged_KeepsOnlyTheNewestThreeLogLines_InOrder()
+    {
+        var panel = await PanelWithRunningJobAsync();
+
+        RaiseChanged(Running(1), Event(1, AiJobEventKind.ToolUse, "Read"));
+        RaiseChanged(Running(1), Event(2, AiJobEventKind.ToolUse, "Grep"));
+        RaiseChanged(Running(1), Event(3, AiJobEventKind.ToolUse, "Bash"));
+        RaiseChanged(Running(1), Event(4, AiJobEventKind.ToolUse, "Write"));
+
+        panel.Log.Select(l => l.Text).Should().Equal(
+            AiJobEventFormatter.Format(Event(2, AiJobEventKind.ToolUse, "Grep")).Text,
+            AiJobEventFormatter.Format(Event(3, AiJobEventKind.ToolUse, "Bash")).Text,
+            AiJobEventFormatter.Format(Event(4, AiJobEventKind.ToolUse, "Write")).Text);
     }
 }

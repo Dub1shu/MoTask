@@ -119,6 +119,70 @@ public class JobFolderTests : IDisposable
         _folder.ListArtifacts(Path.Combine(_root, "no-such-job")).Should().BeEmpty();
     }
 
+    [Fact]
+    public void ReadTail_ReturnsEmptyWhenThereIsNoFolder()
+    {
+        _folder.ReadTail(Path.Combine(_root, "no-such-job"), 3).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ReadTail_ReturnsEveryLineWhenThereAreFewerThanAsked()
+    {
+        var root = WriteEvents("a\nb\n");
+
+        _folder.ReadTail(root, 3).Should().Equal("a", "b");
+    }
+
+    [Fact]
+    public void ReadTail_ReturnsTheLastLinesInOrder()
+    {
+        var root = WriteEvents("1\n2\n3\n4\n5\n");
+
+        _folder.ReadTail(root, 3).Should().Equal("3", "4", "5");
+    }
+
+    [Fact]
+    public void ReadTail_KeepsALastLineThatHasNoNewline()
+    {
+        var root = WriteEvents("1\n2\n3");
+
+        _folder.ReadTail(root, 2).Should().Equal("2", "3");
+    }
+
+    [Fact]
+    public void ReadTail_SkipsBlankLines()
+    {
+        var root = WriteEvents("1\n\n2\n\n");
+
+        _folder.ReadTail(root, 3).Should().Equal("1", "2");
+    }
+
+    [Fact]
+    public void ReadTail_KeepsALongLineIntact()
+    {
+        var line = new string('x', 40_000);
+        var root = WriteEvents("short\n" + line + "\n");
+
+        _folder.ReadTail(root, 1).Should().Equal(line);
+    }
+
+    [Fact]
+    public void ReadTail_ReturnsEmptyWhenAskedForNoLines()
+    {
+        var root = WriteEvents("1\n2\n");
+
+        _folder.ReadTail(root, 0).Should().BeEmpty();
+    }
+
+    /// <summary>events.jsonl だけを持つジョブフォルダを作り、その root を返す。</summary>
+    private string WriteEvents(string content)
+    {
+        var root = Path.Combine(_root, "0001-tail");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(JobFolderPaths.For(root).EventsJsonl, content, new UTF8Encoding(false));
+        return root;
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); } catch (IOException) { }

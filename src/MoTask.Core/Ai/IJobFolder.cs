@@ -14,4 +14,10 @@ public interface IJobFolder
 
     /// <summary>artifacts/ の実ファイル（絶対パス、名前順）。フォルダが無ければ空。</summary>
     IReadOnlyList<string> ListArtifacts(string root);
+
+    /// <summary>
+    /// events.jsonl の末尾 lines 行を古い順で返す。空行は飛ばす。
+    /// フォルダやファイルが無ければ空。読めなくても投げない（表示が空になるだけ）。
+    /// </summary>
+    IReadOnlyList<string> ReadTail(string root, int lines);
 }

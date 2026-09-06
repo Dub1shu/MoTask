@@ -29,6 +29,19 @@ public class AiJobEventFormatterTests
         line.Time.Should().Be("9/5 9:30");
     }
 
+    /// <summary>
+    /// ファイルの末尾から作り直した行は At == default（実際の時刻が分からない）。
+    /// 読んだ時刻を実際の時刻として偽らず、空欄にすることを固定する。
+    /// </summary>
+    [Fact]
+    public void Timestamp_IsBlank_WhenTheEventHasNoRealTime()
+    {
+        var line = AiJobEventFormatter.Format(
+            new AiJobEvent { JobId = 1, Seq = 1, At = default, Kind = AiJobEventKind.AssistantText, Payload = Bash[4] }, Tokyo);
+
+        line.Time.Should().Be("");
+    }
+
     [Fact]
     public void AssistantText_ShowsTheText()
     {

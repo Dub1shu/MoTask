@@ -88,4 +88,31 @@ public sealed class JobFolder : IJobFolder
             return Array.Empty<string>();
         }
     }
+
+    public IReadOnlyList<string> ReadTail(string root, int lines)
+    {
+        if (string.IsNullOrWhiteSpace(root) || lines <= 0) return Array.Empty<string>();
+        var path = JobFolderPaths.For(root).EventsJsonl;
+        try
+        {
+            if (!File.Exists(path)) return Array.Empty<string>();
+            // フックが追記中でも読めるように共有を広く取る。ファイルは小さいので
+            // 先頭から読んで末尾 lines 行だけ残す（末尾からの逆読みは行の境目を跨ぐと厄介）。
+            var tail = new Queue<string>(lines);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream, Utf8);
+            while (reader.ReadLine() is { } line)
+            {
+                if (line.Length == 0) continue;
+                if (tail.Count == lines) tail.Dequeue();
+                tail.Enqueue(line);
+            }
+            return tail.ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            // 読めないだけで、ジョブの状態には関係しない
+            return Array.Empty<string>();
+        }
+    }
 }

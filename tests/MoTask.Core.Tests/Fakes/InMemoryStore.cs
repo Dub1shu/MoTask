@@ -18,7 +18,6 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public List<Label> Labels { get; } = new();
     public List<HistoryEntry> History { get; } = new();
     public List<AiJob> Jobs { get; } = new();
-    public List<AiJobEvent> JobEvents { get; } = new();
     public int SaveCount { get; private set; }
     public bool FailNextSave { get; set; }
 
@@ -128,15 +127,6 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     public Task<IReadOnlyList<AiJob>> GetByStatusAsync(IReadOnlyCollection<AiJobStatus> statuses, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<AiJob>>(Jobs.Where(j => statuses.Contains(j.Status)).OrderBy(j => j.Id).ToList());
-
-    public void AddEvent(AiJobEvent entry)
-    {
-        entry.Id = _nextHistoryId++;
-        JobEvents.Add(entry);
-    }
-
-    public Task<IReadOnlyList<AiJobEvent>> GetEventsAsync(int jobId, CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<AiJobEvent>>(JobEvents.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList());
 
     // ---- IUnitOfWork ----
 
