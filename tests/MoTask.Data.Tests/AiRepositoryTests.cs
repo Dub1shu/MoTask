@@ -132,6 +132,7 @@ public class AiRepositoryTests : IDisposable
         public Result<string> Create(JobFolderRequest request) => Result.Ok(Root);
         public void WriteJobJson(string root, JobDescriptor descriptor) { }
         public IReadOnlyList<string> ListArtifacts(string root) => Array.Empty<string>();
+        public IReadOnlyList<string> ReadTail(string root, int lines) => Array.Empty<string>();
     }
 
     /// <summary>events.jsonl の代わりにテストが行を流し込む。</summary>

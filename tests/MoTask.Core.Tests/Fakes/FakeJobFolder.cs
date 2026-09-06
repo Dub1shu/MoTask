@@ -10,6 +10,8 @@ public sealed class FakeJobFolder : IJobFolder
     public List<JobFolderRequest> Created { get; } = new();
     public List<JobDescriptor> Descriptors { get; } = new();
     public List<string> Artifacts { get; } = new();
+    /// <summary>ReadTail が返す行。テストが直接積む。</summary>
+    public List<string> Lines { get; } = new();
 
     public Result<string> Create(JobFolderRequest request)
     {
@@ -21,4 +23,10 @@ public sealed class FakeJobFolder : IJobFolder
     public void WriteJobJson(string root, JobDescriptor descriptor) => Descriptors.Add(descriptor);
 
     public IReadOnlyList<string> ListArtifacts(string root) => Artifacts;
+
+    public IReadOnlyList<string> ReadTail(string root, int lines)
+    {
+        if (lines <= 0) return Array.Empty<string>();
+        return Lines.Count <= lines ? Lines.ToList() : Lines.Skip(Lines.Count - lines).ToList();
+    }
 }
