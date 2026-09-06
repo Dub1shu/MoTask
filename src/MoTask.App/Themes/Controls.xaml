@@ -30,6 +30,14 @@
     <Setter Property="FontSize" Value="{StaticResource FontSize.H4}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
   </Style>
+  <!-- 本文の段。サイズ無指定で Window の既定を拾わせると、周りの操作系より大きく出て
+       しまうので、本文として置く文字にはこれを明示する。 -->
+  <Style x:Key="Text.Body" TargetType="TextBlock">
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+    <Setter Property="LineHeight" Value="{StaticResource LineHeight.Body}" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+  </Style>
   <Style x:Key="Text.Small" TargetType="TextBlock">
     <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
@@ -42,6 +50,33 @@
     <Setter Property="FontWeight" Value="Medium" />
   </Style>
 
+  <!-- 折り返す前提の段。行送りを明示するのはここだけにする。Text.Small / Text.Caption 側に
+       LineHeight を入れると、カードのバッジや列見出しのような単一行の要素まで背が伸びる。 -->
+  <Style x:Key="Text.Prose" TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="LineHeight" Value="{StaticResource LineHeight.Small}" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+  </Style>
+  <Style x:Key="Text.Hint" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}" />
+    <Setter Property="LineStackingStrategy" Value="BlockLineHeight" />
+  </Style>
+
+  <!-- セクション見出し。フィールドのラベル（Text.Label = 12px muted のメタ表記）と
+       同じ見た目にすると、パネルが延々と続く一列に見えて構造が読めない。
+       上に区切り線を敷き、色と太さで「塊の始まり」だと分かるようにする。 -->
+  <Style x:Key="Text.Section" TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+  </Style>
+  <Style x:Key="Section.Header" TargetType="Border">
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
+    <Setter Property="BorderThickness" Value="0,1,0,0" />
+    <Setter Property="Margin" Value="{StaticResource Gap.Section}" />
+    <Setter Property="Padding" Value="{StaticResource Pad.SectionHeader}" />
+  </Style>
+
   <!-- Button 既定 = secondary（塗りなし・1px 枠）。
        状態色は ControlTemplate.Triggers ではなく Style.Triggers に置く。こうすると
        Btn.Primary が同じテンプレートを BasedOn で受け継いだまま、状態色だけ差し替えられる。 -->
@@ -51,7 +86,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="10.2,5" />
-    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
     <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Template">
@@ -108,9 +143,15 @@
        ホバーの背景は既定 Button のトリガから継承する。 -->
   <Style x:Key="Btn.Link" TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
     <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+    <!-- 左パディングを落として、文字の左端をラベルや枠付きボタンの箱の左端に揃える。
+         Btn.Ghost の 6.8 を残すと、リンクだけ内側に寄って左端がガタつく。
+         枠も塗りも無いので、ホバーは背景ではなく色の変化だけで示す。 -->
+    <Setter Property="Padding" Value="0,3.4" />
     <Style.Triggers>
       <Trigger Property="IsMouseOver" Value="True">
         <Setter Property="Foreground" Value="{StaticResource Brush.Accent.300}" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
       </Trigger>
     </Style.Triggers>
   </Style>
@@ -122,7 +163,7 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="6.8,5" />
-    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="CaretBrush" Value="{StaticResource Brush.Accent}" />
     <Setter Property="SelectionBrush" Value="{StaticResource Brush.Accent.300}" />
     <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -181,7 +222,7 @@
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="Padding" Value="8,3" />
     <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
     <Setter Property="Template">
@@ -246,7 +287,7 @@
 
   <Style TargetType="CheckBox">
     <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
-    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
   </Style>
 
@@ -287,7 +328,7 @@
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
     <Setter Property="Template">
       <Setter.Value>
@@ -395,7 +436,7 @@
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="FontFamily" Value="{StaticResource Font.Body}" />
-    <Setter Property="FontSize" Value="{StaticResource FontSize.Control}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
   </Style>
   <Style TargetType="MenuItem">
     <Setter Property="Background" Value="Transparent" />
