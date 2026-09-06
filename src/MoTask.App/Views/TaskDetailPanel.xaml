@@ -7,11 +7,11 @@
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:TaskDetailViewModel}">
   <UserControl.Resources>
-    <!-- 見出しが中身に負けないように、Text.Label の 11px ではなく 13px にする
-         （このパネルのコントロールは 14px なので、11px だと階層が逆さに見える）。 -->
+    <!-- フィールドのラベルは Text.Label（12px muted）のまま、メタ表記の段に置く。
+         かつて中身に負けて見えたのは大きさではなく、セクション見出しと同じ見た目で
+         並んでいて構造が読めなかったせい。見出し側は Section.Header で描き分ける。 -->
     <Style x:Key="Field.Label" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
       <Setter Property="Margin" Value="{StaticResource Gap.FieldLabel}" />
-      <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
     </Style>
   </UserControl.Resources>
   <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
@@ -28,7 +28,7 @@
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibilityInverse}}" />
         <Button Content="{x:Static res:Strings.Restore}" Style="{StaticResource Btn.Primary}" Command="{Binding RestoreCommand}"
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
-        <TextBlock Text="{x:Static res:Strings.Deleted}" Foreground="{StaticResource Brush.Danger}" Margin="{StaticResource Gap.Left.3}"
+        <TextBlock Text="{x:Static res:Strings.Deleted}" Style="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Danger}" Margin="{StaticResource Gap.Left.3}"
                    VerticalAlignment="Center" Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
       </StackPanel>
 
@@ -55,14 +55,14 @@
 
           <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Field.Label}" />
           <ComboBox ItemsSource="{Binding Projects}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedProject}" />
-          <TextBlock Text="{x:Static res:Strings.NewProjectHint}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.ProjectHint}" />
+          <TextBlock Text="{x:Static res:Strings.NewProjectHint}" Style="{StaticResource Text.Hint}" Margin="{StaticResource Gap.ProjectHint}" />
           <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" KeyDown="NewProjectBox_KeyDown" />
 
           <!-- プロジェクトの作業フォルダ（AI ジョブの cwd）。プロジェクトが選ばれているときだけ -->
           <StackPanel Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
             <TextBlock Text="{x:Static res:Strings.ProjectWorkingDirectory}" Style="{StaticResource Field.Label}" />
             <TextBox Text="{Binding ProjectWorkingDirectory, UpdateSourceTrigger=LostFocus}" KeyDown="EditBox_KeyDown" />
-            <TextBlock Text="{x:Static res:Strings.ProjectWorkingDirectoryHint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" />
+            <TextBlock Text="{x:Static res:Strings.ProjectWorkingDirectoryHint}" Style="{StaticResource Text.Hint}" />
           </StackPanel>
 
           <TextBlock Text="{x:Static res:Strings.Labels}" Style="{StaticResource Field.Label}" />
@@ -76,7 +76,7 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="{x:Static res:Strings.NewLabelHint}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.LabelHint}" />
+          <TextBlock Text="{x:Static res:Strings.NewLabelHint}" Style="{StaticResource Text.Hint}" Margin="{StaticResource Gap.LabelHint}" />
           <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" KeyDown="NewLabelBox_KeyDown" />
 
           <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Field.Label}" />
@@ -92,7 +92,9 @@
           <ComboBox ItemsSource="{Binding Columns}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedColumn}" />
 
           <!-- AI に任せる（仕様 §10）。子 VM に DataContext を切り替える -->
-          <TextBlock Text="{x:Static res:Strings.AiSection}" Style="{StaticResource Field.Label}" />
+          <Border Style="{StaticResource Section.Header}">
+            <TextBlock Text="{x:Static res:Strings.AiSection}" Style="{StaticResource Text.Section}" />
+          </Border>
           <StackPanel DataContext="{Binding Ai}">
             <!-- 依頼ボタン。実行中・中断中・削除済みでは出さない -->
             <StackPanel Orientation="Horizontal" Visibility="{Binding CanStart, Converter={StaticResource BoolToVisibility}}">
@@ -117,9 +119,9 @@
             <!-- 最新ジョブの状態・結果・成果物・進行状況 -->
             <StackPanel Visibility="{Binding HasJob, Converter={StaticResource BoolToVisibility}}" Margin="{StaticResource Gap.Top.2}">
               <DockPanel>
-                <TextBlock Text="{Binding StatusText}" FontWeight="Medium" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Body}" FontWeight="Medium" VerticalAlignment="Center" />
               </DockPanel>
-              <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}" TextWrapping="Wrap"
+              <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource Text.Prose}" Foreground="{StaticResource Brush.Danger}"
                          Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
 
               <TextBlock Text="{x:Static res:Strings.AiResult}" Style="{StaticResource Field.Label}"
@@ -138,9 +140,9 @@
                   </DataTemplate>
                 </ItemsControl.ItemTemplate>
               </ItemsControl>
-              <TextBlock Text="{x:Static res:Strings.AiNoArtifacts}" TextWrapping="Wrap">
+              <TextBlock Text="{x:Static res:Strings.AiNoArtifacts}">
                 <TextBlock.Style>
-                  <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                  <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Hint}">
                     <Setter Property="Visibility" Value="Collapsed" />
                     <Style.Triggers>
                       <DataTrigger Binding="{Binding Artifacts.Count}" Value="0">
@@ -152,22 +154,26 @@
               </TextBlock>
               <!-- 操作（仕様 §11）。MoTask は端末のプロセスを所有しないので、殺すボタンは無い -->
               <TextBlock Text="{x:Static res:Strings.AiOperations}" Style="{StaticResource Field.Label}" />
-              <WrapPanel>
-                <Button Content="{x:Static res:Strings.AiOpenJobFolder}" Command="{Binding OpenJobFolderCommand}"
-                        Style="{StaticResource Btn.Link}" Margin="{StaticResource Gap.Right.4}" />
-                <Button Content="{x:Static res:Strings.AiOpenWorkingDirectory}" Command="{Binding OpenWorkingDirectoryCommand}"
-                        Style="{StaticResource Btn.Link}" Margin="{StaticResource Gap.Right.4}" />
+              <!-- 実行系の枠付きボタン。Gap.Action は右だけでなく下も開けるので、
+                   幅が足りずに折り返しても 2 行目が密着しない。 -->
+              <WrapPanel Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}">
                 <Button Content="{x:Static res:Strings.AiReopenTerminal}" Command="{Binding ReopenTerminalCommand}"
-                        Margin="{StaticResource Gap.Right.4}"
-                        Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+                        Margin="{StaticResource Gap.Action}" />
                 <Button Content="{x:Static res:Strings.AiComplete}" Command="{Binding CompleteCommand}"
-                        Style="{StaticResource Btn.Primary}" Margin="{StaticResource Gap.Right.4}"
-                        Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+                        Style="{StaticResource Btn.Primary}" Margin="{StaticResource Gap.Action}" />
                 <Button Content="{x:Static res:Strings.AiStopTracking}" Command="{Binding StopTrackingCommand}"
-                        Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+                        Margin="{StaticResource Gap.Action}" />
               </WrapPanel>
-              <TextBlock Text="{x:Static res:Strings.AiStopTrackingHint}" Style="{StaticResource Text.Caption}" TextWrapping="Wrap"
+              <TextBlock Text="{x:Static res:Strings.AiStopTrackingHint}" Style="{StaticResource Text.Hint}"
                          Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
+              <!-- 「開く」系は文字リンク。枠付きボタンと同じ行に混ぜると見た目が 3 種類そろって
+                   騒がしいので、行を分けて左端をラベルに揃えた縦並びにする。 -->
+              <StackPanel Margin="{StaticResource Gap.Top.2}">
+                <Button Content="{x:Static res:Strings.AiOpenJobFolder}" Command="{Binding OpenJobFolderCommand}"
+                        Style="{StaticResource Btn.Link}" HorizontalAlignment="Left" />
+                <Button Content="{x:Static res:Strings.AiOpenWorkingDirectory}" Command="{Binding OpenWorkingDirectoryCommand}"
+                        Style="{StaticResource Btn.Link}" HorizontalAlignment="Left" />
+              </StackPanel>
 
               <TextBlock Text="{x:Static res:Strings.AiProgress}" Style="{StaticResource Field.Label}" />
               <ItemsControl ItemsSource="{Binding Log}">
@@ -175,9 +181,9 @@
                   <DataTemplate>
                     <DockPanel Margin="{StaticResource Gap.Bottom.1}">
                       <TextBlock DockPanel.Dock="Left" Text="{Binding Time}" Style="{StaticResource Text.Caption}" Width="64" VerticalAlignment="Top" />
-                      <TextBlock Text="{Binding Text}" TextWrapping="Wrap">
+                      <TextBlock Text="{Binding Text}">
                         <TextBlock.Style>
-                          <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
+                          <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Prose}">
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding IsError}" Value="True">
                                 <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
@@ -193,11 +199,13 @@
             </StackPanel>
           </StackPanel>
 
-          <TextBlock Text="{x:Static res:Strings.History}" Style="{StaticResource Field.Label}" />
+          <Border Style="{StaticResource Section.Header}">
+            <TextBlock Text="{x:Static res:Strings.History}" Style="{StaticResource Text.Section}" />
+          </Border>
           <ItemsControl ItemsSource="{Binding History}">
             <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <TextBlock Text="{Binding}" Style="{StaticResource Text.Small}" Margin="{StaticResource Gap.Bottom.1}" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding}" Style="{StaticResource Text.Prose}" Margin="{StaticResource Gap.Bottom.1}" />
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>

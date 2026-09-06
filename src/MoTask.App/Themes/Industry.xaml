@@ -121,6 +121,11 @@
        Space 刻みだと直後の入力欄まで開きすぎるため。 -->
   <Thickness x:Key="Gap.ProjectHint" Top="{StaticResource Space.2}" Bottom="2" />
   <Thickness x:Key="Gap.LabelHint" Top="{StaticResource Space.1}" Bottom="2" />
+  <!-- 詳細パネルのセクション見出し: 前のセクションとの間を大きく開け、区切り線と文字の間を詰める。 -->
+  <Thickness x:Key="Gap.Section" Top="{StaticResource Space.6}" />
+  <Thickness x:Key="Pad.SectionHeader" Top="{StaticResource Space.3}" Bottom="{StaticResource Space.1}" />
+  <!-- WrapPanel に並べるボタン。折り返した 2 行目が密着しないよう、右だけでなく下にも開ける。 -->
+  <Thickness x:Key="Gap.Action" Right="{StaticResource Space.4}" Bottom="{StaticResource Space.2}" />
 
   <!-- 列の幅。列本体と「＋ 列を追加」の箱で揃える。 -->
   <sys:Double x:Key="Size.Column">280</sys:Double>
@@ -128,11 +133,24 @@
   <!-- 見出し・本文ともに Yu Gothic UI に統一する。 -->
   <FontFamily x:Key="Font.Heading">Yu Gothic UI</FontFamily>
   <FontFamily x:Key="Font.Body">Yu Gothic UI</FontFamily>
+  <!-- 字の大きさは 4 段だけにする。役割で段を分け、隣り合う段の差は必ず 2px 以上とる。
+       12=メタ（フィールドのラベル・補足文・時刻）
+       13=副次本文（ログ・履歴・チップ）
+       15=本文と操作（入力欄・ボタン・コンボ）
+       18=詳細のタイトル
+       以前あった 14（FontSize.Control）は 15 と見分けが付かず、階層ではなく不揃いにしか
+       見えなかったので Body に統合して廃止した。 -->
   <sys:Double x:Key="FontSize.Body">15</sys:Double>
-  <sys:Double x:Key="FontSize.Control">14</sys:Double>
   <sys:Double x:Key="FontSize.Small">13</sys:Double>
-  <sys:Double x:Key="FontSize.Caption">11</sys:Double>
+  <sys:Double x:Key="FontSize.Caption">12</sys:Double>
   <sys:Double x:Key="FontSize.DetailTitle">18</sys:Double>
   <sys:Double x:Key="FontSize.H4">20</sys:Double>
   <sys:Double x:Key="FontSize.H5">16</sys:Double>
+
+  <!-- 行送り。Yu Gothic UI の設計行間は 1.1em 前後しかなく、折り返す和文が潰れて読めない。
+       段ごとに実寸で 1.5 倍前後を明示する。単一行の要素まで背が伸びないよう、
+       これを当てるのは折り返す前提のスタイル（Text.Prose / Text.Hint / Text.Body）だけ。 -->
+  <sys:Double x:Key="LineHeight.Body">22</sys:Double>
+  <sys:Double x:Key="LineHeight.Small">20</sys:Double>
+  <sys:Double x:Key="LineHeight.Caption">18</sys:Double>
 </ResourceDictionary>
