@@ -21,6 +21,8 @@ public static class HistoryFormatter
             HistoryKind.Restored => Strings.HistoryRestored,
             HistoryKind.AiJobStarted => FormatAi(entry.Detail, started: true),
             HistoryKind.AiJobFinished => FormatAi(entry.Detail, started: false),
+            HistoryKind.CandidateRegistered => FormatTriage(entry.Detail, Strings.HistoryCandidateRegisteredFormat),
+            HistoryKind.CandidateMerged => FormatTriage(entry.Detail, Strings.HistoryCandidateMergedFormat),
             _ => Strings.HistoryUnknown,
         };
         return $"{stamp} {body}";
@@ -65,6 +67,13 @@ public static class HistoryFormatter
         return started
             ? string.Format(Strings.HistoryAiStartedFormat, kind)
             : string.Format(Strings.HistoryAiFinishedFormat, kind, OutcomeName(ai.Status));
+    }
+
+    /// <summary>壊れた Detail で呼び出し元を落とさない（FormatAi と同じ扱い）。</summary>
+    private static string FormatTriage(string detail, string format)
+    {
+        var triage = TriageHistoryDetail.Deserialize(detail);
+        return triage is null ? Strings.HistoryUnknown : string.Format(format, triage.Source);
     }
 
     public static string KindName(AiJobKind kind)

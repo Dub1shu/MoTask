@@ -407,19 +407,139 @@ public sealed class MorningService : IMorningService
         return warning;
     }
 
-    // ---------- 仕分け(Task 9 で埋める) ----------
+    // ---------- 仕分け ----------
 
-    public Task<Result<TaskItem>> RegisterAsync(CandidateDecision decision, CancellationToken ct = default)
-        => Task.FromResult(Result.Fail<TaskItem>(Messages.CandidateNotFound)); // Task 9 で実装する
+    public async Task<Result<TaskItem>> RegisterAsync(CandidateDecision decision, CancellationToken ct = default)
+    {
+        var title = decision.Title.Trim();
+        if (title.Length == 0) return Result.Fail<TaskItem>(Messages.TitleRequired);
 
-    public Task<Result> MergeAsync(int candidateId, int targetTaskId, CancellationToken ct = default)
-        => Task.FromResult(Result.Fail(Messages.CandidateNotFound)); // Task 9 で実装する
+        var found = await FindPendingCandidateAsync(decision.CandidateId, ct).ConfigureAwait(false);
+        if (!found.IsSuccess) return Result.Fail<TaskItem>(found.Error!);
+        var candidate = found.Value!;
+
+        // ここからゲートの外。IBoardService は同じゲートを取るので、中から呼ぶとデッドロックする。
+        var project = await ResolveProjectAsync(decision.ProjectName, ct).ConfigureAwait(false);
+        if (!project.IsSuccess) return Result.Fail<TaskItem>(project.Error!);
+
+        var created = await _boardService.CreateTaskAsync(decision.ColumnId, title, ct).ConfigureAwait(false);
+        if (!created.IsSuccess) return Result.Fail<TaskItem>(created.Error!);
+        var task = created.Value!;
+
+        var updated = await _boardService.UpdateTaskAsync(
+            new TaskUpdate(task.Id, title, CandidateNote.Format(candidate), project.Value, decision.DueDate), ct)
+            .ConfigureAwait(false);
+        if (!updated.IsSuccess) return Result.Fail<TaskItem>(updated.Error!);
+
+        var warning = await DecideAsync(candidate, TriageStatus.Registered, task.Id,
+            HistoryKind.CandidateRegistered, ct).ConfigureAwait(false);
+
+        return Result.Ok(task, warning is null ? null : new[] { warning });
+    }
+
+    public async Task<Result> MergeAsync(int candidateId, int targetTaskId, CancellationToken ct = default)
+    {
+        var found = await FindPendingCandidateAsync(candidateId, ct).ConfigureAwait(false);
+        if (!found.IsSuccess) return Result.Fail(found.Error!);
+        var candidate = found.Value!;
+
+        var target = await _gate.RunAsync(async () =>
+        {
+            var task = await _boards.GetTaskAsync(targetTaskId, ct).ConfigureAwait(false);
+            return task is null || task.IsDeleted ? null : task;
+        }, ct).ConfigureAwait(false);
+        if (target is null) return Result.Fail(Messages.TaskNotFound);
+
+        var note = CandidateNote.Format(candidate);
+        var description = target.Description.TrimEnd().Length == 0
+            ? note
+            : target.Description.TrimEnd() + "\n\n" + note;
+        // 候補側にだけ期限があるときだけ入れる。既にある期限は上書きしない(仕様 §10)。
+        var due = target.DueDate ?? candidate.SuggestedDueDate;
+
+        var updated = await _boardService.UpdateTaskAsync(
+            new TaskUpdate(target.Id, target.Title, description, target.ProjectId, due), ct).ConfigureAwait(false);
+        if (!updated.IsSuccess) return updated;
+
+        var warning = await DecideAsync(candidate, TriageStatus.Merged, target.Id,
+            HistoryKind.CandidateMerged, ct).ConfigureAwait(false);
+        return warning is null ? Result.Ok() : Result.Ok(warning);
+    }
 
     public Task<Result> PostponeAsync(int candidateId, CancellationToken ct = default)
-        => Task.FromResult(Result.Fail(Messages.CandidateNotFound)); // Task 9 で実装する
+        => DecideOnlyAsync(candidateId, TriageStatus.Later, ct);
 
     public Task<Result> RejectAsync(int candidateId, CancellationToken ct = default)
-        => Task.FromResult(Result.Fail(Messages.CandidateNotFound)); // Task 9 で実装する
+        => DecideOnlyAsync(candidateId, TriageStatus.Rejected, ct);
+
+    /// <summary>「あとで」「却下」は候補の状態を変えるだけ。タスクは作らないし履歴も残さない。</summary>
+    private async Task<Result> DecideOnlyAsync(int candidateId, TriageStatus status, CancellationToken ct)
+    {
+        var found = await FindPendingCandidateAsync(candidateId, ct).ConfigureAwait(false);
+        if (!found.IsSuccess) return Result.Fail(found.Error!);
+
+        var warning = await DecideAsync(found.Value!, status, resultTaskId: null, kind: null, ct).ConfigureAwait(false);
+        return warning is null ? Result.Ok() : Result.Ok(warning);
+    }
+
+    private Task<Result<TriageCandidate>> FindPendingCandidateAsync(int candidateId, CancellationToken ct)
+        => _gate.RunAsync(async () =>
+        {
+            var candidate = await _runs.GetCandidateAsync(candidateId, ct).ConfigureAwait(false);
+            if (candidate is null) return Result.Fail<TriageCandidate>(Messages.CandidateNotFound);
+            if (candidate.Status != TriageStatus.Pending) return Result.Fail<TriageCandidate>(Messages.CandidateAlreadyDecided);
+            return Result.Ok(candidate);
+        }, ct);
+
+    /// <summary>ゲートの中で候補を片づけ、必要なら履歴を 1 件残す。戻り値はバナー向けの警告。</summary>
+    private async Task<string?> DecideAsync(
+        TriageCandidate candidate, TriageStatus status, int? resultTaskId, HistoryKind? kind, CancellationToken ct)
+    {
+        var warning = await _gate.RunAsync(async () =>
+        {
+            candidate.Status = status;
+            candidate.ResultTaskId = resultTaskId;
+            candidate.DecidedAt = _clock.UtcNow;
+            if (kind is HistoryKind historyKind && resultTaskId is int taskId)
+            {
+                _history.Add(new HistoryEntry
+                {
+                    TaskId = taskId, At = _clock.UtcNow, Kind = historyKind,
+                    Detail = TriageHistoryDetail.Serialize(
+                        new TriageHistoryDetail(candidate.Source, candidate.ExternalId)),
+                });
+            }
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
+
+        await RaiseCandidatesChangedAsync(candidate.MorningRunId, warning, ct).ConfigureAwait(false);
+        return warning;
+    }
+
+    /// <summary>候補が動いたことだけを知らせる。実行そのものの状態は変わらない。</summary>
+    private async Task RaiseCandidatesChangedAsync(int runId, string? warning, CancellationToken ct)
+    {
+        var run = await _gate.RunAsync(() => _runs.GetRunAsync(runId, ct), ct).ConfigureAwait(false);
+        if (run is null) return;
+        Raise(run, warning, candidatesChanged: true);
+    }
+
+    /// <summary>
+    /// 名前でプロジェクトを引き、無ければ作る。空白だけなら「プロジェクト無し」。
+    /// ゲートの外から呼ぶこと(IBoardService を使う)。
+    /// </summary>
+    private async Task<Result<int?>> ResolveProjectAsync(string name, CancellationToken ct)
+    {
+        var wanted = name.Trim();
+        if (wanted.Length == 0) return Result.Ok<int?>(null);
+
+        var projects = await _boardService.GetProjectsAsync(ct).ConfigureAwait(false);
+        var existing = projects.FirstOrDefault(p => string.Equals(p.Name, wanted, StringComparison.CurrentCultureIgnoreCase));
+        if (existing is not null) return Result.Ok<int?>(existing.Id);
+
+        var created = await _boardService.CreateProjectAsync(wanted, ct).ConfigureAwait(false);
+        return created.IsSuccess ? Result.Ok<int?>(created.Value!.Id) : Result.Fail<int?>(created.Error!);
+    }
 
     // ---------- 補助 ----------
 

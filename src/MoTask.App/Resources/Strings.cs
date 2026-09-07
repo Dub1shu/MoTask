@@ -97,6 +97,8 @@ public static class Strings
     public static string AiLogResultErrorFormat => Get(nameof(AiLogResultErrorFormat));
     public static string HistoryAiStartedFormat => Get(nameof(HistoryAiStartedFormat));
     public static string HistoryAiFinishedFormat => Get(nameof(HistoryAiFinishedFormat));
+    public static string HistoryCandidateRegisteredFormat => Get(nameof(HistoryCandidateRegisteredFormat));
+    public static string HistoryCandidateMergedFormat => Get(nameof(HistoryCandidateMergedFormat));
     public static string AiKindResearch => Get(nameof(AiKindResearch));
     public static string AiKindExecute => Get(nameof(AiKindExecute));
     public static string AiOutcomeSucceeded => Get(nameof(AiOutcomeSucceeded));
