@@ -176,7 +176,7 @@ public sealed class MorningService : IMorningService
         }
     }
 
-    // ---------- 追従(Task 8 で埋める) ----------
+    // ---------- 追従 ----------
 
     private void Follow(int runId, string jobFolder, int skipLines)
     {
@@ -187,17 +187,192 @@ public sealed class MorningService : IMorningService
             message => OnProblemAsync(runId, message)));
     }
 
-    private Task OnHookLineAsync(int runId, string line) => Task.CompletedTask; // Task 8 で実装する
+    /// <summary>フックが 1 行書くたびに呼ばれる(行の順序どおり、直列)。</summary>
+    private async Task OnHookLineAsync(int runId, string line)
+    {
+        var parsed = HookEventParser.Parse(line);
+        MorningRun? run = null;
+        var lookAtResult = false;
+        var lastChance = false;
 
-    private Task OnProblemAsync(int runId, string message) => Task.CompletedTask; // Task 8 で実装する
+        var warning = await _gate.RunAsync(async () =>
+        {
+            var current = await _runs.GetRunAsync(runId).ConfigureAwait(false);
+            // 追跡をやめた後・取り込んだ後に届いた行は捨てる(終わった実行を蘇らせない)
+            if (current is null || current.Status.IsTerminal()) return (string?)null;
+            run = current;
+            current.ProcessedLines++;
 
-    public Task<Result> CompleteAsync(int runId, CancellationToken ct = default)
-        => Task.FromResult(Result.Fail(Messages.MorningRunNotFound)); // Task 8 で実装する
+            switch (parsed.Kind)
+            {
+                case AiJobEventKind.SessionStarted:
+                case AiJobEventKind.ToolUse:
+                    current.Status = MorningRunStatus.Running;
+                    break;
+                case AiJobEventKind.TurnEnded:
+                    current.Status = MorningRunStatus.Running;
+                    _turns.AddOrUpdate(runId, 1, (_, turns) => turns + 1);
+                    // Stop のたびに result/ を見に行く。揃っていなければ何もしない(仕様 §6)。
+                    lookAtResult = true;
+                    break;
+                case AiJobEventKind.SessionEnded:
+                    lookAtResult = true;
+                    lastChance = true;
+                    break;
+            }
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
 
-    public Task<Result> StopTrackingAsync(int runId, CancellationToken ct = default)
-        => Task.FromResult(Result.Fail(Messages.MorningRunNotFound)); // Task 8 で実装する
+        if (run is null) return;
+        if (!lookAtResult)
+        {
+            Raise(run, warning, candidatesChanged: false);
+            return;
+        }
 
-    public Task RecoverOnStartupAsync(CancellationToken ct = default) => Task.CompletedTask; // Task 8 で実装する
+        var ingest = await IngestAsync(run, lastChance).ConfigureAwait(false);
+        Raise(run, warning ?? ingest.Warning, ingest.CandidatesChanged);
+    }
+
+    /// <summary>events.jsonl が消えた／作り直された(仕様 §12)。状態は変えず、注意だけ出す。</summary>
+    private async Task OnProblemAsync(int runId, string message)
+    {
+        _events.StopFollowing(runId);
+        var run = await _gate.RunAsync(() => _runs.GetRunAsync(runId)).ConfigureAwait(false);
+        if (run is null) return;
+        Raise(run, message, candidatesChanged: false);
+    }
+
+    // ---------- 取り込み ----------
+
+    private sealed record IngestOutcome(bool CandidatesChanged, string? Warning);
+
+    /// <summary>
+    /// result/ を読んで取り込む。プランがまだ書かれていなければ何もしない(Stop は何度でも来る)。
+    /// lastChance が true のときだけ、揃っていない実行を Failed にする(仕様 §8)。
+    /// </summary>
+    private async Task<IngestOutcome> IngestAsync(MorningRun run, bool lastChance)
+    {
+        // ファイル読みはゲートの外
+        var result = MorningResultReader.Read(
+            _folder.ReadText(run.JobFolder, JobFolderPaths.CandidatesRelativePath),
+            _folder.ReadText(run.JobFolder, JobFolderPaths.PlanRelativePath));
+
+        if (!result.IsUsable)
+        {
+            if (!lastChance) return new IngestOutcome(false, null);
+            await FinishAsync(run, MorningRunStatus.Failed, Messages.MorningResultUnreadable).ConfigureAwait(false);
+            return new IngestOutcome(false, Messages.MorningResultUnreadable);
+        }
+
+        var added = 0;
+        var warning = await _gate.RunAsync(async () =>
+        {
+            // 取り込みは 1 度だけ。Stop が複数回来ても 2 度目はここで降りる(仕様 §14)。
+            if (run.Status.IsTerminal()) return (string?)null;
+
+            var known = (await _runs.GetKnownExternalIdsAsync(
+                result.Candidates.Select(c => c.ExternalId).ToList()).ConfigureAwait(false)).ToHashSet(StringComparer.Ordinal);
+
+            foreach (var record in result.Candidates)
+            {
+                // 却下・登録済みの ExternalId は翌朝また出てきても黙って捨てる(仕様 §9)
+                if (!known.Add(record.ExternalId)) continue;
+                _runs.AddCandidate(new TriageCandidate
+                {
+                    MorningRunId = run.Id,
+                    ExternalId = record.ExternalId,
+                    Source = record.Source,
+                    From = record.From,
+                    Title = record.Title,
+                    Evidence = record.Evidence,
+                    Link = record.Link,
+                    Reasoning = record.Reasoning,
+                    ReceivedAt = record.ReceivedAt,
+                    SuggestedDueDate = record.SuggestedDueDate,
+                    SuggestedProject = record.SuggestedProject,
+                    SuggestedAction = record.SuggestedAction,
+                    SuggestedMergeTaskId = record.MergeTargetTaskId,
+                    Status = TriageStatus.Pending,
+                });
+                added++;
+            }
+
+            run.PlanJson = result.PlanJson;
+            run.Status = MorningRunStatus.Ingested;
+            run.EndedAt = _clock.UtcNow;
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        _events.StopFollowing(run.Id);
+        _turns.TryRemove(run.Id, out _);
+
+        // 保存失敗のほうが重い。バナーは 1 本なのでそちらを優先する。
+        warning ??= result.DiscardedLines > 0
+            ? string.Format(Messages.MorningCandidatesDiscardedFormat,
+                result.Candidates.Count + result.DiscardedLines, result.DiscardedLines)
+            : null;
+        return new IngestOutcome(added > 0, warning);
+    }
+
+    // ---------- 人の操作 ----------
+
+    public async Task<Result> CompleteAsync(int runId, CancellationToken ct = default)
+    {
+        var found = await FindActiveRunAsync(runId, ct).ConfigureAwait(false);
+        if (!found.IsSuccess) return Result.Fail(found.Error!);
+
+        var run = found.Value!;
+        // 「完了にする」は SessionEnd と同じ扱い(仕様 §12)
+        var ingest = await IngestAsync(run, lastChance: true).ConfigureAwait(false);
+        Raise(run, ingest.Warning, ingest.CandidatesChanged);
+        return run.Status == MorningRunStatus.Ingested
+            ? Result.Ok()
+            : Result.Fail(Messages.MorningResultUnreadable);
+    }
+
+    public async Task<Result> StopTrackingAsync(int runId, CancellationToken ct = default)
+    {
+        var found = await FindActiveRunAsync(runId, ct).ConfigureAwait(false);
+        if (!found.IsSuccess) return Result.Fail(found.Error!);
+
+        var run = found.Value!;
+        // 仕事が終わったわけではないので取り込まない。端末も殺さない(仕様 §12)。
+        var warning = await FinishAsync(run, MorningRunStatus.Cancelled, null).ConfigureAwait(false);
+        Raise(run, warning, candidatesChanged: false);
+        return Result.Ok();
+    }
+
+    public async Task RecoverOnStartupAsync(CancellationToken ct = default)
+    {
+        var run = await _gate.RunAsync(() => _runs.GetUnfinishedRunAsync(ct), ct).ConfigureAwait(false);
+        if (run is null || run.JobFolder.Length == 0) return;
+        Follow(run.Id, run.JobFolder, run.ProcessedLines);
+    }
+
+    private Task<Result<MorningRun>> FindActiveRunAsync(int runId, CancellationToken ct)
+        => _gate.RunAsync(async () =>
+        {
+            var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
+            if (run is null) return Result.Fail<MorningRun>(Messages.MorningRunNotFound);
+            if (run.Status.IsTerminal()) return Result.Fail<MorningRun>(Messages.MorningRunAlreadyFinished);
+            return Result.Ok(run);
+        }, ct);
+
+    /// <summary>ゲートの外から呼ぶ。終了状態にして追従を降りる。戻り値はバナー向けの警告。</summary>
+    private async Task<string?> FinishAsync(MorningRun run, MorningRunStatus status, string? error)
+    {
+        var warning = await _gate.RunAsync(async () =>
+        {
+            run.Status = status;
+            run.EndedAt = _clock.UtcNow;
+            if (error is not null) run.ErrorMessage = error;
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
+        _events.StopFollowing(run.Id);
+        _turns.TryRemove(run.Id, out _);
+        return warning;
+    }
 
     // ---------- 仕分け(Task 9 で埋める) ----------
 
@@ -218,15 +393,7 @@ public sealed class MorningService : IMorningService
     /// <summary>ゲートの外から呼ぶ。実行を終了状態にして通知する。</summary>
     private async Task<Result<MorningRun>> FailAsync(MorningRun run, string error)
     {
-        await _gate.RunAsync(async () =>
-        {
-            run.ErrorMessage = error;
-            run.Status = MorningRunStatus.Failed;
-            run.EndedAt = _clock.UtcNow;
-            await SaveQuietlyAsync().ConfigureAwait(false);
-        }).ConfigureAwait(false);
-        _events.StopFollowing(run.Id);
-        _turns.TryRemove(run.Id, out _);
+        await FinishAsync(run, MorningRunStatus.Failed, error).ConfigureAwait(false);
         Raise(run, null, candidatesChanged: false);
         return Result.Fail<MorningRun>(error);
     }
