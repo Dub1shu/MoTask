@@ -32,7 +32,7 @@ dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migration
 
 ## 手動確認チェックリスト
 
-自動テスト（Core / Data / App、547 本）ではカバーできない項目です。リリース前、
+自動テスト（Core / Data / App、549 本）ではカバーできない項目です。リリース前、
 または D&D・フォント・詳細パネル周りを変更した後に、上から順に確認してください。
 
 ### 1. 列の並び替え（ドラッグ＆ドロップ）

@@ -168,11 +168,20 @@ public sealed partial class MorningPlanViewModel : ObservableObject
 
     // ---------- 操作 ----------
 
-    [RelayCommand]
-    private async Task StartAsync()
+    /// <summary>
+    /// 何か操作を始める前にバナーを消す。古いエラー・警告は今回の操作の結果ではないので、
+    /// 成功すれば消えているべきで、居座らせない（失敗・警告が出るならこの後で改めて立つ）。
+    /// </summary>
+    private void ClearBanners()
     {
         ErrorMessage = null;
         WarningMessage = null;
+    }
+
+    [RelayCommand]
+    private async Task StartAsync()
+    {
+        ClearBanners();
         var started = await _service.StartAsync().ConfigureAwait(true);
         if (!started.IsSuccess)
         {
@@ -188,6 +197,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private async Task CompleteAsync()
     {
         if (_run is null) return;
+        ClearBanners();
         var done = await _service.CompleteAsync(_run.Id).ConfigureAwait(true);
         if (!done.IsSuccess) ErrorMessage = done.Error;
         await RefreshAsync().ConfigureAwait(true);
@@ -197,6 +207,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private async Task StopTrackingAsync()
     {
         if (_run is null) return;
+        ClearBanners();
         var stopped = await _service.StopTrackingAsync(_run.Id).ConfigureAwait(true);
         if (!stopped.IsSuccess) ErrorMessage = stopped.Error;
         await RefreshAsync().ConfigureAwait(true);
@@ -206,7 +217,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private async Task RegisterAsync()
     {
         if (Selected is null) return;
-        ErrorMessage = null;
+        ClearBanners();
         var due = EditDueDate is DateTime date ? DateOnly.FromDateTime(date) : (DateOnly?)null;
         var registered = await _service.RegisterAsync(new CandidateDecision(
             Selected.CandidateId, EditTitle, due, EditProjectName, EditColumnId)).ConfigureAwait(true);
@@ -217,7 +228,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private async Task MergeAsync()
     {
         if (Selected?.SuggestedMergeTaskId is not int target) return;
-        ErrorMessage = null;
+        ClearBanners();
         var merged = await _service.MergeAsync(Selected.CandidateId, target).ConfigureAwait(true);
         await AfterDecisionAsync(merged).ConfigureAwait(true);
     }
@@ -226,7 +237,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private async Task PostponeAsync()
     {
         if (Selected is null) return;
-        ErrorMessage = null;
+        ClearBanners();
         await AfterDecisionAsync(await _service.PostponeAsync(Selected.CandidateId).ConfigureAwait(true))
             .ConfigureAwait(true);
     }
@@ -235,12 +246,15 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private async Task RejectAsync()
     {
         if (Selected is null) return;
-        ErrorMessage = null;
+        ClearBanners();
         await AfterDecisionAsync(await _service.RejectAsync(Selected.CandidateId).ConfigureAwait(true))
             .ConfigureAwait(true);
     }
 
-    /// <summary>片づいたら次の 1 件へ。失敗したらキューはそのままで理由だけ出す。</summary>
+    /// <summary>
+    /// 片づいたら次の 1 件へ。失敗したらキューはそのままで理由だけ出す。
+    /// 警告は結果から無条件に写す: 今回は無ければ null にして、前回の警告を居座らせない。
+    /// </summary>
     private async Task AfterDecisionAsync(Result result)
     {
         if (!result.IsSuccess)
@@ -248,7 +262,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             ErrorMessage = result.Error;
             return;
         }
-        if (result.Warnings.Count > 0) WarningMessage = string.Join(" / ", result.Warnings);
+        WarningMessage = result.Warnings.Count > 0 ? string.Join(" / ", result.Warnings) : null;
         await ReloadQueueAsync().ConfigureAwait(true);
         UpdateCounters();
     }

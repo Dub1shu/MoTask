@@ -339,4 +339,33 @@ public class MorningPlanViewModelTests
 
         _vm.Candidates.Should().ContainSingle();
     }
+
+    [Fact]
+    public async Task ErrorMessage_ClearsOnTheNextSuccessfulAction()
+    {
+        _service.Current = IngestedRun();
+        _service.Queue.Add(Candidate());
+        await _vm.LoadAsync();
+        _service.RegisterResult = Result.Fail<TaskItem>("列が見つかりません");
+        await _vm.RegisterCommand.ExecuteAsync(null);
+        _vm.ErrorMessage.Should().Be("列が見つかりません");
+
+        await _vm.PostponeCommand.ExecuteAsync(null);
+
+        _vm.ErrorMessage.Should().BeNull("片づいたのだから古いエラーを出し続けない");
+    }
+
+    [Fact]
+    public async Task WarningMessage_ClearsOnTheNextSuccessfulDecision()
+    {
+        _service.Current = IngestedRun();
+        _service.Queue.Add(Candidate());
+        await _vm.LoadAsync();
+        _service.Raise(IngestedRun(), warning: "5 件のうち 1 件は読み取れませんでした");
+        _vm.WarningMessage.Should().Be("5 件のうち 1 件は読み取れませんでした");
+
+        await _vm.RejectCommand.ExecuteAsync(null);
+
+        _vm.WarningMessage.Should().BeNull("片づいたのだから古い警告を出し続けない");
+    }
 }
