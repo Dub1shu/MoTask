@@ -13,14 +13,17 @@ namespace MoTask.App.Views;
 public partial class MainWindow : Window
 {
     private readonly BoardViewModel _vm;
+    private readonly MorningPlanViewModel _morning;
     private readonly IAiSettingsStore _settings;
 
-    public MainWindow(BoardViewModel vm, IAiSettingsStore settings)
+    public MainWindow(BoardViewModel vm, MorningPlanViewModel morning, IAiSettingsStore settings)
     {
         _vm = vm;
+        _morning = morning;
         _settings = settings;
         DataContext = vm;
         InitializeComponent();
+        MorningHost.DataContext = morning;
         DarkWindowChrome.Apply(this);
     }
 
@@ -62,9 +65,36 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
+    private void OnShowBoardClick(object sender, RoutedEventArgs e) => ShowBoard(true);
+
+    /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
+    private async void OnShowMorningClick(object sender, RoutedEventArgs e)
+    {
+        ShowBoard(false);
+        try
+        {
+            await _morning.LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _vm.ShowBanner(string.Format(CultureInfo.CurrentCulture, Strings.StartupFailedFormat, ex.Message));
+        }
+    }
+
+    private void ShowBoard(bool board)
+    {
+        BoardHost.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
+        FilterBar.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
+        MorningHost.Visibility = board ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     /// <summary>仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は N/Delete を奪わない。</summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
+        // 朝の画面を表示している間は N（新規）と Delete（削除）をボードへ渡さない。
+        // さもないと候補の仕分け中に Delete を押しただけでボードのタスクが消える。
+        if (MorningHost.Visibility == Visibility.Visible && e.Key is Key.N or Key.Delete) return;
+
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
         {
             FilterBar.FocusSearch();

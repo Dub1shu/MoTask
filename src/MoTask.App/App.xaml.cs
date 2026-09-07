@@ -36,6 +36,8 @@ public partial class App : Application
 
             // 前回閉じたあとも端末は走り続けている。未完了ジョブの events.jsonl に追いつく（仕様 §8）
             await _host.Services.GetRequiredService<IAiJobService>().RecoverOnStartupAsync();
+            // 前回閉じたあとも朝の実行の端末は走り続けている。events.jsonl に追いつく（仕様 §10）
+            await _host.Services.GetRequiredService<IMorningService>().RecoverOnStartupAsync();
 
             var window = _host.Services.GetRequiredService<MainWindow>();
             MainWindow = window;
@@ -67,7 +69,9 @@ public partial class App : Application
         builder.Services.AddSingleton<JobEventWatcher>();
         builder.Services.AddSingleton<IJobEventSource>(sp => sp.GetRequiredService<JobEventWatcher>());
         builder.Services.AddSingleton<IAiJobService, AiJobService>();
+        builder.Services.AddSingleton<IMorningService, MorningService>();
         builder.Services.AddSingleton<ViewModels.BoardViewModel>();
+        builder.Services.AddSingleton<ViewModels.MorningPlanViewModel>();
         builder.Services.AddSingleton<MainWindow>();
         return builder.Build();
     }
