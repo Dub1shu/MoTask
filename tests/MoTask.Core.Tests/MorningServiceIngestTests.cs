@@ -260,8 +260,14 @@ public class MorningServiceIngestTests
         _events.IsFollowing(run.Id).Should().BeFalse();
     }
 
+    // すでに取り込みを終えた実行に対する StopTrackingAsync の拒否経路を確認する。
+    // 「確認」と「書き込み」を1回の _gate.RunAsync にまとめたこと自体(競合窓を無くしたこと)は、
+    // ここでは検証していない。その窓は StopTrackingAsync の2回のゲート取得の間にあったが、
+    // 修正で1回にまとめたことで窓そのものが構造的に無くなっており、テストで再現しようとすると
+    // 本番コードにテスト専用の待ち合わせフックを足すことになる。それは避け、ここでは
+    // 「順番どおり呼んだときに正しく拒否される」という、実際に確認できる性質だけを固定する。
     [Fact]
-    public async Task StopTracking_DoesNotOverwriteARunThatFinishedIngestingFirst()
+    public async Task StopTracking_RefusesARunThatAlreadyFinishedIngesting()
     {
         var run = await StartAsync();
         PutResult(run, TwoCandidates, Plan);
@@ -272,8 +278,7 @@ public class MorningServiceIngestTests
 
         stopped.IsSuccess.Should().BeFalse();
         stopped.Error.Should().Be(Messages.MorningRunAlreadyFinished);
-        run.Status.Should().Be(MorningRunStatus.Ingested,
-            "確認と書き込みが1回のゲートで行われるので、取り込み済みの実行を Cancelled で上書きしない");
+        run.Status.Should().Be(MorningRunStatus.Ingested, "終了済みの実行を Cancelled で上書きしない");
         _store.Candidates.Should().HaveCount(2, "取り込んだ候補は追跡解除で消えない");
     }
 

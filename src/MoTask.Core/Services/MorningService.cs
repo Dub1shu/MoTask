@@ -350,15 +350,16 @@ public sealed class MorningService : IMorningService
 
     public async Task<Result> StopTrackingAsync(int runId, CancellationToken ct = default)
     {
-        // 確認(見つかる・未終了)と書き込みを1回のゲートで行う。FindActiveRunAsync と
-        // FinishAsync に分けると、その間に OnHookLineAsync が取り込みを終えて Ingested にした
-        // 実行を Cancelled で上書きしてしまう(仕様 §12。AiJobService.FinishByHandAsync と同じ規律)。
         MorningRun? run = null;
         string? warning = null;
         var result = await _gate.RunAsync(async () =>
         {
             var current = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
             if (current is null) return Result.Fail(Messages.MorningRunNotFound);
+            // この IsTerminal() 確認と、下の Status への書き込みは同じコールバックの中に
+            // 置いたままにする(分けない)。AiJobService.FinishByHandAsync と同じ形。
+            // 別々の _gate.RunAsync に分けると、その間に OnHookLineAsync が取り込みを終わらせて
+            // Ingested にできてしまい、ここが無条件に Cancelled で上書きしてしまう。
             if (current.Status.IsTerminal()) return Result.Fail(Messages.MorningRunAlreadyFinished);
             run = current;
             // 仕事が終わったわけではないので取り込まない。端末も殺さない(仕様 §12)。
