@@ -183,7 +183,8 @@ dotnet run --project src/MoTask.App
 
 ### 9. TODO 操作 I/F（MCP）
 
-前提: 下の「発行と登録」を済ませ、`claude mcp list` に `motask` が出ていること。
+前提: 下の「発行と登録」を済ませ、`claude mcp list` で `motask` が **Connected** になって
+いること（登録さえすれば一覧には出るので、接続まで確認する）。
 仕様は `docs/superpowers/specs/2026-09-05-motask-mcp-interface-design.md`。
 
 - [ ] `claude` を起動して `/mcp` を開くと `motask` に 6 つのツールが並ぶ。
@@ -217,8 +218,17 @@ dotnet run --project src/MoTask.App
 ```bash
 dotnet publish src/MoTask.App -c Release -o publish
 dotnet publish src/MoTask.Mcp -c Release -o publish
-claude mcp add motask -- "$(pwd)/publish/MoTask.Mcp.exe"
 ```
+
+登録するときは、**ブリッジの絶対パスを直接書く**。Claude Code はコマンド文字列をそのまま
+保存するので、`$(pwd)` のようなシェルの展開はここでは効かない（展開されないまま保存され、
+`Failed to reconnect to motask` になる）。
+
+```bash
+claude mcp add motask -- "D:\source\cs\MoTask\publish\MoTask.Mcp.exe"
+```
+
+登録内容は `claude mcp get motask` で確認できる。`command` が実在する exe を指していること。
 
 開発中に `bin` の exe を使いたい場合は、環境変数 `MOTASK_APP_EXE` にアプリの
 実行ファイルの絶対パスを入れる。
