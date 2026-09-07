@@ -133,7 +133,10 @@ public sealed class MorningService : IMorningService
 
             var sessionId = Guid.NewGuid();
             // cwd はジョブフォルダ自身。朝の実行はソースツリーに用が無い(仕様 §6)。
-            var command = _launcher.BuildCommand(new SessionLaunchRequest(sessionId, root, root, Resume: false));
+            // 成果物の出力先は result/(AI 遂行の既定 artifacts/ とは違う)。起動プロンプトを
+            // instruction.md の指示と一致させる。
+            var command = _launcher.BuildCommand(new SessionLaunchRequest(
+                sessionId, root, root, Resume: false, OutputDirectoryName: JobFolderPaths.ResultDirectoryName));
             if (!command.IsSuccess) return Result.Fail<MorningRun>(command.Error!);
 
             // フォルダとコマンドが確定してから DB に書く。
@@ -414,7 +417,7 @@ public sealed class MorningService : IMorningService
         var title = decision.Title.Trim();
         if (title.Length == 0) return Result.Fail<TaskItem>(Messages.TitleRequired);
 
-        var found = await FindPendingCandidateAsync(decision.CandidateId, ct).ConfigureAwait(false);
+        var found = await FindQueuedCandidateAsync(decision.CandidateId, ct).ConfigureAwait(false);
         if (!found.IsSuccess) return Result.Fail<TaskItem>(found.Error!);
         var candidate = found.Value!;
 
@@ -448,7 +451,7 @@ public sealed class MorningService : IMorningService
 
     public async Task<Result> MergeAsync(int candidateId, int targetTaskId, CancellationToken ct = default)
     {
-        var found = await FindPendingCandidateAsync(candidateId, ct).ConfigureAwait(false);
+        var found = await FindQueuedCandidateAsync(candidateId, ct).ConfigureAwait(false);
         if (!found.IsSuccess) return Result.Fail(found.Error!);
         var candidate = found.Value!;
 
@@ -484,19 +487,25 @@ public sealed class MorningService : IMorningService
     /// <summary>「あとで」「却下」は候補の状態を変えるだけ。タスクは作らないし履歴も残さない。</summary>
     private async Task<Result> DecideOnlyAsync(int candidateId, TriageStatus status, CancellationToken ct)
     {
-        var found = await FindPendingCandidateAsync(candidateId, ct).ConfigureAwait(false);
+        var found = await FindQueuedCandidateAsync(candidateId, ct).ConfigureAwait(false);
         if (!found.IsSuccess) return Result.Fail(found.Error!);
 
         var warning = await DecideAsync(found.Value!, status, resultTaskId: null, kind: null, ct).ConfigureAwait(false);
         return warning is null ? Result.Ok() : Result.Ok(warning);
     }
 
-    private Task<Result<TriageCandidate>> FindPendingCandidateAsync(int candidateId, CancellationToken ct)
+    /// <summary>
+    /// キューに乗っている候補(Pending、または他の実行から持ち越された Later)を探す。
+    /// Later はこのキューの「再提示」経路であって決着済み状態ではないので、ここでも受け付ける
+    /// (仕様 §9)。そうしないと「あとで」を選んだ候補が二度と仕分けできなくなる。
+    /// </summary>
+    private Task<Result<TriageCandidate>> FindQueuedCandidateAsync(int candidateId, CancellationToken ct)
         => _gate.RunAsync(async () =>
         {
             var candidate = await _runs.GetCandidateAsync(candidateId, ct).ConfigureAwait(false);
             if (candidate is null) return Result.Fail<TriageCandidate>(Messages.CandidateNotFound);
-            if (candidate.Status != TriageStatus.Pending) return Result.Fail<TriageCandidate>(Messages.CandidateAlreadyDecided);
+            if (candidate.Status != TriageStatus.Pending && candidate.Status != TriageStatus.Later)
+                return Result.Fail<TriageCandidate>(Messages.CandidateAlreadyDecided);
             return Result.Ok(candidate);
         }, ct);
 

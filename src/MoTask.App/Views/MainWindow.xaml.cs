@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
+using System.Windows.Media;
 using MoTask.App.Resources;
 using MoTask.App.Themes;
 using MoTask.App.ViewModels;
@@ -25,6 +26,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         MorningHost.DataContext = morning;
         DarkWindowChrome.Apply(this);
+        // 起動直後はボード表示。タブの見た目もそれに合わせておく(仕様に無い見た目調整なので、
+        // 専用のスタイル/コンバーターは足さず、切り替えと同じコード経路で決める)。
+        SetActiveTab(board: true);
     }
 
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
@@ -86,6 +90,25 @@ public partial class MainWindow : Window
         BoardHost.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
         FilterBar.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
         MorningHost.Visibility = board ? Visibility.Collapsed : Visibility.Visible;
+        SetActiveTab(board);
+    }
+
+    /// <summary>
+    /// どちらのタブが今の画面かを、下線と文字色で示す(この 2 ボタンだけの見た目調整なので、
+    /// 新しいスタイルやコンバーターは足さず、既存の Brush.Accent / Brush.TextMuted を
+    /// コードから直接当てる)。
+    /// </summary>
+    private void SetActiveTab(bool board)
+    {
+        SetActiveTab(BoardTabButton, board);
+        SetActiveTab(MorningTabButton, !board);
+    }
+
+    private static void SetActiveTab(Button tab, bool active)
+    {
+        tab.BorderThickness = active ? new Thickness(0, 0, 0, 2) : new Thickness(0);
+        tab.BorderBrush = active ? (Brush)tab.FindResource("Brush.Accent") : Brushes.Transparent;
+        tab.Foreground = (Brush)tab.FindResource(active ? "Brush.Accent" : "Brush.TextMuted");
     }
 
     /// <summary>仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は N/Delete を奪わない。</summary>

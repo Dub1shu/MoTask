@@ -177,4 +177,5 @@
   <data name="MorningMerge" xml:space="preserve"><value>統合</value></data>
   <data name="MorningPostpone" xml:space="preserve"><value>あとで</value></data>
   <data name="MorningReject" xml:space="preserve"><value>却下</value></data>
+  <data name="MorningRefreshFailedFormat" xml:space="preserve"><value>候補一覧を更新できませんでした: {0}</value></data>
 </root>

@@ -23,10 +23,14 @@
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">
-          <Button Style="{StaticResource Btn.Ghost}" Click="OnShowBoardClick" Padding="{StaticResource Pad.Tab}">
+          <!-- どちらが今の画面かは Click ハンドラ側(ShowBoard)が BorderThickness/BorderBrush/
+               Foreground を切り替えて示す(仕様にはないタブなので、専用のスタイルは足さない)。 -->
+          <Button x:Name="BoardTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowBoardClick"
+                  Padding="{StaticResource Pad.Tab}">
             <TextBlock Text="{x:Static res:Strings.ViewBoard}" FontWeight="Medium" />
           </Button>
-          <Button Style="{StaticResource Btn.Ghost}" Click="OnShowMorningClick" Padding="{StaticResource Pad.Tab}">
+          <Button x:Name="MorningTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowMorningClick"
+                  Padding="{StaticResource Pad.Tab}" Margin="{StaticResource Gap.Left.2}">
             <TextBlock Text="{x:Static res:Strings.ViewMorningPlan}" FontWeight="Medium" />
           </Button>
         </StackPanel>

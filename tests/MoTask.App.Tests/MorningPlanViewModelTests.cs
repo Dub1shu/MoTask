@@ -23,12 +23,23 @@ public class MorningPlanViewModelTests
         public Result<TaskItem> RegisterResult { get; set; } = Result.Ok(new TaskItem { Id = 1 });
         public CandidateDecision? LastDecision { get; private set; }
 
+        /// <summary>RefreshAsync が例外を握りつぶさずバナーへ回すことを確かめるためのフック。</summary>
+        public Exception? FailNextGetCurrentRun { get; set; }
+
         public void Raise(MorningRun run, string? warning = null, bool candidates = false)
             => RunChanged?.Invoke(this, new MorningRunChangedEventArgs(
                 new MorningRunSnapshot(run.Id, run.Date, run.Status, 0, run.ErrorMessage, run.JobFolder),
                 warning, candidates));
 
-        public Task<MorningRun?> GetCurrentRunAsync(CancellationToken ct = default) => Task.FromResult(Current);
+        public Task<MorningRun?> GetCurrentRunAsync(CancellationToken ct = default)
+        {
+            if (FailNextGetCurrentRun is { } ex)
+            {
+                FailNextGetCurrentRun = null;
+                throw ex;
+            }
+            return Task.FromResult(Current);
+        }
 
         public Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<TriageCandidate>>(Queue.ToList());
@@ -165,6 +176,9 @@ public class MorningPlanViewModelTests
 
         _vm.HasNoCandidates.Should().BeTrue("候補 0 件は失敗ではない（仕様 §11）");
         _vm.CanStart.Should().BeTrue();
+        _vm.HasNoPlanYet.Should().BeFalse(
+            "取り込み済みなら候補が 0 件でもこの朝のプランは存在する（仕様 §4）。" +
+            "『今日のプランはまだありません』と『候補はありませんでした』を同時に出さない");
     }
 
     [Fact]
@@ -316,6 +330,29 @@ public class MorningPlanViewModelTests
             "仕様 §11『実行中』はターン数を出す");
     }
 
+    /// <summary>
+    /// Raise は発火時点のスナップショットを積む。届くのは非同期(SynchronizationContext.Post)なので、
+    /// ゲートが Ingested を確定させた後に、それより前の Running スナップショットが遅れて届くことが
+    /// ある。ビューモデルがそれを鵜呑みにして「実行中」へ戻ってしまうと、DbContext が追跡する
+    /// このエンティティへ Running を書き戻すことになり(共有 DbContext なので)次の SaveChangesAsync
+    /// で本当に Running が永続化されてしまう(仕様の finding 3)。ここでは、そのエンティティ自体が
+    /// 書き換えられていないことまで確かめる。
+    /// </summary>
+    [Fact]
+    public async Task RunChanged_WithAStaleSnapshot_DoesNotReviveOrMutateTheFinishedRun()
+    {
+        var run = IngestedRun();
+        _service.Current = run;
+        await _vm.LoadAsync();
+
+        _service.Raise(new MorningRun { Id = run.Id, Date = run.Date, Status = MorningRunStatus.Running });
+
+        _vm.IsRunning.Should().BeFalse("届いたのはもう終わった実行より前の古いスナップショット");
+        _vm.CanStart.Should().BeTrue();
+        run.Status.Should().Be(MorningRunStatus.Ingested,
+            "ビューモデルはリポジトリが返したエンティティを書き換えない(共有 DbContext を汚さない)");
+    }
+
     [Fact]
     public async Task RunChanged_ShowsTheWarningAboutDiscardedLines()
     {
@@ -367,5 +404,23 @@ public class MorningPlanViewModelTests
         await _vm.RejectCommand.ExecuteAsync(null);
 
         _vm.WarningMessage.Should().BeNull("片づいたのだから古い警告を出し続けない");
+    }
+
+    /// <summary>
+    /// PendingLoad は本番の誰も待っていない Task なので、RefreshAsync の中の例外を放っておくと
+    /// 誰にも観測されない例外になり、候補キューが古いまま黙って固まる。MainWindow.OnLoaded が
+    /// 起動失敗をバナーへ回すのと同じように、ここも WarningMessage へ回すこと。
+    /// </summary>
+    [Fact]
+    public async Task Refresh_SurfacesAFailureThroughTheWarningBanner_InsteadOfThrowing()
+    {
+        _service.Current = IngestedRun();
+        await _vm.LoadAsync();
+        _service.FailNextGetCurrentRun = new InvalidOperationException("接続できません");
+
+        await _vm.CompleteCommand.ExecuteAsync(null);
+
+        _vm.WarningMessage.Should().Be(
+            string.Format(Strings.MorningRefreshFailedFormat, "接続できません"));
     }
 }

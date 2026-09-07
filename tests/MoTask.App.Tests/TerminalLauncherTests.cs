@@ -85,6 +85,24 @@ public class TerminalLauncherTests : IDisposable
     }
 
     /// <summary>
+    /// 朝の実行は成果物を artifacts/ ではなく result/ に出す（JobFolderRequest.OutputDirectoryName
+    /// と揃える）。起動プロンプトが instruction.md の指示と食い違うと、そちらに従った Claude が
+    /// result/ に何も書かず実行が失敗で終わる。
+    /// </summary>
+    [Fact]
+    public void BuildCommand_PointsThePromptAtTheResultFolder_ForAMorningShapedRequest()
+    {
+        var morningRequest = _request with { OutputDirectoryName = "result" };
+
+        var command = Launcher().BuildCommand(morningRequest).Value!;
+
+        command.Arguments.Should()
+            .Contain(@"C:\work\jobs\0042-見積り\instruction.md")
+            .And.Contain(@"C:\work\jobs\0042-見積り\result")
+            .And.NotContain(@"C:\work\jobs\0042-見積り\artifacts");
+    }
+
+    /// <summary>
     /// --add-dir は可変長（&lt;directories...&gt;）なので、その直後に置いたプロンプトは
     /// 2 つ目の許可ディレクトリとして飲み込まれ、claude はプロンプト無しで起動してしまう
     /// （Claude Code 2.1.261 で確認）。オプションの終わりを -- で閉じてから渡す。

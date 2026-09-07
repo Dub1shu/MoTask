@@ -327,4 +327,34 @@ public class MorningServiceTriageTests
 
         queue.Select(c => c.ExternalId).Should().Equal("outlook:old-later", "outlook:001");
     }
+
+    /// <summary>
+    /// 前日「あとで」にした候補は今日のキューに再提示される(仕様 §9)。それを片づけられなければ
+    /// キューに永久に残り続けてしまうので、登録できることを確かめる。
+    /// </summary>
+    [Fact]
+    public async Task Register_AcceptsACandidateCarriedOverAsLaterFromAnEarlierRun()
+    {
+        var yesterday = _store.SeedRun(new DateOnly(2026, 9, 6), MorningRunStatus.Ingested);
+        var candidate = _store.SeedCandidate(yesterday, "outlook:old-later", TriageStatus.Later);
+
+        var created = await WithinLimitAsync(_service.RegisterAsync(new CandidateDecision(
+            candidate.Id, "請求先情報を更新する", null, "", _backlog.Id)));
+
+        created.IsSuccess.Should().BeTrue(created.Error);
+        candidate.Status.Should().Be(TriageStatus.Registered);
+    }
+
+    /// <summary>再提示された候補をもう一度「あとで」にしても、引き続き動くこと。</summary>
+    [Fact]
+    public async Task Postpone_AcceptsACandidateCarriedOverAsLaterFromAnEarlierRun_AndKeepsItLater()
+    {
+        var yesterday = _store.SeedRun(new DateOnly(2026, 9, 6), MorningRunStatus.Ingested);
+        var candidate = _store.SeedCandidate(yesterday, "outlook:old-later", TriageStatus.Later);
+
+        var postponed = await WithinLimitAsync(_service.PostponeAsync(candidate.Id));
+
+        postponed.IsSuccess.Should().BeTrue(postponed.Error);
+        candidate.Status.Should().Be(TriageStatus.Later);
+    }
 }

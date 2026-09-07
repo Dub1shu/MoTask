@@ -166,4 +166,5 @@ public static class Strings
     public static string MorningMerge => Get(nameof(MorningMerge));
     public static string MorningPostpone => Get(nameof(MorningPostpone));
     public static string MorningReject => Get(nameof(MorningReject));
+    public static string MorningRefreshFailedFormat => Get(nameof(MorningRefreshFailedFormat));
 }

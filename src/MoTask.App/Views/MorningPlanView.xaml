@@ -24,9 +24,10 @@
                TextWrapping="Wrap" Margin="{StaticResource Gap.Top.4}"
                Visibility="{Binding WarningMessage, Converter={StaticResource NullToVisibility}}" />
 
-    <!-- プラン未生成（仕様 §11） -->
+    <!-- プラン未生成（仕様 §4・§11）。取り込み済みで候補 0 件はここに含めない
+         （この朝のプランは存在するので、HasNoPlanYet ではなく HasNoCandidates 側の案内文だけを出す） -->
     <StackPanel DockPanel.Dock="Top" Margin="{StaticResource Gap.Top.4}"
-                Visibility="{Binding CanStart, Converter={StaticResource BoolToVisibility}}">
+                Visibility="{Binding HasNoPlanYet, Converter={StaticResource BoolToVisibility}}">
       <TextBlock Text="{x:Static res:Strings.MorningNoRun}" />
       <TextBlock Text="{Binding LastRunText}" Style="{StaticResource Text.Caption}" />
     </StackPanel>
