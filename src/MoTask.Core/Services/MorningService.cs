@@ -261,8 +261,25 @@ public sealed class MorningService : IMorningService
         if (!result.IsUsable)
         {
             if (!lastChance) return new IngestOutcome(false, null);
-            await FinishAsync(run, MorningRunStatus.Failed, Messages.MorningResultUnreadable).ConfigureAwait(false);
-            return new IngestOutcome(false, Messages.MorningResultUnreadable);
+
+            // 確認と書き込みを1回のゲートで行う(仕様 §12)。取り込みや追跡解除が先に終わっていたら
+            // Failed で上書きしない(AiJobService.FinishByHandAsync と同じ規律)。
+            var finished = await _gate.RunAsync(async () =>
+            {
+                if (run.Status.IsTerminal()) return false;
+                run.Status = MorningRunStatus.Failed;
+                run.ErrorMessage = Messages.MorningResultUnreadable;
+                run.EndedAt = _clock.UtcNow;
+                await SaveQuietlyAsync().ConfigureAwait(false);
+                return true;
+            }).ConfigureAwait(false);
+
+            if (finished)
+            {
+                _events.StopFollowing(run.Id);
+                _turns.TryRemove(run.Id, out _);
+            }
+            return new IngestOutcome(false, finished ? Messages.MorningResultUnreadable : null);
         }
 
         var added = 0;
@@ -333,12 +350,27 @@ public sealed class MorningService : IMorningService
 
     public async Task<Result> StopTrackingAsync(int runId, CancellationToken ct = default)
     {
-        var found = await FindActiveRunAsync(runId, ct).ConfigureAwait(false);
-        if (!found.IsSuccess) return Result.Fail(found.Error!);
+        // 確認(見つかる・未終了)と書き込みを1回のゲートで行う。FindActiveRunAsync と
+        // FinishAsync に分けると、その間に OnHookLineAsync が取り込みを終えて Ingested にした
+        // 実行を Cancelled で上書きしてしまう(仕様 §12。AiJobService.FinishByHandAsync と同じ規律)。
+        MorningRun? run = null;
+        string? warning = null;
+        var result = await _gate.RunAsync(async () =>
+        {
+            var current = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
+            if (current is null) return Result.Fail(Messages.MorningRunNotFound);
+            if (current.Status.IsTerminal()) return Result.Fail(Messages.MorningRunAlreadyFinished);
+            run = current;
+            // 仕事が終わったわけではないので取り込まない。端末も殺さない(仕様 §12)。
+            current.Status = MorningRunStatus.Cancelled;
+            current.EndedAt = _clock.UtcNow;
+            warning = await SaveQuietlyAsync().ConfigureAwait(false);
+            return Result.Ok();
+        }, ct).ConfigureAwait(false);
+        if (!result.IsSuccess) return result;
 
-        var run = found.Value!;
-        // 仕事が終わったわけではないので取り込まない。端末も殺さない(仕様 §12)。
-        var warning = await FinishAsync(run, MorningRunStatus.Cancelled, null).ConfigureAwait(false);
+        _events.StopFollowing(run!.Id);
+        _turns.TryRemove(run.Id, out _);
         Raise(run, warning, candidatesChanged: false);
         return Result.Ok();
     }

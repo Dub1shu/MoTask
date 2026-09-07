@@ -261,6 +261,23 @@ public class MorningServiceIngestTests
     }
 
     [Fact]
+    public async Task StopTracking_DoesNotOverwriteARunThatFinishedIngestingFirst()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+        run.Status.Should().Be(MorningRunStatus.Ingested, "前提: 取り込みが先に終わっている");
+
+        var stopped = await _service.StopTrackingAsync(run.Id);
+
+        stopped.IsSuccess.Should().BeFalse();
+        stopped.Error.Should().Be(Messages.MorningRunAlreadyFinished);
+        run.Status.Should().Be(MorningRunStatus.Ingested,
+            "確認と書き込みが1回のゲートで行われるので、取り込み済みの実行を Cancelled で上書きしない");
+        _store.Candidates.Should().HaveCount(2, "取り込んだ候補は追跡解除で消えない");
+    }
+
+    [Fact]
     public async Task LinesArrivingAfterTheRunFinished_AreDropped()
     {
         var run = await StartAsync();
