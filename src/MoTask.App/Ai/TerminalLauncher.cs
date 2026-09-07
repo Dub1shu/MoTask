@@ -68,7 +68,11 @@ public sealed class TerminalLauncher : ISessionLauncher
         // （端末は開くが何も始まらない。Claude Code 2.1.261 で確認）。
         parts.Add("--");
         // 指示文そのものは渡さない。長文の引用符・改行をコマンドラインに持ち込まないため（仕様 §7）。
-        parts.Add(string.Format(Messages.TerminalStartPromptFormat, paths.InstructionMarkdown, paths.ArtifactsDirectory));
+        // 出力先は呼び出し元が JobFolderRequest.OutputDirectoryName に合わせて指定する
+        // （AI 遂行は artifacts/、朝の実行は result/）。ここを artifacts 固定のままにすると、
+        // 朝の実行の起動プロンプトが instruction.md の指示（result/ に書く）と矛盾してしまう。
+        var outputDirectory = Path.Combine(paths.Root, request.OutputDirectoryName);
+        parts.Add(string.Format(Messages.TerminalStartPromptFormat, paths.InstructionMarkdown, outputDirectory));
 
         var inner = string.Join(" ", parts.Select(CommandLine.Quote));
         var template = settings.TerminalCommandTemplate is { Length: > 0 } configured

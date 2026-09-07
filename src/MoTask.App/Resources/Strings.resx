@@ -98,6 +98,8 @@
   <data name="AiLogResultErrorFormat" xml:space="preserve"><value>失敗: {0}</value></data>
   <data name="HistoryAiStartedFormat" xml:space="preserve"><value>AI {0}を開始</value></data>
   <data name="HistoryAiFinishedFormat" xml:space="preserve"><value>AI {0}が{1}</value></data>
+  <data name="HistoryCandidateRegisteredFormat" xml:space="preserve"><value>{0} の候補を登録</value></data>
+  <data name="HistoryCandidateMergedFormat" xml:space="preserve"><value>{0} の候補を統合</value></data>
   <data name="AiKindResearch" xml:space="preserve"><value>調査</value></data>
   <data name="AiKindExecute" xml:space="preserve"><value>遂行</value></data>
   <data name="AiOutcomeSucceeded" xml:space="preserve"><value>完了</value></data>
@@ -168,4 +170,25 @@
   <data name="McpDueInvalidFormat" xml:space="preserve"><value>due は YYYY-MM-DD 形式で指定してください: {0}</value></data>
   <data name="McpDueFilterInvalidFormat" xml:space="preserve"><value>due には all / today / this_week / overdue のいずれかを指定してください: {0}</value></data>
   <data name="McpBoardHasNoColumn" xml:space="preserve"><value>ボードに列がありません。</value></data>
+  <data name="SettingsMorningInstruction" xml:space="preserve"><value>朝の実行の指示文（空なら既定の文面。出力先と JSON の形は MoTask が自動で付け足します）</value></data>
+  <data name="ViewMorningPlan" xml:space="preserve"><value>朝の実行プラン</value></data>
+  <data name="MorningStart" xml:space="preserve"><value>朝のプランを作る</value></data>
+  <data name="MorningNoRun" xml:space="preserve"><value>今日のプランはまだありません</value></data>
+  <data name="MorningLastRunFormat" xml:space="preserve"><value>前回: {0}</value></data>
+  <data name="MorningRunning" xml:space="preserve"><value>Claude が受信箱を見ています</value></data>
+  <data name="MorningTurnsFormat" xml:space="preserve"><value>{0} ターン</value></data>
+  <data name="MorningComplete" xml:space="preserve"><value>完了にする</value></data>
+  <data name="MorningStopTracking" xml:space="preserve"><value>追跡をやめる</value></data>
+  <data name="MorningOpenJobFolder" xml:space="preserve"><value>ジョブフォルダを開く</value></data>
+  <data name="MorningNoCandidates" xml:space="preserve"><value>候補はありませんでした</value></data>
+  <data name="MorningTriageHeading" xml:space="preserve"><value>タスク候補の仕分け</value></data>
+  <data name="MorningPositionFormat" xml:space="preserve"><value>{0} / {1}</value></data>
+  <data name="MorningEvidence" xml:space="preserve"><value>根拠</value></data>
+  <data name="MorningOpenSource" xml:space="preserve"><value>元のメールを開く</value></data>
+  <data name="MorningReasoning" xml:space="preserve"><value>AI の判断</value></data>
+  <data name="MorningRegister" xml:space="preserve"><value>登録</value></data>
+  <data name="MorningMerge" xml:space="preserve"><value>統合</value></data>
+  <data name="MorningPostpone" xml:space="preserve"><value>あとで</value></data>
+  <data name="MorningReject" xml:space="preserve"><value>却下</value></data>
+  <data name="MorningRefreshFailedFormat" xml:space="preserve"><value>候補一覧を更新できませんでした: {0}</value></data>
 </root>

@@ -23,10 +23,16 @@
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">
-          <Border BorderBrush="{StaticResource Brush.Accent}"
-                  BorderThickness="0,0,0,2" Padding="{StaticResource Pad.Tab}">
-            <TextBlock Text="{x:Static res:Strings.ViewBoard}" Foreground="{StaticResource Brush.Accent}" FontWeight="Medium" />
-          </Border>
+          <!-- どちらが今の画面かは Click ハンドラ側(ShowBoard)が BorderThickness/BorderBrush/
+               Foreground を切り替えて示す(仕様にはないタブなので、専用のスタイルは足さない)。 -->
+          <Button x:Name="BoardTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowBoardClick"
+                  Padding="{StaticResource Pad.Tab}">
+            <TextBlock Text="{x:Static res:Strings.ViewBoard}" FontWeight="Medium" />
+          </Button>
+          <Button x:Name="MorningTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowMorningClick"
+                  Padding="{StaticResource Pad.Tab}" Margin="{StaticResource Gap.Left.2}">
+            <TextBlock Text="{x:Static res:Strings.ViewMorningPlan}" FontWeight="Medium" />
+          </Button>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -45,13 +51,16 @@
     <views:FilterBar x:Name="FilterBar" DockPanel.Dock="Top" />
 
     <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="*" />
-        <ColumnDefinition Width="Auto" />
-      </Grid.ColumnDefinitions>
-      <views:BoardView Grid.Column="0" />
-      <views:TaskDetailPanel Grid.Column="1" Width="360" DataContext="{Binding Detail}"
-                             Visibility="{Binding DataContext.Detail, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibility}}" />
+      <Grid x:Name="BoardHost">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <views:BoardView Grid.Column="0" />
+        <views:TaskDetailPanel Grid.Column="1" Width="360" DataContext="{Binding Detail}"
+                               Visibility="{Binding DataContext.Detail, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibility}}" />
+      </Grid>
+      <views:MorningPlanView x:Name="MorningHost" Visibility="Collapsed" />
     </Grid>
   </DockPanel>
 </Window>

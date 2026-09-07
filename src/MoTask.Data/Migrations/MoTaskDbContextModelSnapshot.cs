@@ -187,6 +187,64 @@ namespace MoTask.Data.Migrations
                     b.ToTable("Labels", (string)null);
                 });
 
+            modelBuilder.Entity("MoTask.Core.Model.MorningRun", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ErrorMessage")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Instruction")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("JobFolder")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("PlanJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<int>("ProcessedLines")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("MorningRuns", (string)null);
+                });
+
             modelBuilder.Entity("MoTask.Core.Model.Project", b =>
                 {
                     b.Property<int>("Id")
@@ -257,6 +315,100 @@ namespace MoTask.Data.Migrations
                     b.ToTable("Tasks", (string)null);
                 });
 
+            modelBuilder.Entity("MoTask.Core.Model.TriageCandidate", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Evidence")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("ExternalId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("From")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("Link")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<int>("MorningRunId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reasoning")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ResultTaskId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SuggestedAction")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("SuggestedDueDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("SuggestedMergeTaskId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SuggestedProject")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExternalId")
+                        .IsUnique();
+
+                    b.HasIndex("MorningRunId");
+
+                    b.HasIndex("ResultTaskId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("TriageCandidates", (string)null);
+                });
+
             modelBuilder.Entity("MoTask.Data.TaskLabel", b =>
                 {
                     b.Property<int>("TaskId")
@@ -312,6 +464,20 @@ namespace MoTask.Data.Migrations
                     b.HasOne("MoTask.Core.Model.Project", null)
                         .WithMany()
                         .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("MoTask.Core.Model.TriageCandidate", b =>
+                {
+                    b.HasOne("MoTask.Core.Model.MorningRun", null)
+                        .WithMany()
+                        .HasForeignKey("MorningRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("MoTask.Core.Model.TaskItem", null)
+                        .WithMany()
+                        .HasForeignKey("ResultTaskId")
                         .OnDelete(DeleteBehavior.SetNull);
                 });
 

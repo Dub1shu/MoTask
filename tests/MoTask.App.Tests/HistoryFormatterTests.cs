@@ -108,4 +108,45 @@ public class HistoryFormatterTests
         var entry = new HistoryEntry { At = DateTime.UtcNow, Kind = HistoryKind.AiJobFinished, Detail = "{broken" };
         HistoryFormatter.Format(entry, _ => "x").Should().EndWith(Strings.HistoryUnknown);
     }
+
+    [Fact]
+    public void Format_RendersACandidateRegistration()
+    {
+        var entry = new HistoryEntry
+        {
+            TaskId = 1, At = new DateTime(2026, 9, 7, 0, 40, 0, DateTimeKind.Utc),
+            Kind = HistoryKind.CandidateRegistered,
+            Detail = TriageHistoryDetail.Serialize(new TriageHistoryDetail("Outlook", "outlook:001")),
+        };
+
+        HistoryFormatter.Format(entry, _ => "やること", TimeZoneInfo.Utc)
+            .Should().EndWith(string.Format(Strings.HistoryCandidateRegisteredFormat, "Outlook"));
+    }
+
+    [Fact]
+    public void Format_RendersACandidateMerge()
+    {
+        var entry = new HistoryEntry
+        {
+            TaskId = 1, At = new DateTime(2026, 9, 7, 0, 40, 0, DateTimeKind.Utc),
+            Kind = HistoryKind.CandidateMerged,
+            Detail = TriageHistoryDetail.Serialize(new TriageHistoryDetail("Teams", "teams:002")),
+        };
+
+        HistoryFormatter.Format(entry, _ => "やること", TimeZoneInfo.Utc)
+            .Should().EndWith(string.Format(Strings.HistoryCandidateMergedFormat, "Teams"));
+    }
+
+    [Fact]
+    public void Format_FallsBackWhenTheTriageDetailIsBroken()
+    {
+        var entry = new HistoryEntry
+        {
+            TaskId = 1, At = new DateTime(2026, 9, 7, 0, 40, 0, DateTimeKind.Utc),
+            Kind = HistoryKind.CandidateRegistered, Detail = "{壊れた",
+        };
+
+        HistoryFormatter.Format(entry, _ => "やること", TimeZoneInfo.Utc)
+            .Should().EndWith(Strings.HistoryUnknown);
+    }
 }

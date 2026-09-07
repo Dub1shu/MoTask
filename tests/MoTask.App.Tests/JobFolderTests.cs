@@ -183,6 +183,69 @@ public class JobFolderTests : IDisposable
         return root;
     }
 
+    private static JobFolderRequest MorningRequest() =>
+        new(7, "2026-09-07", "指示")
+        {
+            Category = JobFolderPaths.MorningDirectoryName,
+            OutputDirectoryName = JobFolderPaths.ResultDirectoryName,
+        };
+
+    [Fact]
+    public void Create_ForTheMorning_PutsTheFolderUnderMorningAndMakesResult()
+    {
+        var root = _folder.Create(MorningRequest());
+
+        root.IsSuccess.Should().BeTrue(root.Error);
+        root.Value!.Should().EndWith(Path.Combine("morning", "0007-2026-09-07"));
+        var paths = JobFolderPaths.For(root.Value!);
+        Directory.Exists(paths.ResultDirectory).Should().BeTrue();
+        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行に artifacts/ は要らない");
+        File.ReadAllText(paths.InstructionMarkdown).Should().Be("指示");
+        File.Exists(paths.HooksJson).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ResolveRoot_GivesTheSamePathWithoutTouchingTheDisk()
+    {
+        var request = MorningRequest();
+
+        var resolved = _folder.ResolveRoot(request);
+
+        Directory.Exists(resolved).Should().BeFalse("指示文にパスを埋めるために先に知りたいだけ");
+        _folder.Create(request).Value.Should().Be(resolved);
+    }
+
+    [Fact]
+    public void WriteText_AndReadText_RoundTripThroughSubfolders()
+    {
+        var root = _folder.Create(MorningRequest()).Value!;
+
+        _folder.WriteText(root, JobFolderPaths.BoardJsonName, "{\"date\":\"2026-09-07\"}").IsSuccess.Should().BeTrue();
+        _folder.WriteText(root, JobFolderPaths.CandidatesRelativePath, "1行目\n2行目").IsSuccess.Should().BeTrue();
+
+        _folder.ReadText(root, JobFolderPaths.BoardJsonName).Should().Be("{\"date\":\"2026-09-07\"}");
+        _folder.ReadText(root, JobFolderPaths.CandidatesRelativePath).Should().Be("1行目\n2行目");
+    }
+
+    [Fact]
+    public void ReadText_ReturnsNull_WhenTheFileIsNotThereYet()
+    {
+        var root = _folder.Create(MorningRequest()).Value!;
+
+        _folder.ReadText(root, JobFolderPaths.PlanRelativePath).Should()
+            .BeNull("Claude がまだ書いていないだけで、失敗ではない");
+        _folder.ReadText("", JobFolderPaths.PlanRelativePath).Should().BeNull();
+    }
+
+    [Fact]
+    public void Create_ForAJob_StillMakesArtifactsUnderJobs()
+    {
+        var root = _folder.Create(new JobFolderRequest(1, "見積り", "やること"));
+
+        root.Value!.Should().EndWith(Path.Combine("jobs", "0001-見積り"));
+        Directory.Exists(JobFolderPaths.For(root.Value!).ArtifactsDirectory).Should().BeTrue();
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_root, recursive: true); } catch (IOException) { }

@@ -58,4 +58,15 @@ public static class Messages
     public static string McpUnexpectedStatusFormat => Get(nameof(McpUnexpectedStatusFormat));
     public static string McpConnectionLost => Get(nameof(McpConnectionLost));
     public static string McpUnexpectedFailure => Get(nameof(McpUnexpectedFailure));
+    public static string MorningInstructionDefault => Get(nameof(MorningInstructionDefault));
+    public static string MorningInstructionContractFormat => Get(nameof(MorningInstructionContractFormat));
+    public static string MorningRunAlreadyRunning => Get(nameof(MorningRunAlreadyRunning));
+    public static string MorningRunNotFound => Get(nameof(MorningRunNotFound));
+    public static string MorningRunAlreadyFinished => Get(nameof(MorningRunAlreadyFinished));
+    public static string MorningResultUnreadable => Get(nameof(MorningResultUnreadable));
+    public static string MorningCandidatesDiscardedFormat => Get(nameof(MorningCandidatesDiscardedFormat));
+    public static string CandidateNotFound => Get(nameof(CandidateNotFound));
+    public static string CandidateAlreadyDecided => Get(nameof(CandidateAlreadyDecided));
+    public static string CandidateNoteHeaderFormat => Get(nameof(CandidateNoteHeaderFormat));
+    public static string CandidateNoteFromFormat => Get(nameof(CandidateNoteFromFormat));
 }

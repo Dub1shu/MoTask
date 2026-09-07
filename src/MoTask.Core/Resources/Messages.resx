@@ -50,4 +50,51 @@
   <data name="McpUnexpectedStatusFormat" xml:space="preserve"><value>MoTask が予期しない応答を返しました（HTTP {0}）。</value></data>
   <data name="McpConnectionLost" xml:space="preserve"><value>MoTask との接続が切れました（MoTask が終了した可能性があります）。MoTask を起動したまま、もう一度実行してください。</value></data>
   <data name="McpUnexpectedFailure" xml:space="preserve"><value>MoTask との通信で予期しない問題が起きました。MoTask を再起動してから試してください（詳細は MCP サーバのログに出ています）。</value></data>
+  <data name="MorningInstructionDefault" xml:space="preserve"><value># 朝のタスク候補の収集
+
+あなたが今アクセスできる受信箱・チャット・カレンダーを見て、今日のタスク候補を出してください。
+どのサービスから取るかはこちらでは指定しません。認証済みのコネクタで届く範囲を自分で決めて集めてください。
+認証済みのコネクタが 1 つも無ければ、候補は 0 件で構いません。それは失敗ではありません。
+
+候補にするのは「人が何かをする必要があるもの」だけです。通知・広告・自動送信のものは候補にしないでください。
+1 件ごとに、元の文面から根拠となる一文を引用してください。引用できないものは候補にしないでください。</value></data>
+  <data name="MorningInstructionContractFormat" xml:space="preserve"><value>## 出力の契約（この節は MoTask が書いています。変更しないでください）
+
+対象日は {0} です。
+現在の盤面は {1} にあります。統合先の推薦と今日のプランは、必ずこのファイルの内容に基づいてください。
+
+### 1. 候補: {2}
+
+1 行 1 件の JSON Lines で書いてください。1 行は次の形です（改行を含めないこと）。
+
+{{"externalId":"outlook:AAMkAD001","source":"Outlook","receivedAt":"2026-09-07T07:42:00+09:00","from":"顧客A 山本さん","title":"請求先情報を更新する","evidence":"「9月8日までに新しい請求先へ…」","link":"https://outlook.office.com/...","reasoning":"依頼が明確で期限の記述あり。既存タスクとの重複なし。","suggestedDueDate":"2026-09-08","suggestedProject":"顧客A","suggestedAction":"register","mergeTargetTaskId":null}}
+
+- externalId / source / title / evidence / suggestedAction は必須です。欠けている行は捨てられます。
+- externalId は再実行しても同じ値になるようにしてください（例: サービス名:元のID）。一度片づけた候補を二度出さないための鍵です。
+- suggestedAction は register / merge / later / reject の 4 つだけです。
+- suggestedAction が merge のときは、mergeTargetTaskId に {1} の tasks[].id を必ず入れてください。
+- 決めるのは人です。suggestedAction は推薦であって実行ではありません。
+
+### 2. プラン: {3}
+
+次の形の JSON を 1 つ書いてください。
+
+{{"date":"{0}","firstThing":{{"taskId":45,"reason":"送付前に部長の確認が必要"}},"groups":[{{"key":"today","items":[{{"taskId":45}},{{"externalId":"outlook:AAMkAD001"}}]}},{{"key":"ifTime","items":[]}},{{"key":"aiReady","items":[]}},{{"key":"waiting","items":[]}}]}}
+
+- groups[].key は today / ifTime / aiReady / waiting の 4 つに固定です。
+- items の各要素は taskId（{1} にあるタスク）か externalId（今朝の候補）のどちらか一方を持ちます。
+- firstThing も taskId か externalId のどちらかを指し、reason に理由を 1 文で書いてください。
+- aiReady には、{1} の hasActiveAiJob が false で、AI に任せられるものを入れてください。
+- 候補が 0 件の朝もあります。それは失敗ではなく正常な結果です。その場合でも、このファイルは必ず書いてください。
+
+両方のファイルを書き終えたら、何を何件書いたかを 1 行で報告してください。</value></data>
+  <data name="MorningRunAlreadyRunning" xml:space="preserve"><value>朝の実行がまだ終わっていません。先に取り込むか、追跡をやめてください</value></data>
+  <data name="MorningRunNotFound" xml:space="preserve"><value>朝の実行が見つかりません</value></data>
+  <data name="MorningRunAlreadyFinished" xml:space="preserve"><value>この朝の実行はもう終わっています</value></data>
+  <data name="MorningResultUnreadable" xml:space="preserve"><value>Claude の出力を読み取れませんでした（result\plan.json が無いか壊れています）</value></data>
+  <data name="MorningCandidatesDiscardedFormat" xml:space="preserve"><value>{0} 件のうち {1} 件は読み取れませんでした</value></data>
+  <data name="CandidateNotFound" xml:space="preserve"><value>候補が見つかりません</value></data>
+  <data name="CandidateAlreadyDecided" xml:space="preserve"><value>この候補はもう片づいています</value></data>
+  <data name="CandidateNoteHeaderFormat" xml:space="preserve"><value>【{0} から取り込み】</value></data>
+  <data name="CandidateNoteFromFormat" xml:space="preserve"><value>差出人: {0}</value></data>
 </root>

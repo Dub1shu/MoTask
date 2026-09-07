@@ -11,4 +11,8 @@ public enum HistoryKind
     AiJobStarted = 5,
     /// <summary>Detail は AiJobHistoryDetail（Status は Succeeded / Failed / Cancelled）。</summary>
     AiJobFinished = 6,
+    /// <summary>Detail は TriageHistoryDetail。候補から新しいタスクを作った。</summary>
+    CandidateRegistered = 7,
+    /// <summary>Detail は TriageHistoryDetail。候補を既存タスクへ統合した。</summary>
+    CandidateMerged = 8,
 }

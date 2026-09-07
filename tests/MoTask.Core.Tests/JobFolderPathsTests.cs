@@ -68,4 +68,42 @@ public class JobFolderPathsTests
         slug.Should().Be(new string('a', 39));
         slug.Should().NotContain("\uD83D").And.NotContain("\uDE00");
     }
+
+    [Fact]
+    public void MorningFolder_IsNumberedAndDated()
+        => JobFolderPaths.FolderName(7, "2026-09-07").Should().Be("0007-2026-09-07",
+            "仕様 §6 の morning/0007-2026-09-07");
+
+    [Fact]
+    public void MorningPaths_PointIntoTheResultFolder()
+    {
+        var paths = JobFolderPaths.For(@"C:\work\morning\0007-2026-09-07");
+
+        paths.BoardJson.Should().Be(@"C:\work\morning\0007-2026-09-07\board.json");
+        paths.RunJson.Should().Be(@"C:\work\morning\0007-2026-09-07\run.json");
+        paths.ResultDirectory.Should().Be(@"C:\work\morning\0007-2026-09-07\result");
+        paths.CandidatesJsonl.Should().Be(@"C:\work\morning\0007-2026-09-07\result\candidates.jsonl");
+        paths.PlanJson.Should().Be(@"C:\work\morning\0007-2026-09-07\result\plan.json");
+    }
+
+    [Fact]
+    public void RelativePaths_MatchTheAbsoluteOnes()
+    {
+        var root = @"C:\work\morning\0007-2026-09-07";
+        var paths = JobFolderPaths.For(root);
+
+        Path.Combine(root, JobFolderPaths.CandidatesRelativePath).Should().Be(paths.CandidatesJsonl);
+        Path.Combine(root, JobFolderPaths.PlanRelativePath).Should().Be(paths.PlanJson);
+        Path.Combine(root, JobFolderPaths.BoardJsonName).Should().Be(paths.BoardJson);
+        Path.Combine(root, JobFolderPaths.RunJsonName).Should().Be(paths.RunJson);
+    }
+
+    [Fact]
+    public void JobFolderRequest_DefaultsToTheExistingLayout()
+    {
+        var request = new JobFolderRequest(1, "見積り", "やること");
+
+        request.Category.Should().Be("jobs", "既存の AI 遂行の置き場所を変えない");
+        request.OutputDirectoryName.Should().Be("artifacts");
+    }
 }

@@ -32,7 +32,7 @@ dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migration
 
 ## 手動確認チェックリスト
 
-自動テスト（Core / Data / App / Mcp、531 本）ではカバーできない項目です。リリース前、
+自動テスト（Core / Data / App / Mcp、678 本）ではカバーできない項目です。リリース前、
 または D&D・フォント・詳細パネル周りを変更した後に、上から順に確認してください。
 
 ### 1. 列の並び替え（ドラッグ＆ドロップ）
@@ -205,6 +205,25 @@ dotnet run --project src/MoTask.App
       アプリが起動し直して復帰する。
 - [x] 論理削除したタスクは `list_tasks` に出ず、`get_task` で id を指定しても
       「タスクが見つかりません」になる。
+
+### 10. 朝の実行プランと候補の仕分け
+
+自動テストでは端末を開いて `claude` を走らせるところに一切届かない。仕様 §14 の項目。
+
+- [ ] 「朝のプランを作る」で端末が開き、Claude がコネクタから候補を集めて
+      `result/candidates.jsonl` と `result/plan.json` を書く。
+- [ ] `instruction.md` の指示が意図どおり効く（根拠の引用が入る、推奨が4値に収まる）。
+- [ ] 認証済みコネクタが1つも無いときに、失敗ではなく「候補はありませんでした」として扱われる。
+- [ ] `Stop` が複数回来る実行で、result が揃った時点で1度だけ取り込まれる（候補が二重にならない）。
+- [ ] 端末を × で閉じたあと「完了にする」で取り込みが走る。
+- [ ] 却下した候補が翌朝の実行で再提出されても候補キューに出てこない。
+- [ ] 「あとで」にした候補が翌朝の候補キューに残っている。
+- [ ] 統合でタスクの説明末尾に根拠が追記され、履歴に1件残る。
+- [ ] **上の1つ目が通ったら、実際の `result/candidates.jsonl` と `result/plan.json` を
+      `tests/MoTask.Core.Tests/Fixtures/morning-candidates.jsonl` と `morning-plan.json` へ
+      差し替える。** 現在の fixture は仕様の例文から手で書いたもので、実機のキャプチャではない
+      （`MorningResultReaderTests` の目的は「CLI と指示文が形を変えたら赤くする」ことなので、
+      実物でないとその役目を果たさない）。
 
 ## MoTask.Mcp（Claude Code から TODO を操作する）
 

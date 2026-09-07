@@ -29,6 +29,25 @@ public class HostWiringTests : IDisposable
         GateOf(host.Services.GetRequiredService<IAiJobService>()).Should().BeSameAs(gate);
     }
 
+    [Fact]
+    public void BuildHost_GivesMorningServiceTheSameOperationGate()
+    {
+        Directory.CreateDirectory(_dir);
+        using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
+
+        GateOf(host.Services.GetRequiredService<IMorningService>())
+            .Should().BeSameAs(host.Services.GetRequiredService<OperationGate>());
+    }
+
+    [Fact]
+    public void BuildHost_ResolvesTheMorningPlanViewModel()
+    {
+        Directory.CreateDirectory(_dir);
+        using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
+
+        host.Services.GetRequiredService<ViewModels.MorningPlanViewModel>().Should().NotBeNull();
+    }
+
     /// <summary>ゲートは公開されていないので、この不変条件だけリフレクションで見る。</summary>
     private static OperationGate GateOf(object service)
         => (OperationGate)service.GetType()

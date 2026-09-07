@@ -97,6 +97,8 @@ public static class Strings
     public static string AiLogResultErrorFormat => Get(nameof(AiLogResultErrorFormat));
     public static string HistoryAiStartedFormat => Get(nameof(HistoryAiStartedFormat));
     public static string HistoryAiFinishedFormat => Get(nameof(HistoryAiFinishedFormat));
+    public static string HistoryCandidateRegisteredFormat => Get(nameof(HistoryCandidateRegisteredFormat));
+    public static string HistoryCandidateMergedFormat => Get(nameof(HistoryCandidateMergedFormat));
     public static string AiKindResearch => Get(nameof(AiKindResearch));
     public static string AiKindExecute => Get(nameof(AiKindExecute));
     public static string AiOutcomeSucceeded => Get(nameof(AiOutcomeSucceeded));
@@ -159,4 +161,25 @@ public static class Strings
     public static string McpDueInvalidFormat => Get(nameof(McpDueInvalidFormat));
     public static string McpDueFilterInvalidFormat => Get(nameof(McpDueFilterInvalidFormat));
     public static string McpBoardHasNoColumn => Get(nameof(McpBoardHasNoColumn));
+    public static string SettingsMorningInstruction => Get(nameof(SettingsMorningInstruction));
+    public static string ViewMorningPlan => Get(nameof(ViewMorningPlan));
+    public static string MorningStart => Get(nameof(MorningStart));
+    public static string MorningNoRun => Get(nameof(MorningNoRun));
+    public static string MorningLastRunFormat => Get(nameof(MorningLastRunFormat));
+    public static string MorningRunning => Get(nameof(MorningRunning));
+    public static string MorningTurnsFormat => Get(nameof(MorningTurnsFormat));
+    public static string MorningComplete => Get(nameof(MorningComplete));
+    public static string MorningStopTracking => Get(nameof(MorningStopTracking));
+    public static string MorningOpenJobFolder => Get(nameof(MorningOpenJobFolder));
+    public static string MorningNoCandidates => Get(nameof(MorningNoCandidates));
+    public static string MorningTriageHeading => Get(nameof(MorningTriageHeading));
+    public static string MorningPositionFormat => Get(nameof(MorningPositionFormat));
+    public static string MorningEvidence => Get(nameof(MorningEvidence));
+    public static string MorningOpenSource => Get(nameof(MorningOpenSource));
+    public static string MorningReasoning => Get(nameof(MorningReasoning));
+    public static string MorningRegister => Get(nameof(MorningRegister));
+    public static string MorningMerge => Get(nameof(MorningMerge));
+    public static string MorningPostpone => Get(nameof(MorningPostpone));
+    public static string MorningReject => Get(nameof(MorningReject));
+    public static string MorningRefreshFailedFormat => Get(nameof(MorningRefreshFailedFormat));
 }

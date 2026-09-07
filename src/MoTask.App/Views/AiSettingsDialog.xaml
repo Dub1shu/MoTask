@@ -45,6 +45,11 @@
 
         <TextBlock Text="{x:Static res:Strings.SettingsTerminalTemplate}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
         <TextBox Text="{Binding TerminalCommandTemplate, UpdateSourceTrigger=PropertyChanged}" />
+
+        <TextBlock Text="{x:Static res:Strings.SettingsMorningInstruction}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
+        <TextBox Text="{Binding MorningInstruction, UpdateSourceTrigger=PropertyChanged}"
+                 AcceptsReturn="True" TextWrapping="Wrap" Height="160"
+                 VerticalScrollBarVisibility="Auto" />
       </StackPanel>
     </ScrollViewer>
   </DockPanel>
