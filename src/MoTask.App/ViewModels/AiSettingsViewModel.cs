@@ -15,6 +15,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [ObservableProperty] private string _model = "";
     [ObservableProperty] private string _permissionMode = "";
     [ObservableProperty] private string _terminalCommandTemplate = "";
+    [ObservableProperty] private string _morningInstruction = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _statusMessage;
 
@@ -31,6 +32,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         _model = s.Model ?? "";
         _permissionMode = s.PermissionMode;
         _terminalCommandTemplate = s.TerminalCommandTemplate ?? "";
+        _morningInstruction = s.MorningInstruction ?? "";
     }
 
     [RelayCommand]
@@ -51,7 +53,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
 
         _store.Save(new AiSettings(dir, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model),
-            mode, NullIfBlank(TerminalCommandTemplate)));
+            mode, NullIfBlank(TerminalCommandTemplate), NullIfBlank(MorningInstruction)));
         ErrorMessage = null;
         StatusMessage = Strings.SettingsSaved;
     }

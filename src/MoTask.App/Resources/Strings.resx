@@ -155,4 +155,5 @@
   <data name="SettingsPermissionMode" xml:space="preserve"><value>ツール承認のモード（--permission-mode）。承認そのものは利用者の settings.json に従います</value></data>
   <data name="SettingsTerminalTemplate" xml:space="preserve"><value>端末の起動コマンド（空なら既定。{cwd} と {command} が置き換わります。{cwd} は " で囲んでください）</value></data>
   <data name="PermissionModeInvalid" xml:space="preserve"><value>権限モードは一覧から選んでください</value></data>
+  <data name="SettingsMorningInstruction" xml:space="preserve"><value>朝の実行の指示文（空なら既定の文面。出力先と JSON の形は MoTask が自動で付け足します）</value></data>
 </root>

@@ -144,4 +144,5 @@ public static class Strings
     public static string SettingsPermissionMode => Get(nameof(SettingsPermissionMode));
     public static string SettingsTerminalTemplate => Get(nameof(SettingsTerminalTemplate));
     public static string PermissionModeInvalid => Get(nameof(PermissionModeInvalid));
+    public static string SettingsMorningInstruction => Get(nameof(SettingsMorningInstruction));
 }

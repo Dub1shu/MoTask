@@ -50,4 +50,6 @@ public static class Messages
     public static string TerminalStartPromptFormat => Get(nameof(TerminalStartPromptFormat));
     public static string EventsFileGoneFormat => Get(nameof(EventsFileGoneFormat));
     public static string EventsWatchFailedFormat => Get(nameof(EventsWatchFailedFormat));
+    public static string MorningInstructionDefault => Get(nameof(MorningInstructionDefault));
+    public static string MorningInstructionContractFormat => Get(nameof(MorningInstructionContractFormat));
 }

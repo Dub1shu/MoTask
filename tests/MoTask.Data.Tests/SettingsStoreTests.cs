@@ -99,6 +99,27 @@ public class SettingsStoreTests : IDisposable
         loaded.TerminalCommandTemplate.Should().Be("wt -d {cwd} {command}");
     }
 
+    [Fact]
+    public void MorningInstruction_RoundTripsThroughTheFile()
+    {
+        var path = Path.Combine(_dir, "settings.json");
+        var store = new JsonAiSettingsStore(path);
+
+        store.Save(AiSettings.Default() with { MorningInstruction = "私の方針\n2行目" });
+
+        new JsonAiSettingsStore(path).Load().MorningInstruction.Should().Be("私の方針\n2行目");
+    }
+
+    [Fact]
+    public void MorningInstruction_IsNull_WhenTheFileDoesNotHaveIt()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, "{\"DefaultWorkingDirectory\":\"C:\\\\work\"}");
+
+        new JsonAiSettingsStore(path).Load().MorningInstruction.Should().BeNull("既定のテンプレートを使う");
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(_dir, recursive: true); } catch (IOException) { }

@@ -102,4 +102,30 @@ public class AiSettingsViewModelTests
 
         vm.PermissionModes.Should().Equal(AiSettings.PermissionModes);
     }
+
+    [Fact]
+    public void Save_KeepsTheMorningInstruction()
+    {
+        var vm = Open();
+        vm.MorningInstruction = "  私の方針  ";
+
+        vm.SaveCommand.Execute(null);
+
+        _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+            AiSettings.DefaultPermissionMode, null, "私の方針"));
+    }
+
+    [Fact]
+    public void Save_ClearsTheMorningInstruction_WhenTheBoxIsEmptied()
+    {
+        _store.Load().Returns(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+            AiSettings.DefaultPermissionMode, null, "前の方針"));
+        var vm = Open();
+        vm.MorningInstruction = "";
+
+        vm.SaveCommand.Execute(null);
+
+        _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+            AiSettings.DefaultPermissionMode, null, null));
+    }
 }
