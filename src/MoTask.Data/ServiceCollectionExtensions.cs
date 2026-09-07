@@ -22,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IHistoryRepository, HistoryRepository>();
         services.AddSingleton<IUnitOfWork, EfUnitOfWork>();
         services.AddSingleton<IAiJobRepository, AiJobRepository>();
+        services.AddSingleton<IMorningRepository, MorningRepository>();
         services.AddSingleton<IAiSettingsStore>(_ => new JsonAiSettingsStore(DbPaths.SettingsNextTo(dbPath)));
         // BoardService と AiJobService が同じ DbContext を使うので、直列化ゲートも 1 つ
         services.AddSingleton<OperationGate>();

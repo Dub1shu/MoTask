@@ -26,7 +26,7 @@ public class MigrationTests : IDisposable
         tables.Should().Contain(new[]
         {
             "Boards", "Columns", "Tasks", "Projects", "Labels", "TaskLabels", "History",
-            "AiJobs",
+            "AiJobs", "MorningRuns", "TriageCandidates",
         });
     }
 

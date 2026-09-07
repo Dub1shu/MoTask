@@ -16,6 +16,8 @@ public sealed class MoTaskDbContext : DbContext
     public DbSet<Label> Labels => Set<Label>();
     public DbSet<HistoryEntry> History => Set<HistoryEntry>();
     public DbSet<AiJob> AiJobs => Set<AiJob>();
+    public DbSet<MorningRun> MorningRuns => Set<MorningRun>();
+    public DbSet<TriageCandidate> TriageCandidates => Set<TriageCandidate>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -86,6 +88,41 @@ public sealed class MoTaskDbContext : DbContext
             e.HasIndex(x => x.TaskId);
             e.HasIndex(x => x.Status);
             e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<MorningRun>(e =>
+        {
+            e.ToTable("MorningRuns");
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Instruction).IsRequired().HasDefaultValue("");
+            e.Property(x => x.JobFolder).IsRequired().HasDefaultValue("");
+            e.Property(x => x.PlanJson).IsRequired().HasDefaultValue("");
+            e.Property(x => x.ProcessedLines).HasDefaultValue(0);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.Date);
+        });
+
+        b.Entity<TriageCandidate>(e =>
+        {
+            e.ToTable("TriageCandidates");
+            e.Property(x => x.ExternalId).IsRequired();
+            e.Property(x => x.Source).IsRequired().HasDefaultValue("");
+            // From は SQLite の予約語だが、EF は識別子を必ず引用符で囲むので列名はこのままでよい。
+            e.Property(x => x.From).IsRequired().HasDefaultValue("");
+            e.Property(x => x.Title).IsRequired().HasDefaultValue("");
+            e.Property(x => x.Evidence).IsRequired().HasDefaultValue("");
+            e.Property(x => x.Link).IsRequired().HasDefaultValue("");
+            e.Property(x => x.Reasoning).IsRequired().HasDefaultValue("");
+            e.Property(x => x.SuggestedProject).IsRequired().HasDefaultValue("");
+            e.Property(x => x.SuggestedAction).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            // 却下した候補を翌朝また拾わないための鍵（仕様 §9）
+            e.HasIndex(x => x.ExternalId).IsUnique();
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.MorningRunId);
+            e.HasOne<MorningRun>().WithMany().HasForeignKey(x => x.MorningRunId).OnDelete(DeleteBehavior.Cascade);
+            // タスクが消えても候補の記録は残す
+            e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.ResultTaskId).OnDelete(DeleteBehavior.SetNull);
         });
     }
 }
