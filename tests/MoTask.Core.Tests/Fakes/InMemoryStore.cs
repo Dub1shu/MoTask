@@ -8,7 +8,7 @@ namespace MoTask.Core.Tests.Fakes;
 /// まとめて実装するテスト用ストア。
 /// 参照は常に同一インスタンスを返す（EF の追跡と同じ契約）。Id は Add 時に即採番する。
 /// </summary>
-public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository
+public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository, IMorningRepository
 {
     private int _nextId = 1;
     private long _nextHistoryId = 1;
@@ -127,6 +127,77 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     public Task<IReadOnlyList<AiJob>> GetByStatusAsync(IReadOnlyCollection<AiJobStatus> statuses, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<AiJob>>(Jobs.Where(j => statuses.Contains(j.Status)).OrderBy(j => j.Id).ToList());
+
+    // ---- IMorningRepository ----
+    //
+    // GetAsync / Add は IAiJobRepository・IHistoryRepository と名前が衝突するので、
+    // 衝突する分は名前を変えるか明示的実装にする（既存の GetForTaskAsync と同じ事情）。
+
+    public List<MorningRun> Runs { get; } = new();
+    public List<TriageCandidate> Candidates { get; } = new();
+
+    public MorningRun SeedRun(DateOnly date, MorningRunStatus status = MorningRunStatus.Pending,
+        string jobFolder = @"C:\work\morning\0001-2026-09-07")
+    {
+        var run = new MorningRun
+        {
+            Id = _nextId++, Date = date, Status = status, SessionId = Guid.NewGuid(),
+            Instruction = "指示", JobFolder = jobFolder,
+        };
+        Runs.Add(run);
+        return run;
+    }
+
+    public TriageCandidate SeedCandidate(MorningRun run, string externalId,
+        TriageStatus status = TriageStatus.Pending, TriageAction suggested = TriageAction.Register)
+    {
+        var candidate = new TriageCandidate
+        {
+            Id = _nextId++, MorningRunId = run.Id, ExternalId = externalId, Source = "Outlook",
+            From = "山本さん", Title = "請求先情報を更新する", Evidence = "「9月8日までに」",
+            Link = "https://outlook.office.com/x", Reasoning = "依頼が明確",
+            SuggestedAction = suggested, Status = status,
+        };
+        Candidates.Add(candidate);
+        return candidate;
+    }
+
+    public void Add(MorningRun run)
+    {
+        if (run.Id == 0) run.Id = _nextId++;
+        Runs.Add(run);
+    }
+
+    public Task<MorningRun?> GetRunAsync(int runId, CancellationToken ct = default)
+        => Task.FromResult(Runs.FirstOrDefault(r => r.Id == runId));
+
+    public Task<MorningRun?> GetUnfinishedRunAsync(CancellationToken ct = default)
+        => Task.FromResult(Runs.Where(r => r.Status.IsActive()).OrderByDescending(r => r.Id).FirstOrDefault());
+
+    public Task<MorningRun?> GetLatestRunAsync(CancellationToken ct = default)
+        => Task.FromResult(Runs.OrderByDescending(r => r.Id).FirstOrDefault());
+
+    public Task<int> CountRunsAsync(CancellationToken ct = default) => Task.FromResult(Runs.Count);
+
+    public void AddCandidate(TriageCandidate candidate)
+    {
+        if (candidate.Id == 0) candidate.Id = _nextId++;
+        Candidates.Add(candidate);
+    }
+
+    public Task<TriageCandidate?> GetCandidateAsync(int candidateId, CancellationToken ct = default)
+        => Task.FromResult(Candidates.FirstOrDefault(c => c.Id == candidateId));
+
+    public Task<IReadOnlyList<string>> GetKnownExternalIdsAsync(
+        IReadOnlyCollection<string> externalIds, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<string>>(
+            Candidates.Select(c => c.ExternalId).Where(externalIds.Contains).ToList());
+
+    public Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TriageCandidate>>(Candidates
+            .Where(c => (c.MorningRunId == runId && c.Status == TriageStatus.Pending)
+                        || (c.MorningRunId != runId && c.Status == TriageStatus.Later))
+            .OrderBy(c => c.Id).ToList());
 
     // ---- IUnitOfWork ----
 
