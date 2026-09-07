@@ -34,20 +34,23 @@ public sealed class JobFolder : IJobFolder
     internal string HooksExecutable { get; set; } =
         Path.Combine(AppContext.BaseDirectory, "hooks", "MoTask.Hooks.exe");
 
+    public string ResolveRoot(JobFolderRequest request)
+        => Path.Combine(
+            _settings.Load().DefaultWorkingDirectory,
+            request.Category,
+            JobFolderPaths.FolderName(request.JobId, request.TaskTitle));
+
     public Result<string> Create(JobFolderRequest request)
     {
         // フックが無いと端末は動くが盤面が一切追従しない。黙って走らせず、開始時に止める。
         if (!File.Exists(HooksExecutable)) return Result.Fail<string>(Messages.HooksExecutableNotFound);
 
-        var root = Path.Combine(
-            _settings.Load().DefaultWorkingDirectory,
-            JobFolderPaths.JobsDirectoryName,
-            JobFolderPaths.FolderName(request.JobId, request.TaskTitle));
+        var root = ResolveRoot(request);
         var paths = JobFolderPaths.For(root);
         try
         {
             // 既にあっても作り直さない（--resume で開き直すときに同じフォルダへ戻る）
-            Directory.CreateDirectory(paths.ArtifactsDirectory);
+            Directory.CreateDirectory(Path.Combine(root, request.OutputDirectoryName));
             File.WriteAllText(paths.InstructionMarkdown, request.Instruction, Utf8);
             File.WriteAllText(paths.HooksJson, HooksJson.Build(HooksExecutable, paths.EventsJsonl), Utf8);
             return Result.Ok(root);
@@ -55,6 +58,41 @@ public sealed class JobFolder : IJobFolder
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return Result.Fail<string>(string.Format(Messages.JobFolderFailedFormat, root, ex.Message));
+        }
+    }
+
+    public Result WriteText(string root, string relativePath, string content)
+    {
+        try
+        {
+            var path = Path.Combine(root, relativePath);
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            File.WriteAllText(path, content, Utf8);
+            return Result.Ok();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            return Result.Fail(string.Format(Messages.JobFolderFailedFormat, root, ex.Message));
+        }
+    }
+
+    public string? ReadText(string root, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return null;
+        try
+        {
+            var path = Path.Combine(root, relativePath);
+            if (!File.Exists(path)) return null;
+            // Claude が書いている最中でも読めるように共有を広く取る（ReadTail と同じ理由）。
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            using var reader = new StreamReader(stream, Utf8);
+            return reader.ReadToEnd();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        {
+            // 読めないだけ。呼び出し側は「まだ書かれていない」と同じに扱う。
+            return null;
         }
     }
 

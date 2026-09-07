@@ -11,14 +11,40 @@ public sealed record JobFolderPaths(string Root)
     /// <summary>既定ワークフォルダ直下の、ジョブフォルダを集める場所。</summary>
     public const string JobsDirectoryName = "jobs";
 
+    /// <summary>朝の実行のフォルダを集める場所（仕様 §6）。</summary>
+    public const string MorningDirectoryName = "morning";
+
+    /// <summary>AI 遂行の成果物。Create が併せて作る。</summary>
+    public const string ArtifactsDirectoryName = "artifacts";
+
+    /// <summary>朝の実行の成果物。Create が併せて作る。</summary>
+    public const string ResultDirectoryName = "result";
+
+    public const string JobJsonName = "job.json";
+    public const string InstructionMarkdownName = "instruction.md";
+    public const string HooksJsonName = "hooks.json";
+    public const string EventsJsonlName = "events.jsonl";
+    public const string BoardJsonName = "board.json";
+    public const string RunJsonName = "run.json";
+
+    /// <summary>ルートからの相対パス。IJobFolder.WriteText / ReadText に渡す。</summary>
+    public static readonly string CandidatesRelativePath = Path.Combine(ResultDirectoryName, "candidates.jsonl");
+
+    public static readonly string PlanRelativePath = Path.Combine(ResultDirectoryName, "plan.json");
+
     /// <summary>フォルダ名に残す長さの上限。パス全体が 260 文字に近づかないようにする。</summary>
     private const int MaxSlugLength = 40;
 
-    public string JobJson => Path.Combine(Root, "job.json");
-    public string InstructionMarkdown => Path.Combine(Root, "instruction.md");
-    public string HooksJson => Path.Combine(Root, "hooks.json");
-    public string EventsJsonl => Path.Combine(Root, "events.jsonl");
-    public string ArtifactsDirectory => Path.Combine(Root, "artifacts");
+    public string JobJson => Path.Combine(Root, JobJsonName);
+    public string InstructionMarkdown => Path.Combine(Root, InstructionMarkdownName);
+    public string HooksJson => Path.Combine(Root, HooksJsonName);
+    public string EventsJsonl => Path.Combine(Root, EventsJsonlName);
+    public string ArtifactsDirectory => Path.Combine(Root, ArtifactsDirectoryName);
+    public string ResultDirectory => Path.Combine(Root, ResultDirectoryName);
+    public string BoardJson => Path.Combine(Root, BoardJsonName);
+    public string RunJson => Path.Combine(Root, RunJsonName);
+    public string CandidatesJsonl => Path.Combine(Root, CandidatesRelativePath);
+    public string PlanJson => Path.Combine(Root, PlanRelativePath);
 
     public static JobFolderPaths For(string root) => new(root);
 

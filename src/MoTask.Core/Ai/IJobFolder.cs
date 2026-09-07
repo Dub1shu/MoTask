@@ -20,4 +20,19 @@ public interface IJobFolder
     /// フォルダやファイルが無ければ空。読めなくても投げない（表示が空になるだけ）。
     /// </summary>
     IReadOnlyList<string> ReadTail(string root, int lines);
+
+    /// <summary>
+    /// フォルダを作らずにルートのパスだけ決める。指示文がフォルダ内のパスを含む朝の実行で、
+    /// Create に渡す前に知る必要がある。
+    /// </summary>
+    string ResolveRoot(JobFolderRequest request);
+
+    /// <summary>ルートからの相対パスにテキストを書く（途中のフォルダは作る）。</summary>
+    Result WriteText(string root, string relativePath, string content);
+
+    /// <summary>
+    /// ルートからの相対パスを読む。フォルダやファイルが無ければ null。
+    /// 読めなくても投げない（Claude がまだ書いていないだけのことが多い）。
+    /// </summary>
+    string? ReadText(string root, string relativePath);
 }
