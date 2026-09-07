@@ -79,7 +79,7 @@
 - items の各要素は taskId（{1} にあるタスク）か externalId（今朝の候補）のどちらか一方を持ちます。
 - firstThing も taskId か externalId のどちらかを指し、reason に理由を 1 文で書いてください。
 - aiReady には、{1} の hasActiveAiJob が false で、AI に任せられるものを入れてください。
-- 候補が 0 件でも、このファイルは必ず書いてください。
+- 候補が 0 件の朝もあります。それは失敗ではなく正常な結果です。その場合でも、このファイルは必ず書いてください。
 
 両方のファイルを書き終えたら、何を何件書いたかを 1 行で報告してください。</value></data>
   <data name="MorningRunAlreadyRunning" xml:space="preserve"><value>朝の実行がまだ終わっていません。先に取り込むか、追跡をやめてください</value></data>

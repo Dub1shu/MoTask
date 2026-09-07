@@ -79,4 +79,14 @@ public class MorningInstructionTests
     [Fact]
     public void Build_EndsWithASingleNewline()
         => MorningInstruction.Build(null, Paths, Date).Should().EndWith("\n").And.NotEndWith("\n\n");
+
+    [Fact]
+    public void Build_KeepsTheZeroCandidatesIsNotAFailureGuarantee_EvenWithACustomTemplate()
+    {
+        // 「それは失敗ではありません」は編集可能な前半（既定テンプレート）にしか無いと、
+        // 利用者が方針を書き換えた瞬間にこの保証が消える。契約側（後半）にも要る。
+        var text = MorningInstruction.Build("自分で書いた方針", Paths, Date);
+
+        text.Should().Contain("失敗ではなく正常な結果です");
+    }
 }
