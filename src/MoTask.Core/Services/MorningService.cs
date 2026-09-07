@@ -429,7 +429,16 @@ public sealed class MorningService : IMorningService
         var updated = await _boardService.UpdateTaskAsync(
             new TaskUpdate(task.Id, title, CandidateNote.Format(candidate), project.Value, decision.DueDate), ct)
             .ConfigureAwait(false);
-        if (!updated.IsSuccess) return Result.Fail<TaskItem>(updated.Error!);
+        if (!updated.IsSuccess)
+        {
+            // タスクは作れたが仕上げ(説明・プロジェクト・期限)の書き込みに失敗した。中途半端な
+            // タスクを残すと、候補は Pending のままなので人がもう一度登録し直したときに
+            // 二重にタスクができてしまう。ゲートは呼び出しごとに取り直すので、この削除も
+            // ゲートの外から呼ぶ(Create/Update と同じ)。削除自体が失敗しても、人に見せるべきは
+            // 元の失敗理由なので、そちらを返す(取り消しは最善努力でしかない)。
+            await _boardService.DeleteTaskAsync(task.Id, ct).ConfigureAwait(false);
+            return Result.Fail<TaskItem>(updated.Error!);
+        }
 
         var warning = await DecideAsync(candidate, TriageStatus.Registered, task.Id,
             HistoryKind.CandidateRegistered, ct).ConfigureAwait(false);

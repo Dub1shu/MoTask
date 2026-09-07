@@ -141,6 +141,66 @@ public class MorningServiceTriageTests
         created.Error.Should().Be(Messages.CandidateAlreadyDecided);
     }
 
+    /// <summary>
+    /// タスクは作れたが仕上げの書き込み(UpdateTaskAsync)が失敗したときの後始末。半端なタスクを
+    /// 残すと、候補が Pending のままなので人がもう一度登録し直したときに二重にタスクができる。
+    /// UpdateTaskAsync だけを狙って落とす必要があるので、InMemoryStore の FailNextSave は使えない
+    /// (先に走る CreateTaskAsync の保存を落としてしまい、狙った場面を再現できない)。代わりに
+    /// UpdateTaskAsync だけを失敗させる IBoardService のラッパーを使う。
+    /// </summary>
+    [Fact]
+    public async Task Register_DeletesTheOrphanedTask_WhenUpdateFailsAfterCreate()
+    {
+        var gate = new OperationGate();
+        var realBoardService = new BoardService(_store, _store, _store, _clock, gate);
+        var boardService = new UpdateFailingBoardService(realBoardService);
+        var service = new MorningService(_store, _store, _store, _store, _store, _clock, gate,
+            _launcher, _folder, _events, _settings, boardService);
+        var candidate = Candidate();
+
+        var created = await WithinLimitAsync(service.RegisterAsync(
+            new CandidateDecision(candidate.Id, "請求先情報を更新する", null, "", _backlog.Id)));
+
+        created.IsSuccess.Should().BeFalse();
+        candidate.Status.Should().Be(TriageStatus.Pending, "失敗したら候補はやり直せる状態のまま");
+        candidate.ResultTaskId.Should().BeNull();
+        _store.AllTasks.Where(t => !t.IsDeleted && t.Title == "請求先情報を更新する").Should()
+            .BeEmpty("作りかけのタスクを列に残さない(残すと再登録で二重にできてしまう)");
+    }
+
+    /// <summary>UpdateTaskAsync だけを失敗させ、それ以外はそのまま本物へ委譲する。</summary>
+    private sealed class UpdateFailingBoardService : IBoardService
+    {
+        private readonly IBoardService _inner;
+        public UpdateFailingBoardService(IBoardService inner) => _inner = inner;
+
+        public Task<Result> UpdateTaskAsync(TaskUpdate update, CancellationToken ct = default)
+            => Task.FromResult(Result.Fail("テスト用の更新失敗"));
+
+        public Task<Result<Board>> GetBoardAsync(CancellationToken ct = default) => _inner.GetBoardAsync(ct);
+        public Task<IReadOnlyList<HistoryEntry>> GetHistoryAsync(int taskId, CancellationToken ct = default) => _inner.GetHistoryAsync(taskId, ct);
+        public Task<IReadOnlyList<Project>> GetProjectsAsync(CancellationToken ct = default) => _inner.GetProjectsAsync(ct);
+        public Task<IReadOnlyList<Label>> GetLabelsAsync(CancellationToken ct = default) => _inner.GetLabelsAsync(ct);
+        public Task<Result<TaskItem>> CreateTaskAsync(int columnId, string title, CancellationToken ct = default) => _inner.CreateTaskAsync(columnId, title, ct);
+        public Task<Result> MoveTaskAsync(int taskId, int toColumnId, int position, CancellationToken ct = default) => _inner.MoveTaskAsync(taskId, toColumnId, position, ct);
+        public Task<Result> DeleteTaskAsync(int taskId, CancellationToken ct = default) => _inner.DeleteTaskAsync(taskId, ct);
+        public Task<Result> RestoreTaskAsync(int taskId, CancellationToken ct = default) => _inner.RestoreTaskAsync(taskId, ct);
+        public Task<Result> SetTaskLabelsAsync(int taskId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default) => _inner.SetTaskLabelsAsync(taskId, labelIds, ct);
+        public Task<Result<Column>> AddColumnAsync(string name, ColumnRole role = ColumnRole.Active, CancellationToken ct = default) => _inner.AddColumnAsync(name, role, ct);
+        public Task<Result> RenameColumnAsync(int columnId, string name, CancellationToken ct = default) => _inner.RenameColumnAsync(columnId, name, ct);
+        public Task<Result> SetColumnRoleAsync(int columnId, ColumnRole role, CancellationToken ct = default) => _inner.SetColumnRoleAsync(columnId, role, ct);
+        public Task<Result> ReorderColumnsAsync(IReadOnlyList<int> orderedColumnIds, CancellationToken ct = default) => _inner.ReorderColumnsAsync(orderedColumnIds, ct);
+        public Task<Result> SetWipLimitAsync(int columnId, int? wipLimit, CancellationToken ct = default) => _inner.SetWipLimitAsync(columnId, wipLimit, ct);
+        public Task<Result> DeleteColumnAsync(int columnId, CancellationToken ct = default) => _inner.DeleteColumnAsync(columnId, ct);
+        public Task<Result<Project>> CreateProjectAsync(string name, CancellationToken ct = default) => _inner.CreateProjectAsync(name, ct);
+        public Task<Result> ArchiveProjectAsync(int projectId, CancellationToken ct = default) => _inner.ArchiveProjectAsync(projectId, ct);
+        public Task<Result> UnarchiveProjectAsync(int projectId, CancellationToken ct = default) => _inner.UnarchiveProjectAsync(projectId, ct);
+        public Task<Result> SetProjectWorkingDirectoryAsync(int projectId, string? path, CancellationToken ct = default) => _inner.SetProjectWorkingDirectoryAsync(projectId, path, ct);
+        public Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default) => _inner.CreateLabelAsync(name, color, ct);
+        public Task<Result> ArchiveLabelAsync(int labelId, CancellationToken ct = default) => _inner.ArchiveLabelAsync(labelId, ct);
+        public Task<Result> UnarchiveLabelAsync(int labelId, CancellationToken ct = default) => _inner.UnarchiveLabelAsync(labelId, ct);
+    }
+
     // ---- 統合 ----
 
     [Fact]
