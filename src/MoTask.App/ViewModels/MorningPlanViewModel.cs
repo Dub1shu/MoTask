@@ -48,6 +48,10 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     /// <summary>リンクや成果物を開く。テストでは差し替える。</summary>
     public Action<string> OpenPath { get; set; } = ShellOpener.Open;
 
+    /// <summary>「推奨をまとめて適用」の確認。既定は MessageBox、テストでは差し替える（OpenPath と同じ流儀）。</summary>
+    public Func<string, bool> Confirm { get; set; } = message =>
+        MessageBox.Show(message, Strings.AppTitle, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+
     /// <summary>テストが読み込みの完了を待つためのハンドル。</summary>
     public Task PendingLoad { get; private set; } = Task.CompletedTask;
 
@@ -78,7 +82,10 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private bool _canControl;
     [ObservableProperty] private bool _hasNoCandidates;
-    [ObservableProperty] private bool _isTriaging;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplySuggestionsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(PostponeAllCommand))]
+    private bool _isTriaging;
     [ObservableProperty] private bool _isPlanReady;
     [ObservableProperty] private string _dateHeading = "";
     [ObservableProperty] private string _statusLine = "";
@@ -358,6 +365,52 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         }
         ErrorMessage = null;
         WarningMessage = result.Warnings.Count > 0 ? string.Join(" / ", result.Warnings) : null;
+        await ReloadQueueAsync().ConfigureAwait(true);
+        UpdateCounters();
+    }
+
+    // ---------- 一括（仕様 §6） ----------
+
+    /// <summary>登録先は完了以外の先頭の列に固定し、確認の文言に明記する（仕様 §3）。</summary>
+    [RelayCommand(CanExecute = nameof(IsTriaging))]
+    private async Task ApplySuggestionsAsync()
+    {
+        if (_run is null) return;
+        var column = Triage.ColumnChoices.FirstOrDefault();
+        if (column is null)
+        {
+            ErrorMessage = Strings.MorningBulkNoColumn;
+            return;
+        }
+        if (!Confirm(string.Format(Strings.MorningApplyConfirmFormat, Candidates.Count, column.Name))) return;
+        ClearBanners();
+        var outcome = await _service.ApplySuggestionsAsync(_run.Id, column.Id).ConfigureAwait(true);
+        await AfterBulkAsync(outcome).ConfigureAwait(true);
+    }
+
+    /// <summary>取り消しが容易なので確認なし（親仕様 §11）。</summary>
+    [RelayCommand(CanExecute = nameof(IsTriaging))]
+    private async Task PostponeAllAsync()
+    {
+        if (_run is null) return;
+        ClearBanners();
+        var outcome = await _service.PostponeAllAsync(_run.Id).ConfigureAwait(true);
+        await AfterBulkAsync(outcome).ConfigureAwait(true);
+    }
+
+    /// <summary>件数と見送り理由を 1 行で警告バナーへ。成功の警告（WIP 超過など）はその後ろに続ける。</summary>
+    private async Task AfterBulkAsync(Result<BulkOutcome> result)
+    {
+        if (!result.IsSuccess)
+        {
+            ErrorMessage = result.Error;
+            return;
+        }
+        var outcome = result.Value!;
+        var summary = outcome.Skipped.Count == 0
+            ? string.Format(Strings.MorningBulkAppliedFormat, outcome.Applied)
+            : string.Format(Strings.MorningBulkResultFormat, outcome.Applied, outcome.Skipped.Count, string.Join(" / ", outcome.Skipped));
+        WarningMessage = result.Warnings.Count > 0 ? summary + " / " + string.Join(" / ", result.Warnings) : summary;
         await ReloadQueueAsync().ConfigureAwait(true);
         UpdateCounters();
     }

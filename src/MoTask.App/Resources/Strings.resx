@@ -217,4 +217,10 @@
   <data name="MorningSuggestMerge" xml:space="preserve"><value>統合が推奨</value></data>
   <data name="MorningSuggestLater" xml:space="preserve"><value>あとでが推奨</value></data>
   <data name="MorningSuggestReject" xml:space="preserve"><value>却下が推奨</value></data>
+  <data name="MorningApplySuggestions" xml:space="preserve"><value>推奨をまとめて適用</value></data>
+  <data name="MorningPostponeAll" xml:space="preserve"><value>すべて後で</value></data>
+  <data name="MorningApplyConfirmFormat" xml:space="preserve"><value>候補 {0} 件を推奨どおりに処理します。登録は「{1}」へ入ります。統合は対象タスクの説明を書き換えます。よろしいですか？</value></data>
+  <data name="MorningBulkAppliedFormat" xml:space="preserve"><value>{0} 件を処理しました</value></data>
+  <data name="MorningBulkResultFormat" xml:space="preserve"><value>{0} 件を処理、{1} 件を見送り: {2}</value></data>
+  <data name="MorningBulkNoColumn" xml:space="preserve"><value>登録先の列がありません</value></data>
 </root>

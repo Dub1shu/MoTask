@@ -208,4 +208,10 @@ public static class Strings
     public static string MorningSuggestMerge => Get(nameof(MorningSuggestMerge));
     public static string MorningSuggestLater => Get(nameof(MorningSuggestLater));
     public static string MorningSuggestReject => Get(nameof(MorningSuggestReject));
+    public static string MorningApplySuggestions => Get(nameof(MorningApplySuggestions));
+    public static string MorningPostponeAll => Get(nameof(MorningPostponeAll));
+    public static string MorningApplyConfirmFormat => Get(nameof(MorningApplyConfirmFormat));
+    public static string MorningBulkAppliedFormat => Get(nameof(MorningBulkAppliedFormat));
+    public static string MorningBulkResultFormat => Get(nameof(MorningBulkResultFormat));
+    public static string MorningBulkNoColumn => Get(nameof(MorningBulkNoColumn));
 }

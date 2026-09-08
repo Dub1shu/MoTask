@@ -666,4 +666,65 @@ public class MorningPlanViewModelTests
         new CandidateItemViewModel(Candidate(suggested: TriageAction.Merge)).SuggestionText.Should().Be(Strings.MorningSuggestMerge);
         new CandidateItemViewModel(Candidate(suggested: TriageAction.Reject)).SuggestionText.Should().Be(Strings.MorningSuggestReject);
     }
+
+    [Fact]
+    public async Task ApplySuggestions_DoesNothing_WhenThePersonSaysNo()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+        var asked = new List<string>();
+        _vm.Confirm = message => { asked.Add(message); return false; };
+
+        await _vm.ApplySuggestionsCommand.ExecuteAsync(null);
+
+        asked.Should().ContainSingle().Which.Should().Be(string.Format(Strings.MorningApplyConfirmFormat, 1, "未着手"),
+            "登録先の列は完了以外の先頭で、文言に明記する");
+        _service.Calls.Should().NotContain(c => c.StartsWith("ApplySuggestions"));
+        _vm.Candidates.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task ApplySuggestions_AppliesIntoTheFirstColumn_AndReportsTheOutcome()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        _service.Candidates.Add(Candidate(2, TriageAction.Reject));
+        _service.BulkResult = Result.Ok(new BulkOutcome(1, new[] { "候補 2: 列が見つかりません" }));
+        await _vm.LoadAsync();
+        _vm.Confirm = _ => true;
+
+        await _vm.ApplySuggestionsCommand.ExecuteAsync(null);
+
+        _service.Calls.Should().Contain("ApplySuggestions:1");
+        _vm.WarningMessage.Should().Be(string.Format(Strings.MorningBulkResultFormat, 1, 1, "候補 2: 列が見つかりません"));
+        _vm.Candidates.Should().BeEmpty("偽サービスが全件を決着させたのでキューは読み直しで空になる");
+        _vm.LeftPanel.Should().BeSameAs(_vm.FirstThing);
+    }
+
+    [Fact]
+    public async Task PostponeAll_NeedsNoConfirmation()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        _service.BulkResult = Result.Ok(new BulkOutcome(1, Array.Empty<string>()));
+        await _vm.LoadAsync();
+        _vm.Confirm = _ => throw new InvalidOperationException("確認は出さない");
+
+        await _vm.PostponeAllCommand.ExecuteAsync(null);
+
+        _service.Calls.Should().Contain("PostponeAll");
+        _vm.WarningMessage.Should().Be(string.Format(Strings.MorningBulkAppliedFormat, 1));
+        _vm.Candidates.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task BulkCommands_AreDisabled_WhenNothingIsQueued()
+    {
+        _service.Current = IngestedRunWithPlan();
+        await _vm.LoadAsync();
+
+        _vm.ApplySuggestionsCommand.CanExecute(null).Should().BeFalse();
+        _vm.PostponeAllCommand.CanExecute(null).Should().BeFalse();
+    }
 }

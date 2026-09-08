@@ -156,6 +156,15 @@
           <TextBlock Text="{Binding DateHeading}" Style="{StaticResource Text.Section}" />
           <TextBlock Text="{Binding StatusLine}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.1}" />
 
+          <!-- 一括操作（仕様 §6）。仕分け中のみ出す -->
+          <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.2}"
+                      Visibility="{Binding IsTriaging, Converter={StaticResource BoolToVisibility}}">
+            <Button Content="{x:Static res:Strings.MorningApplySuggestions}" Style="{StaticResource Btn.Ghost}"
+                    Command="{Binding ApplySuggestionsCommand}" />
+            <Button Content="{x:Static res:Strings.MorningPostponeAll}" Style="{StaticResource Btn.Ghost}"
+                    Command="{Binding PostponeAllCommand}" Margin="{StaticResource Gap.Left.2}" />
+          </StackPanel>
+
           <!-- 候補キュー（状態 1 のみ） -->
           <StackPanel Visibility="{Binding IsTriaging, Converter={StaticResource BoolToVisibility}}"
                       Margin="{StaticResource Gap.Top.4}">
