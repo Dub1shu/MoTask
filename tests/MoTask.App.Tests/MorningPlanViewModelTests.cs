@@ -161,8 +161,8 @@ public class MorningPlanViewModelTests
     {
         await _vm.LoadAsync();
 
-        _vm.ColumnChoices.Select(c => c.Id).Should().Equal(1, 2);
-        _vm.EditColumnId.Should().Be(1, "既定は先頭の列");
+        _vm.Triage.ColumnChoices.Select(c => c.Id).Should().Equal(1, 2);
+        _vm.Triage.EditColumnId.Should().Be(1, "既定は先頭の列");
     }
 
     private TriageCandidate Candidate(int id = 1, TriageAction suggested = TriageAction.Register)
@@ -203,11 +203,11 @@ public class MorningPlanViewModelTests
 
         _vm.Candidates.Should().HaveCount(2);
         _vm.Selected!.CandidateId.Should().Be(1);
-        _vm.EditTitle.Should().Be("請求先情報を更新する", "人が編集してから登録できる");
+        _vm.Triage.EditTitle.Should().Be("請求先情報を更新する", "人が編集してから登録できる");
         // 期限は DatePicker に直接つなぐので DateTime?（TaskDetailViewModel と同じ流儀）
-        _vm.EditDueDate.Should().Be(new DateTime(2026, 9, 8));
-        _vm.EditProjectName.Should().Be("顧客A");
-        _vm.PositionText.Should().Be("1 / 2");
+        _vm.Triage.EditDueDate.Should().Be(new DateTime(2026, 9, 8));
+        _vm.Triage.EditProjectName.Should().Be("顧客A");
+        _vm.Triage.PositionText.Should().Be("1 / 2");
         _vm.CanStart.Should().BeFalse("片づけ終わるまでは次の実行を始めない");
     }
 
@@ -261,18 +261,18 @@ public class MorningPlanViewModelTests
         _service.Candidates.Add(Candidate());
         _service.Candidates.Add(Candidate(2));
         await _vm.LoadAsync();
-        _vm.EditTitle = "書き換えた題名";
-        _vm.EditDueDate = new DateTime(2026, 9, 10);
-        _vm.EditProjectName = "別プロジェクト";
-        _vm.EditColumnId = 2;
+        _vm.Triage.EditTitle = "書き換えた題名";
+        _vm.Triage.EditDueDate = new DateTime(2026, 9, 10);
+        _vm.Triage.EditProjectName = "別プロジェクト";
+        _vm.Triage.EditColumnId = 2;
 
-        await _vm.RegisterCommand.ExecuteAsync(null);
+        await _vm.Triage.RegisterCommand.ExecuteAsync(null);
 
         _service.LastDecision.Should().Be(new CandidateDecision(1, "書き換えた題名",
             new DateOnly(2026, 9, 10), "別プロジェクト", 2));
         _vm.Candidates.Should().ContainSingle();
         _vm.Selected!.CandidateId.Should().Be(2);
-        _vm.PositionText.Should().Be("1 / 1");
+        _vm.Triage.PositionText.Should().Be("1 / 1");
     }
 
     [Fact]
@@ -283,33 +283,39 @@ public class MorningPlanViewModelTests
         await _vm.LoadAsync();
         _service.RegisterResult = Result.Fail<TaskItem>("列が見つかりません");
 
-        await _vm.RegisterCommand.ExecuteAsync(null);
+        await _vm.Triage.RegisterCommand.ExecuteAsync(null);
 
         _vm.ErrorMessage.Should().Be("列が見つかりません");
         _vm.Candidates.Should().ContainSingle();
     }
 
     [Fact]
-    public async Task Merge_UsesTheSuggestedTarget()
+    public async Task Merge_PreselectsTheSuggestedTarget()
     {
         _service.Current = IngestedRun();
         _service.Candidates.Add(Candidate(suggested: TriageAction.Merge));
         await _vm.LoadAsync();
 
-        _vm.Selected!.CanMerge.Should().BeTrue();
-        await _vm.MergeCommand.ExecuteAsync(null);
+        _vm.Selected!.IsMergeSuggested.Should().BeTrue("候補キューの『統合が推奨』バッジ");
+        _vm.Triage.EditMergeTargetId.Should().Be(12, "推薦された統合先が盤面にあるので初期選択");
+        await _vm.Triage.MergeCommand.ExecuteAsync(null);
 
         _service.Calls.Should().Contain("Merge:12");
     }
 
     [Fact]
-    public async Task Merge_IsNotOfferedWithoutASuggestedTarget()
+    public async Task Merge_LetsThePersonChooseATarget_WhenNothingWasSuggested()
     {
         _service.Current = IngestedRun();
         _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
 
-        _vm.Selected!.CanMerge.Should().BeFalse("統合先が無ければ 2 本目の計画で選ばせる。今は出さない");
+        _vm.Triage.CanMerge.Should().BeFalse("推薦が無ければ未選択から始まる");
+        _vm.Triage.MergeTargets.Select(t => t.Id).Should().Equal(new[] { 10, 11, 12 }, "完了列以外の未削除タスク");
+        _vm.Triage.EditMergeTargetId = 11;
+        await _vm.Triage.MergeCommand.ExecuteAsync(null);
+
+        _service.Calls.Should().Contain("Merge:11");
     }
 
     [Theory]
@@ -321,8 +327,8 @@ public class MorningPlanViewModelTests
         _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
 
-        if (call == "Postpone") await _vm.PostponeCommand.ExecuteAsync(null);
-        else await _vm.RejectCommand.ExecuteAsync(null);
+        if (call == "Postpone") await _vm.Triage.PostponeCommand.ExecuteAsync(null);
+        else await _vm.Triage.RejectCommand.ExecuteAsync(null);
 
         _service.Calls.Should().Contain(call);
         _vm.Candidates.Should().BeEmpty();
@@ -337,7 +343,7 @@ public class MorningPlanViewModelTests
         _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
 
-        _vm.OpenLinkCommand.Execute(null);
+        _vm.Triage.OpenLinkCommand.Execute(null);
 
         _opened.Should().Equal("https://outlook.office.com/x");
     }
@@ -428,10 +434,10 @@ public class MorningPlanViewModelTests
         _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
         _service.RegisterResult = Result.Fail<TaskItem>("列が見つかりません");
-        await _vm.RegisterCommand.ExecuteAsync(null);
+        await _vm.Triage.RegisterCommand.ExecuteAsync(null);
         _vm.ErrorMessage.Should().Be("列が見つかりません");
 
-        await _vm.PostponeCommand.ExecuteAsync(null);
+        await _vm.Triage.PostponeCommand.ExecuteAsync(null);
 
         _vm.ErrorMessage.Should().BeNull("片づいたのだから古いエラーを出し続けない");
     }
@@ -445,7 +451,7 @@ public class MorningPlanViewModelTests
         _service.Raise(IngestedRun(), warning: "5 件のうち 1 件は読み取れませんでした");
         _vm.WarningMessage.Should().Be("5 件のうち 1 件は読み取れませんでした");
 
-        await _vm.RejectCommand.ExecuteAsync(null);
+        await _vm.Triage.RejectCommand.ExecuteAsync(null);
 
         _vm.WarningMessage.Should().BeNull("片づいたのだから古い警告を出し続けない");
     }
@@ -466,5 +472,24 @@ public class MorningPlanViewModelTests
 
         _vm.WarningMessage.Should().Be(
             string.Format(Strings.MorningRefreshFailedFormat, "接続できません"));
+    }
+
+    [Fact]
+    public async Task LeftPanel_IsTheTriagePanel_WhileCandidatesRemain()
+    {
+        _service.Current = IngestedRun();
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+
+        _vm.LeftPanel.Should().BeSameAs(_vm.Triage);
+        _vm.Triage.Selected.Should().BeSameAs(_vm.Selected);
+    }
+
+    [Fact]
+    public async Task LeftPanel_IsEmpty_BeforeTheFirstRun()
+    {
+        await _vm.LoadAsync();
+
+        _vm.LeftPanel.Should().BeNull("実行前・実行中・失敗は上部バーが案内する");
     }
 }

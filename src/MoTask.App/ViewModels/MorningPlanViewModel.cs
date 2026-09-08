@@ -13,8 +13,8 @@ using MoTask.Core.Services;
 namespace MoTask.App.ViewModels;
 
 /// <summary>
-/// 朝の実行プラン画面（仕様 §11）。この計画では候補一覧と 4 アクションまで。
-/// ワイヤー 4a / 4b の左パネルのモード切替とプランの 4 区分は 2 本目の計画で作る。
+/// 朝の実行プラン画面（仕様 §6・§7）。実行の状態と候補キューを持ち、左パネル（LeftPanel）を
+/// 状態で切り替える。編集フォームと 4 アクションは TriagePanelViewModel（Triage）が持つ。
 /// RunChanged はワーカースレッドから来るので UI スレッドへ載せ替える（BoardViewModel と同じ）。
 /// </summary>
 public sealed partial class MorningPlanViewModel : ObservableObject
@@ -52,8 +52,11 @@ public sealed partial class MorningPlanViewModel : ObservableObject
 
     public ObservableCollection<CandidateItemViewModel> Candidates { get; } = new();
 
-    /// <summary>登録先に選べる列。完了列は選ばせない。LoadAsync で埋める。</summary>
-    public ObservableCollection<ColumnChoice> ColumnChoices { get; } = new();
+    /// <summary>左パネル・状態 1。生成は 1 度だけで、Show で中身を差し替える。</summary>
+    public TriagePanelViewModel Triage { get; }
+
+    /// <summary>左パネルに出す VM。Triage か null（Task 5 で FirstThingViewModel が加わる）。</summary>
+    [ObservableProperty] private object? _leftPanel;
 
     [ObservableProperty] private CandidateItemViewModel? _selected;
     [ObservableProperty] private bool _canStart = true;
@@ -67,20 +70,12 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     /// 分けている(CanStart はボタンの活性、こちらは案内文の要否)。
     /// </summary>
     [ObservableProperty] private bool _hasNoPlanYet;
-    [ObservableProperty] private string _headingText = "";
-    [ObservableProperty] private string _positionText = "";
     /// <summary>プラン未生成のときの「前回: 9/5」（仕様 §11）。無ければ空文字。</summary>
     [ObservableProperty] private string _lastRunText = "";
     /// <summary>実行中の進捗。ターン数と直近のツール使用（仕様 §11）。</summary>
     [ObservableProperty] private string _progressText = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _warningMessage;
-
-    // 編集フォーム。期限は DatePicker に直接つなぐので DateTime?（TaskDetailViewModel と同じ流儀）。
-    [ObservableProperty] private string _editTitle = "";
-    [ObservableProperty] private DateTime? _editDueDate;
-    [ObservableProperty] private string _editProjectName = "";
-    [ObservableProperty] private int _editColumnId;
 
     public MorningPlanViewModel(IMorningService service, IBoardService boardService)
     {
@@ -90,6 +85,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         Debug.Assert(_ui is not null || Application.Current is null,
             "MorningPlanViewModel は UI スレッドで生成すること。");
 
+        Triage = new TriagePanelViewModel(service, AfterDecisionAsync, path => OpenPath(path));
         service.RunChanged += (_, e) => Post(() => OnRunChanged(e));
     }
 
@@ -101,29 +97,30 @@ public sealed partial class MorningPlanViewModel : ObservableObject
 
     public async Task LoadAsync()
     {
-        await LoadColumnChoicesAsync().ConfigureAwait(true);
         var run = await _service.GetCurrentRunAsync().ConfigureAwait(true);
         _run = run is null ? null : RunState.From(run);
         await ReloadQueueAsync().ConfigureAwait(true);
-        ApplyRunState();
+        UpdateCounters();
     }
 
     /// <summary>
-    /// 登録先の選択肢。完了列は選ばせない（仕様 §11）。
+    /// 登録先の列（完了以外）と統合先のタスク（完了列と論理削除済み以外）を盤面から作る。
     /// 盤面の取得に失敗したら選択肢は空のままにして、画面そのものは出す。
     /// </summary>
-    private async Task LoadColumnChoicesAsync()
+    private async Task LoadBoardChoicesAsync()
     {
         var board = await _boardService.GetBoardAsync().ConfigureAwait(true);
-        ColumnChoices.Clear();
         if (!board.IsSuccess) return;
-        foreach (var column in board.Value!.Columns.Where(c => c.Role != ColumnRole.Done).OrderBy(c => c.Order))
-            ColumnChoices.Add(new ColumnChoice(column.Id, column.Name));
-        if (EditColumnId == 0 && ColumnChoices.Count > 0) EditColumnId = ColumnChoices[0].Id;
+        var columns = board.Value!.Columns.Where(c => c.Role != ColumnRole.Done).OrderBy(c => c.Order).ToList();
+        Triage.SetChoices(
+            columns.Select(c => new ColumnChoice(c.Id, c.Name)),
+            columns.SelectMany(c => c.Tasks.Where(t => !t.IsDeleted).OrderBy(t => t.Position)
+                .Select(t => new TaskChoice(t.Id, t.Title, c.Name))));
     }
 
     private async Task ReloadQueueAsync()
     {
+        await LoadBoardChoicesAsync().ConfigureAwait(true);
         var previous = Selected?.CandidateId;
         Candidates.Clear();
         if (_run is not null)
@@ -137,19 +134,21 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private void Select(CandidateItemViewModel? candidate)
     {
         Selected = candidate;
-        EditTitle = candidate?.Title ?? "";
-        EditDueDate = candidate?.SuggestedDueDate?.ToDateTime(TimeOnly.MinValue);
-        EditProjectName = candidate?.SuggestedProject ?? "";
+        Triage.Show(candidate, candidate is null ? 0 : Candidates.IndexOf(candidate), Candidates.Count);
         UpdateCounters();
+    }
+
+    /// <summary>候補キューで別の 1 件を選んだとき（ListBox の SelectedItem から）。</summary>
+    partial void OnSelectedChanged(CandidateItemViewModel? value)
+    {
+        if (!ReferenceEquals(Triage.Selected, value))
+            Triage.Show(value, value is null ? 0 : Candidates.IndexOf(value), Candidates.Count);
     }
 
     private void UpdateCounters()
     {
-        HeadingText = Strings.MorningTriageHeading;
-        PositionText = Selected is null
-            ? ""
-            : string.Format(Strings.MorningPositionFormat, Candidates.IndexOf(Selected) + 1, Candidates.Count);
-        HasNoCandidates = Candidates.Count == 0 && _run is { Status: MorningRunStatus.Ingested };
+        var ingested = _run is { Status: MorningRunStatus.Ingested };
+        HasNoCandidates = Candidates.Count == 0 && ingested;
         CanStart = _run is null || (_run.Status.IsTerminal() && Candidates.Count == 0);
         IsRunning = _run is not null && _run.Status.IsActive();
         IsFailed = _run is { Status: MorningRunStatus.Failed };
@@ -163,9 +162,8 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             ? ""
             : string.Format(Strings.MorningLastRunFormat, _run.Date.ToString("M/d", CultureInfo.InvariantCulture));
         ErrorMessage = IsFailed ? _run!.ErrorMessage : ErrorMessage;
+        LeftPanel = ingested && Candidates.Count > 0 ? Triage : null;
     }
-
-    private void ApplyRunState() => UpdateCounters();
 
     private void OnRunChanged(MorningRunChangedEventArgs e)
     {
@@ -264,47 +262,10 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         await RefreshAsync().ConfigureAwait(true);
     }
 
-    [RelayCommand]
-    private async Task RegisterAsync()
-    {
-        if (Selected is null) return;
-        ClearBanners();
-        var due = EditDueDate is DateTime date ? DateOnly.FromDateTime(date) : (DateOnly?)null;
-        var registered = await _service.RegisterAsync(new CandidateDecision(
-            Selected.CandidateId, EditTitle, due, EditProjectName, EditColumnId)).ConfigureAwait(true);
-        await AfterDecisionAsync(registered).ConfigureAwait(true);
-    }
-
-    [RelayCommand]
-    private async Task MergeAsync()
-    {
-        if (Selected?.SuggestedMergeTaskId is not int target) return;
-        ClearBanners();
-        var merged = await _service.MergeAsync(Selected.CandidateId, target).ConfigureAwait(true);
-        await AfterDecisionAsync(merged).ConfigureAwait(true);
-    }
-
-    [RelayCommand]
-    private async Task PostponeAsync()
-    {
-        if (Selected is null) return;
-        ClearBanners();
-        await AfterDecisionAsync(await _service.PostponeAsync(Selected.CandidateId).ConfigureAwait(true))
-            .ConfigureAwait(true);
-    }
-
-    [RelayCommand]
-    private async Task RejectAsync()
-    {
-        if (Selected is null) return;
-        ClearBanners();
-        await AfterDecisionAsync(await _service.RejectAsync(Selected.CandidateId).ConfigureAwait(true))
-            .ConfigureAwait(true);
-    }
-
     /// <summary>
-    /// 片づいたら次の 1 件へ。失敗したらキューはそのままで理由だけ出す。
+    /// Triage の 4 アクションが終わった後。片づいたら次の 1 件へ。失敗したらキューはそのままで理由だけ出す。
     /// 警告は結果から無条件に写す: 今回は無ければ null にして、前回の警告を居座らせない。
+    /// バナーは操作の前に消す（ClearBanners と同じ意図。Triage は画面のバナーを知らない）。
     /// </summary>
     private async Task AfterDecisionAsync(Result result)
     {
@@ -313,15 +274,10 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             ErrorMessage = result.Error;
             return;
         }
+        ErrorMessage = null;
         WarningMessage = result.Warnings.Count > 0 ? string.Join(" / ", result.Warnings) : null;
         await ReloadQueueAsync().ConfigureAwait(true);
         UpdateCounters();
-    }
-
-    [RelayCommand]
-    private void OpenLink()
-    {
-        if (Selected is { HasLink: true } candidate) OpenPath(candidate.Link);
     }
 
     [RelayCommand]

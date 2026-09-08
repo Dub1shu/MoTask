@@ -59,105 +59,130 @@
 
     <Grid Margin="{StaticResource Gap.Top.4}">
       <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="320" />
+        <ColumnDefinition Width="360" />
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
       <!--
-        候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
-        ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
-        白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
-        自分で消し、項目の見た目もここで与える。
+        左の固定パネル。候補が残っている間は仕分け、片づいたら「最初にやる1件」に、同じ場所が
+        切り替わる（ワイヤー 4a / 4b）。別パネルの表示/非表示ではなく、LeftPanel の型で
+        DataTemplate を選ぶ（仕様 §6）。実行前・実行中・失敗のときは null で、上部バーが案内する。
       -->
-      <ListBox Grid.Column="0" ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
-               Background="Transparent" BorderThickness="0"
-               ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
-        <ListBox.ItemContainerStyle>
-          <Style TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
-            <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Template">
-              <Setter.Value>
-                <ControlTemplate TargetType="ListBoxItem">
-                  <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
-                          BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
-                          Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
-                    <ContentPresenter />
+      <ContentControl Grid.Column="0" Content="{Binding LeftPanel}" VerticalAlignment="Top">
+        <ContentControl.Resources>
+          <DataTemplate DataType="{x:Type vm:TriagePanelViewModel}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Text.Label}" />
+                <TextBlock Text="{Binding PositionText}" Style="{StaticResource Text.Caption}" />
+
+                <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
+                  <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}" CornerRadius="3">
+                    <TextBlock Text="{Binding Selected.Source}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
                   </Border>
-                  <ControlTemplate.Triggers>
-                    <Trigger Property="IsMouseOver" Value="True">
-                      <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
-                    </Trigger>
-                    <Trigger Property="IsSelected" Value="True">
-                      <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-                    </Trigger>
-                  </ControlTemplate.Triggers>
-                </ControlTemplate>
-              </Setter.Value>
-            </Setter>
-          </Style>
-        </ListBox.ItemContainerStyle>
-        <ListBox.ItemTemplate>
-          <DataTemplate>
-            <StackPanel Margin="0,4">
-              <TextBlock Text="{Binding Source}" Style="{StaticResource Text.Caption}" />
-              <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
-            </StackPanel>
+                  <TextBlock Text="{Binding Selected.From}" Style="{StaticResource Text.Caption}"
+                             VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}" />
+                  <TextBlock Text="{Binding Selected.ReceivedText}" Style="{StaticResource Text.Caption}"
+                             VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}" />
+                </StackPanel>
+                <TextBlock Text="{Binding Selected.Title}" Style="{StaticResource Text.Heading}" TextWrapping="Wrap"
+                           Margin="{StaticResource Gap.Top.2}" />
+
+                <TextBlock Text="{x:Static res:Strings.MorningEvidence}" Style="{StaticResource Text.Label}"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBlock Text="{Binding Selected.Evidence}" TextWrapping="Wrap" />
+                <Button Content="{x:Static res:Strings.MorningOpenSource}" Style="{StaticResource Btn.Link}"
+                        HorizontalAlignment="Left" Command="{Binding OpenLinkCommand}"
+                        Visibility="{Binding Selected.HasLink, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock Text="{x:Static res:Strings.MorningReasoning}" Style="{StaticResource Text.Label}"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBlock Text="{Binding Selected.Reasoning}" TextWrapping="Wrap" />
+
+                <TextBlock Text="{x:Static res:Strings.FieldTitle}" Style="{StaticResource Text.Label}"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Text.Label}" />
+                <DatePicker SelectedDate="{Binding EditDueDate}" />
+
+                <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Text.Label}" />
+                <TextBox Text="{Binding EditProjectName, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Text="{x:Static res:Strings.Column}" Style="{StaticResource Text.Label}" />
+                <ComboBox ItemsSource="{Binding ColumnChoices}" DisplayMemberPath="Name"
+                          SelectedValuePath="Id" SelectedValue="{Binding EditColumnId}" />
+
+                <TextBlock Text="{x:Static res:Strings.MorningMergeTarget}" Style="{StaticResource Text.Label}" />
+                <ComboBox ItemsSource="{Binding MergeTargets}" DisplayMemberPath="Display"
+                          SelectedValuePath="Id" SelectedValue="{Binding EditMergeTargetId}" />
+
+                <Button Content="{x:Static res:Strings.MorningRegister}" Style="{StaticResource Btn.Primary}"
+                        Command="{Binding RegisterCommand}" Margin="{StaticResource Gap.Top.4}" HorizontalAlignment="Stretch" />
+                <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.2}">
+                  <Button Content="{x:Static res:Strings.MorningMerge}" Style="{StaticResource Btn.Ghost}"
+                          Command="{Binding MergeCommand}" />
+                  <Button Content="{x:Static res:Strings.MorningPostpone}" Style="{StaticResource Btn.Ghost}"
+                          Command="{Binding PostponeCommand}" Margin="{StaticResource Gap.Left.2}" />
+                  <Button Content="{x:Static res:Strings.MorningReject}" Style="{StaticResource Btn.Ghost}"
+                          Command="{Binding RejectCommand}" Margin="{StaticResource Gap.Left.2}" />
+                </StackPanel>
+                <TextBlock Text="{Binding KeyHint}" Style="{StaticResource Text.Hint}" Margin="{StaticResource Gap.Top.2}" />
+              </StackPanel>
+            </ScrollViewer>
           </DataTemplate>
-        </ListBox.ItemTemplate>
-      </ListBox>
+        </ContentControl.Resources>
+      </ContentControl>
 
-      <!-- 1 件の詳細と編集 -->
-      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="{StaticResource Gap.Left.2}"
-                    DataContext="{Binding}"
-                    Visibility="{Binding Selected, Converter={StaticResource NullToVisibility}}">
+      <!-- 右カラム。このタスクでは候補キューだけ。プランの 4 区分は Task 5 で足す。 -->
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="{StaticResource Gap.Left.4}">
         <StackPanel>
-          <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Text.Label}" />
-          <TextBlock Text="{Binding PositionText}" Style="{StaticResource Text.Caption}" />
-
-          <TextBlock Text="{Binding Selected.From}" Style="{StaticResource Text.Caption}"
-                     Margin="{StaticResource Gap.Top.4}" />
-          <TextBlock Text="{Binding Selected.ReceivedText}" Style="{StaticResource Text.Caption}" />
-
-          <TextBlock Text="{x:Static res:Strings.MorningEvidence}" Style="{StaticResource Text.Label}"
-                     Margin="{StaticResource Gap.Top.4}" />
-          <TextBlock Text="{Binding Selected.Evidence}" TextWrapping="Wrap" />
-          <Button Content="{x:Static res:Strings.MorningOpenSource}" Style="{StaticResource Btn.Ghost}"
-                  HorizontalAlignment="Left" Command="{Binding OpenLinkCommand}"
-                  Visibility="{Binding Selected.HasLink, Converter={StaticResource BoolToVisibility}}" />
-
-          <TextBlock Text="{x:Static res:Strings.MorningReasoning}" Style="{StaticResource Text.Label}"
-                     Margin="{StaticResource Gap.Top.4}" />
-          <TextBlock Text="{Binding Selected.Reasoning}" TextWrapping="Wrap" />
-
-          <TextBlock Text="{x:Static res:Strings.FieldTitle}" Style="{StaticResource Text.Label}"
-                     Margin="{StaticResource Gap.Top.4}" />
-          <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}" />
-
-          <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Text.Label}" />
-          <DatePicker SelectedDate="{Binding EditDueDate}" />
-
-          <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Text.Label}" />
-          <TextBox Text="{Binding EditProjectName, UpdateSourceTrigger=PropertyChanged}" />
-
-          <TextBlock Text="{x:Static res:Strings.Column}" Style="{StaticResource Text.Label}" />
-          <ComboBox ItemsSource="{Binding ColumnChoices}" DisplayMemberPath="Name"
-                    SelectedValuePath="Id" SelectedValue="{Binding EditColumnId}" />
-
-          <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
-            <Button Content="{x:Static res:Strings.MorningRegister}" Style="{StaticResource Btn.Primary}"
-                    Command="{Binding RegisterCommand}" />
-            <Button Content="{x:Static res:Strings.MorningMerge}" Style="{StaticResource Btn.Ghost}"
-                    Command="{Binding MergeCommand}" Margin="{StaticResource Gap.Left.2}"
-                    Visibility="{Binding Selected.CanMerge, Converter={StaticResource BoolToVisibility}}" />
-            <Button Content="{x:Static res:Strings.MorningPostpone}" Style="{StaticResource Btn.Ghost}"
-                    Command="{Binding PostponeCommand}" />
-            <Button Content="{x:Static res:Strings.MorningReject}" Style="{StaticResource Btn.Ghost}"
-                    Command="{Binding RejectCommand}" />
-          </StackPanel>
+          <!--
+            候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
+            ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
+            白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
+            自分で消し、項目の見た目もここで与える。
+          -->
+          <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
+                   Background="Transparent" BorderThickness="0"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+            <ListBox.ItemContainerStyle>
+              <Style TargetType="ListBoxItem">
+                <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="Template">
+                  <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                      <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
+                              BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
+                              Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
+                        <ContentPresenter />
+                      </Border>
+                      <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                          <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                          <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                        </Trigger>
+                      </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                  </Setter.Value>
+                </Setter>
+              </Style>
+            </ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="0,4">
+                  <TextBlock Text="{Binding Source}" Style="{StaticResource Text.Caption}" />
+                  <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                </StackPanel>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
         </StackPanel>
       </ScrollViewer>
     </Grid>

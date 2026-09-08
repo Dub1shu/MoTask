@@ -182,4 +182,7 @@ public static class Strings
     public static string MorningPostpone => Get(nameof(MorningPostpone));
     public static string MorningReject => Get(nameof(MorningReject));
     public static string MorningRefreshFailedFormat => Get(nameof(MorningRefreshFailedFormat));
+    public static string MorningTaskChoiceFormat => Get(nameof(MorningTaskChoiceFormat));
+    public static string MorningMergeTarget => Get(nameof(MorningMergeTarget));
+    public static string MorningKeyHint => Get(nameof(MorningKeyHint));
 }

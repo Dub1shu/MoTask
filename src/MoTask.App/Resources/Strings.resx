@@ -191,4 +191,7 @@
   <data name="MorningPostpone" xml:space="preserve"><value>あとで</value></data>
   <data name="MorningReject" xml:space="preserve"><value>却下</value></data>
   <data name="MorningRefreshFailedFormat" xml:space="preserve"><value>候補一覧を更新できませんでした: {0}</value></data>
+  <data name="MorningTaskChoiceFormat" xml:space="preserve"><value>{0}（{1}）</value></data>
+  <data name="MorningMergeTarget" xml:space="preserve"><value>統合先</value></data>
+  <data name="MorningKeyHint" xml:space="preserve"><value>T: 登録　E: 統合　X: 却下　L: あとで</value></data>
 </root>

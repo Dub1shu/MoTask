@@ -27,8 +27,8 @@ public sealed class CandidateItemViewModel
     public TriageAction SuggestedAction => _candidate.SuggestedAction;
     public int? SuggestedMergeTaskId => _candidate.SuggestedMergeTaskId;
 
-    /// <summary>統合先が推薦されているときだけ「統合」を出す（選ばせるのは 2 本目の計画）。</summary>
-    public bool CanMerge => _candidate.SuggestedMergeTaskId is not null;
+    /// <summary>統合先が推薦されているか。候補キューの「統合が推奨」バッジに使う（統合できるかは TriagePanelViewModel.CanMerge）。</summary>
+    public bool IsMergeSuggested => _candidate.SuggestedMergeTaskId is not null;
 
     /// <summary>受信時刻は DB に UTC で入っているので現地時刻へ直す。</summary>
     public string ReceivedText => _candidate.ReceivedAt is DateTime at
