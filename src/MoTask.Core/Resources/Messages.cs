@@ -69,4 +69,6 @@ public static class Messages
     public static string CandidateAlreadyDecided => Get(nameof(CandidateAlreadyDecided));
     public static string CandidateNoteHeaderFormat => Get(nameof(CandidateNoteHeaderFormat));
     public static string CandidateNoteFromFormat => Get(nameof(CandidateNoteFromFormat));
+    public static string BulkSkippedFormat => Get(nameof(BulkSkippedFormat));
+    public static string MergeTargetMissing => Get(nameof(MergeTargetMissing));
 }

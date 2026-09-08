@@ -431,6 +431,7 @@ public sealed class MorningService : IMorningService
         var created = await _boardService.CreateTaskAsync(decision.ColumnId, title, ct).ConfigureAwait(false);
         if (!created.IsSuccess) return Result.Fail<TaskItem>(created.Error!);
         var task = created.Value!;
+        var createdWarnings = new List<string>(created.Warnings);
 
         var updated = await _boardService.UpdateTaskAsync(
             new TaskUpdate(task.Id, title, CandidateNote.Format(candidate), project.Value, decision.DueDate), ct)
@@ -449,7 +450,8 @@ public sealed class MorningService : IMorningService
         var warning = await DecideAsync(candidate, TriageStatus.Registered, task.Id,
             HistoryKind.CandidateRegistered, ct).ConfigureAwait(false);
 
-        return Result.Ok(task, warning is null ? null : new[] { warning });
+        if (warning is not null) createdWarnings.Add(warning);
+        return Result.Ok(task, createdWarnings);
     }
 
     public async Task<Result> MergeAsync(int candidateId, int targetTaskId, CancellationToken ct = default)
@@ -560,6 +562,56 @@ public sealed class MorningService : IMorningService
 
         var created = await _boardService.CreateProjectAsync(wanted, ct).ConfigureAwait(false);
         return created.IsSuccess ? Result.Ok<int?>(created.Value!.Id) : Result.Fail<int?>(created.Error!);
+    }
+
+    // ---------- 一括 ----------
+
+    /// <summary>
+    /// 既存の 4 アクションを順に呼ぶだけ（仕様 §5）。各アクションが呼び出しごとにゲートを取るので、
+    /// ここ自身はゲートを取らない（取ると中の IBoardService でデッドロックする）。
+    /// 1 件失敗しても止めず、見送り理由を積んで次へ進む。全件見送りでも Result は成功。
+    /// </summary>
+    public Task<Result<BulkOutcome>> ApplySuggestionsAsync(int runId, int registerColumnId, CancellationToken ct = default)
+        => RunBulkAsync(runId, candidate => candidate.SuggestedAction switch
+        {
+            TriageAction.Register => RegisterBySuggestionAsync(candidate, registerColumnId, ct),
+            TriageAction.Merge => candidate.SuggestedMergeTaskId is int target
+                ? MergeAsync(candidate.Id, target, ct)
+                : Task.FromResult(Result.Fail(Messages.MergeTargetMissing)),
+            TriageAction.Later => PostponeAsync(candidate.Id, ct),
+            TriageAction.Reject => RejectAsync(candidate.Id, ct),
+            _ => Task.FromResult(Result.Fail(Messages.CandidateAlreadyDecided)),
+        }, ct);
+
+    public Task<Result<BulkOutcome>> PostponeAllAsync(int runId, CancellationToken ct = default)
+        => RunBulkAsync(runId, candidate => PostponeAsync(candidate.Id, ct), ct);
+
+    private async Task<Result> RegisterBySuggestionAsync(TriageCandidate candidate, int columnId, CancellationToken ct)
+        => await RegisterAsync(new CandidateDecision(
+            candidate.Id, candidate.Title, candidate.SuggestedDueDate, candidate.SuggestedProject, columnId), ct)
+            .ConfigureAwait(false);
+
+    private async Task<Result<BulkOutcome>> RunBulkAsync(
+        int runId, Func<TriageCandidate, Task<Result>> action, CancellationToken ct)
+    {
+        var queue = await GetQueueAsync(runId, ct).ConfigureAwait(false);
+        var applied = 0;
+        var skipped = new List<string>();
+        var warnings = new List<string>();
+        foreach (var candidate in queue)
+        {
+            var result = await action(candidate).ConfigureAwait(false);
+            if (result.IsSuccess)
+            {
+                applied++;
+                warnings.AddRange(result.Warnings);
+            }
+            else
+            {
+                skipped.Add(string.Format(Messages.BulkSkippedFormat, candidate.Title, result.Error));
+            }
+        }
+        return Result.Ok(new BulkOutcome(applied, skipped), warnings);
     }
 
     // ---------- 補助 ----------

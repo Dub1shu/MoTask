@@ -97,4 +97,6 @@
   <data name="CandidateAlreadyDecided" xml:space="preserve"><value>この候補はもう片づいています</value></data>
   <data name="CandidateNoteHeaderFormat" xml:space="preserve"><value>【{0} から取り込み】</value></data>
   <data name="CandidateNoteFromFormat" xml:space="preserve"><value>差出人: {0}</value></data>
+  <data name="BulkSkippedFormat" xml:space="preserve"><value>{0}: {1}</value></data>
+  <data name="MergeTargetMissing" xml:space="preserve"><value>統合先の推薦がありません</value></data>
 </root>

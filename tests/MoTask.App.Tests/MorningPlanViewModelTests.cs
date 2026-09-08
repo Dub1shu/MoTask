@@ -116,6 +116,32 @@ public class MorningPlanViewModelTests
             Decide(candidateId, TriageStatus.Rejected);
             return Task.FromResult(Result.Ok());
         }
+
+        public Result<BulkOutcome> BulkResult { get; set; } = Result.Ok(new BulkOutcome(0, Array.Empty<string>()));
+
+        public Task<Result<BulkOutcome>> ApplySuggestionsAsync(int runId, int registerColumnId, CancellationToken ct = default)
+        {
+            Calls.Add($"ApplySuggestions:{registerColumnId}");
+            foreach (var candidate in Candidates.Where(c => c.Status == TriageStatus.Pending).ToList())
+            {
+                Decide(candidate.Id, candidate.SuggestedAction switch
+                {
+                    TriageAction.Register => TriageStatus.Registered,
+                    TriageAction.Merge => TriageStatus.Merged,
+                    TriageAction.Later => TriageStatus.Later,
+                    _ => TriageStatus.Rejected,
+                });
+            }
+            return Task.FromResult(BulkResult);
+        }
+
+        public Task<Result<BulkOutcome>> PostponeAllAsync(int runId, CancellationToken ct = default)
+        {
+            Calls.Add("PostponeAll");
+            foreach (var candidate in Candidates.Where(c => c.Status == TriageStatus.Pending).ToList())
+                Decide(candidate.Id, TriageStatus.Later);
+            return Task.FromResult(BulkResult);
+        }
     }
 
     private readonly FakeMorningService _service = new();

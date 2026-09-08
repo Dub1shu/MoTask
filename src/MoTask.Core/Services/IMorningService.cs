@@ -39,4 +39,10 @@ public interface IMorningService
     Task<Result> MergeAsync(int candidateId, int targetTaskId, CancellationToken ct = default);
     Task<Result> PostponeAsync(int candidateId, CancellationToken ct = default);
     Task<Result> RejectAsync(int candidateId, CancellationToken ct = default);
+
+    // 一括（仕様 §5）。既存の 4 アクションを順に呼ぶだけで、1 件の失敗で止まらない
+    /// <summary>キューの候補を SuggestedAction どおりに処理する。登録先は registerColumnId。</summary>
+    Task<Result<BulkOutcome>> ApplySuggestionsAsync(int runId, int registerColumnId, CancellationToken ct = default);
+    /// <summary>キューの候補をすべて「あとで」にする。</summary>
+    Task<Result<BulkOutcome>> PostponeAllAsync(int runId, CancellationToken ct = default);
 }
