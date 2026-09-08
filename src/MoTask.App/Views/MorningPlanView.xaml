@@ -63,8 +63,43 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
 
-      <!-- 候補キュー -->
-      <ListBox Grid.Column="0" ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}">
+      <!--
+        候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
+        ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
+        白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
+        自分で消し、項目の見た目もここで与える。
+      -->
+      <ListBox Grid.Column="0" ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
+               Background="Transparent" BorderThickness="0"
+               ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+        <ListBox.ItemContainerStyle>
+          <Style TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+            <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="ListBoxItem">
+                  <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
+                          BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
+                          Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
+                    <ContentPresenter />
+                  </Border>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                    </Trigger>
+                    <Trigger Property="IsSelected" Value="True">
+                      <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                    </Trigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+          </Style>
+        </ListBox.ItemContainerStyle>
         <ListBox.ItemTemplate>
           <DataTemplate>
             <StackPanel Margin="0,4">
