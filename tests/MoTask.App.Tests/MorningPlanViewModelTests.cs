@@ -3,6 +3,7 @@ using MoTask.App.Resources;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 using NSubstitute;
 using Xunit;
@@ -153,6 +154,7 @@ public class MorningPlanViewModelTests
     {
         // 未着手(1) / 進行中(2) / 完了(3)。完了列は登録先に出さない。
         _boards.GetBoardAsync().Returns(Task.FromResult(Result.Ok(TestBoards.Sample())));
+        _boards.GetProjectsAsync().Returns(Task.FromResult<IReadOnlyList<Project>>(new[] { TestBoards.ProjectA() }));
         _vm = new MorningPlanViewModel(_service, _boards) { OpenPath = _opened.Add };
     }
 
@@ -180,6 +182,15 @@ public class MorningPlanViewModelTests
         Id = 1, Date = new DateOnly(2026, 9, 7), Status = MorningRunStatus.Ingested,
         JobFolder = @"C:\work\morning\0001-2026-09-07", PlanJson = "{\"groups\":[]}",
     };
+
+    /// <summary>TestBoards.Sample のタスク 10 / 12 と、候補 outlook:001 を指すプラン。</summary>
+    private MorningRun IngestedRunWithPlan(string firstThing = "{\"taskId\":10,\"reason\":\"期限が一番近い\"}",
+        string today = "{\"taskId\":10},{\"externalId\":\"outlook:001\"},{\"taskId\":12}")
+    {
+        var run = IngestedRun();
+        run.PlanJson = $"{{\"date\":\"2026-09-07\",\"firstThing\":{firstThing},\"groups\":[{{\"key\":\"today\",\"items\":[{today}]}}]}}";
+        return run;
+    }
 
     [Fact]
     public async Task Load_WithNoRun_OffersToStart()
@@ -333,7 +344,8 @@ public class MorningPlanViewModelTests
         _service.Calls.Should().Contain(call);
         _vm.Candidates.Should().BeEmpty();
         _vm.Selected.Should().BeNull();
-        _vm.HasNoCandidates.Should().BeTrue();
+        _vm.IsPlanReady.Should().BeTrue();
+        _vm.HasNoCandidates.Should().BeFalse("候補はあった。案内文は 0 件の朝だけ");
     }
 
     [Fact]
@@ -491,5 +503,167 @@ public class MorningPlanViewModelTests
         await _vm.LoadAsync();
 
         _vm.LeftPanel.Should().BeNull("実行前・実行中・失敗は上部バーが案内する");
+    }
+
+    [Fact]
+    public async Task Load_WithAnIngestedRunAndNoQueue_ShowsTheFirstThingAndTheGroups()
+    {
+        _service.Current = IngestedRunWithPlan();
+        await _vm.LoadAsync();
+
+        _vm.IsPlanReady.Should().BeTrue();
+        _vm.LeftPanel.Should().BeSameAs(_vm.FirstThing, "候補が無ければ左は『最初にやる1件』（ワイヤー 4b）");
+        _vm.FirstThing.HasFirstThing.Should().BeTrue();
+        _vm.FirstThing.Title.Should().Be("請求先情報を更新する");
+        _vm.FirstThing.Reason.Should().Be("期限が一番近い");
+        _vm.FirstThing.IsFallback.Should().BeFalse();
+        _vm.Sections.Select(s => s.Key).Should().Equal(
+            PlanGroupKey.Today, PlanGroupKey.IfTime, PlanGroupKey.AiReady, PlanGroupKey.Waiting);
+        _vm.Sections[0].Rows.Select(r => r.TaskId).Should().Equal(
+            new int?[] { 10, 12 }, "候補 outlook:001 は取り込まれていないので落ちる");
+        _vm.Sections[0].Rows[0].Caption.Should().Be("顧客A対応 / " + string.Format(Strings.CardDueFormat, 9, 8));
+        _vm.Sections[0].CountText.Should().Be(string.Format(Strings.MorningGroupCountFormat, 2));
+        _vm.Sections[1].IsEmpty.Should().BeTrue();
+        _vm.StatusLine.Should().Be(string.Format(Strings.MorningTriageDoneFormat, 0, 0, 0, 0, 0));
+        _vm.DateHeading.Should().Be(string.Format(Strings.MorningDateHeadingFormat, "9月7日（月）"));
+    }
+
+    [Fact]
+    public async Task Load_WithCandidates_ShowsTheProvisionalPlan()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+
+        _vm.IsTriaging.Should().BeTrue();
+        _vm.StatusLine.Should().Be(string.Format(Strings.MorningTriagingFormat, 1));
+        _vm.FirstThingHeadingText.Should().Be(Strings.MorningFirstThingHeading + Strings.MorningFirstThingProvisional);
+        var row = _vm.Sections[0].Rows.Should().HaveCount(3).And.Subject.ElementAt(1);
+        row.CandidateId.Should().Be(1);
+        row.BadgeText.Should().Be(Strings.MorningRowPendingCandidate);
+        _vm.Sections[0].CountText.Should().Be(string.Format(Strings.MorningGroupCountWithCandidatesFormat, 2, 1));
+        _vm.PendingCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Register_TurnsTheCandidateRowIntoATaskRow_AndSwitchesTheLeftPanel()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        _service.RegisterResult = Result.Ok(new TaskItem { Id = 11 });
+        await _vm.LoadAsync();
+
+        await _vm.Triage.RegisterCommand.ExecuteAsync(null);
+
+        var row = _vm.Sections[0].Rows.Should().HaveCount(3).And.Subject.ElementAt(1);
+        row.TaskId.Should().Be(11, "登録した候補の行はその場で実タスクに解決する（親仕様 §8）");
+        row.BadgeText.Should().Be(Strings.MorningRowNew);
+        _vm.LeftPanel.Should().BeSameAs(_vm.FirstThing, "最後の 1 件を片づけたので切り替わる");
+        _vm.PendingCount.Should().Be(0);
+        _vm.HasNoCandidates.Should().BeFalse("候補はあった。『候補はありませんでした』は 0 件の朝だけ");
+    }
+
+    [Fact]
+    public async Task Reject_RemovesTheRowFromThePlan()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+
+        await _vm.Triage.RejectCommand.ExecuteAsync(null);
+
+        _vm.Sections[0].Rows.Select(r => r.TaskId).Should().Equal(10, 12);
+        _vm.StatusLine.Should().Be(string.Format(Strings.MorningTriageDoneFormat, 1, 0, 0, 1, 0));
+    }
+
+    [Fact]
+    public async Task FirstThing_FallsBackToTheFirstTodayRow_WhenItPointedAtARejectedCandidate()
+    {
+        _service.Current = IngestedRunWithPlan(
+            firstThing: "{\"externalId\":\"outlook:001\",\"reason\":\"今朝の依頼\"}",
+            today: "{\"externalId\":\"outlook:001\"},{\"taskId\":12}");
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+
+        await _vm.Triage.RejectCommand.ExecuteAsync(null);
+
+        _vm.FirstThing.Title.Should().Be("週次レポートを作成する");
+        _vm.FirstThing.IsFallback.Should().BeTrue();
+        _vm.FirstThingHeadingText.Should().Be(Strings.MorningFirstThingHeading + Strings.MorningFirstThingProvisional,
+            "繰り下げたら状態 2 でも（暫定）を付ける");
+    }
+
+    [Fact]
+    public async Task FirstThing_SaysSo_WhenNothingIsLeft()
+    {
+        _service.Current = IngestedRunWithPlan(firstThing: "{\"taskId\":999,\"reason\":\"消えた\"}", today: "");
+        await _vm.LoadAsync();
+
+        _vm.FirstThing.HasFirstThing.Should().BeFalse();
+        _vm.FirstThing.OpenOnBoardCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RunChanged_ToIngestedWithoutCandidates_StillLoadsThePlan()
+    {
+        await _vm.LoadAsync();
+        var run = IngestedRunWithPlan();
+        _service.Current = run;
+
+        _service.Raise(new MorningRun { Id = run.Id, Date = run.Date, Status = MorningRunStatus.Running });
+        _service.Raise(run, candidates: false);
+        await _vm.PendingLoad;
+
+        _vm.Sections[0].Rows.Should().NotBeEmpty("候補 0 件の朝でもプランはある（親仕様 §8）");
+        _vm.LeftPanel.Should().BeSameAs(_vm.FirstThing);
+    }
+
+    [Fact]
+    public async Task OpeningATaskRow_AsksTheWindowToShowItOnTheBoard()
+    {
+        _service.Current = IngestedRunWithPlan();
+        await _vm.LoadAsync();
+        var navigated = new List<int>();
+        _vm.NavigateToTask += (_, id) => navigated.Add(id);
+
+        _vm.Sections[0].Rows[1].OpenCommand.Execute(null);
+        _vm.FirstThing.OpenOnBoardCommand.Execute(null);
+
+        navigated.Should().Equal(12, 10);
+    }
+
+    [Fact]
+    public async Task OpeningACandidateRow_SelectsThatCandidate()
+    {
+        _service.Current = IngestedRunWithPlan(today: "{\"externalId\":\"outlook:002\"},{\"externalId\":\"outlook:001\"}");
+        _service.Candidates.Add(Candidate());
+        _service.Candidates.Add(Candidate(2));
+        await _vm.LoadAsync();
+        _vm.Selected!.CandidateId.Should().Be(1);
+
+        _vm.Sections[0].Rows[0].OpenCommand.Execute(null);
+
+        _vm.Selected!.CandidateId.Should().Be(2);
+        _vm.Triage.Selected!.CandidateId.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Load_SurvivesABoardFailure_WithAnEmptyPlanAndAWarning()
+    {
+        _boards.GetBoardAsync().Returns(Task.FromResult(Result.Fail<Board>("接続できません")));
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+
+        _vm.WarningMessage.Should().Be("接続できません");
+        _vm.Sections[0].Rows.Should().ContainSingle().Which.CandidateId.Should().Be(1, "候補行は盤面が無くても解決できる");
+        _vm.LeftPanel.Should().BeSameAs(_vm.Triage, "仕分けは盤面が無くても動く（仕様 §8）");
+    }
+
+    [Fact]
+    public void CandidateItem_MapsTheSuggestionToABadge()
+    {
+        new CandidateItemViewModel(Candidate(suggested: TriageAction.Merge)).SuggestionText.Should().Be(Strings.MorningSuggestMerge);
+        new CandidateItemViewModel(Candidate(suggested: TriageAction.Reject)).SuggestionText.Should().Be(Strings.MorningSuggestReject);
     }
 }

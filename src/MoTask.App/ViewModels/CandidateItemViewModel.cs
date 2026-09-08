@@ -36,4 +36,16 @@ public sealed class CandidateItemViewModel
         : "";
 
     public string DueText => _candidate.SuggestedDueDate?.ToString("M/d", CultureInfo.InvariantCulture) ?? "";
+
+    /// <summary>候補キューの推奨バッジ（仕様 §7）。SuggestedAction を文言に写すだけ。</summary>
+    public string SuggestionText => _candidate.SuggestedAction switch
+    {
+        TriageAction.Merge => Strings.MorningSuggestMerge,
+        TriageAction.Later => Strings.MorningSuggestLater,
+        TriageAction.Reject => Strings.MorningSuggestReject,
+        _ => Strings.MorningSuggestRegister,
+    };
+
+    /// <summary>差出人／期限の小さな 1 行。</summary>
+    public string Caption => string.Join(" / ", new[] { From, DueText }.Where(s => s.Length > 0));
 }

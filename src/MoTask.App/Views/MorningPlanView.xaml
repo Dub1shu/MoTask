@@ -131,58 +131,156 @@
               </StackPanel>
             </ScrollViewer>
           </DataTemplate>
+
+          <DataTemplate DataType="{x:Type vm:FirstThingViewModel}">
+            <StackPanel>
+              <TextBlock Text="{Binding Heading}" Style="{StaticResource Text.Label}" />
+              <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.4}"
+                         Visibility="{Binding HasFirstThing, Converter={StaticResource BoolToVisibilityInverse}}" />
+              <StackPanel Visibility="{Binding HasFirstThing, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Heading}" TextWrapping="Wrap"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" Margin="{StaticResource Gap.Top.2}"
+                           Visibility="{Binding Reason, Converter={StaticResource NullToVisibility}}" />
+                <Button Content="{x:Static res:Strings.MorningOpenOnBoard}" Style="{StaticResource Btn.Primary}"
+                        Command="{Binding OpenOnBoardCommand}" Margin="{StaticResource Gap.Top.4}" HorizontalAlignment="Left" />
+              </StackPanel>
+            </StackPanel>
+          </DataTemplate>
         </ContentControl.Resources>
       </ContentControl>
 
-      <!-- 右カラム。このタスクでは候補キューだけ。プランの 4 区分は Task 5 で足す。 -->
+      <!-- 右カラム。日付見出し・状況、候補キュー（状態 1）、プラン（01 最初にやる1件 ＋ 02〜05）。 -->
       <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="{StaticResource Gap.Left.4}">
-        <StackPanel>
-          <!--
-            候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
-            ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
-            白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
-            自分で消し、項目の見た目もここで与える。
-          -->
-          <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
-                   Background="Transparent" BorderThickness="0"
-                   ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
-            <ListBox.ItemContainerStyle>
-              <Style TargetType="ListBoxItem">
-                <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
-                <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
-                <Setter Property="Padding" Value="0" />
-                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                <Setter Property="Template">
-                  <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                      <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
-                              BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
-                              Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
-                        <ContentPresenter />
-                      </Border>
-                      <ControlTemplate.Triggers>
-                        <Trigger Property="IsMouseOver" Value="True">
-                          <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="True">
-                          <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
-                        </Trigger>
-                      </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                  </Setter.Value>
-                </Setter>
-              </Style>
-            </ListBox.ItemContainerStyle>
-            <ListBox.ItemTemplate>
+        <StackPanel Visibility="{Binding HasNoPlanYet, Converter={StaticResource BoolToVisibilityInverse}}">
+          <TextBlock Text="{Binding DateHeading}" Style="{StaticResource Text.Section}" />
+          <TextBlock Text="{Binding StatusLine}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.1}" />
+
+          <!-- 候補キュー（状態 1 のみ） -->
+          <StackPanel Visibility="{Binding IsTriaging, Converter={StaticResource BoolToVisibility}}"
+                      Margin="{StaticResource Gap.Top.4}">
+            <TextBlock Text="{x:Static res:Strings.MorningQueueHeading}" Style="{StaticResource Text.Label}" />
+            <!--
+              候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
+              ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
+              白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
+              自分で消し、項目の見た目もここで与える。
+            -->
+            <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
+                     Background="Transparent" BorderThickness="0" Margin="{StaticResource Gap.Top.2}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                  <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
+                  <Setter Property="Padding" Value="0" />
+                  <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                  <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                  <Setter Property="Template">
+                    <Setter.Value>
+                      <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
+                                BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
+                                Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
+                          <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                          </Trigger>
+                          <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Setter.Value>
+                  </Setter>
+                </Style>
+              </ListBox.ItemContainerStyle>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel Margin="0,2">
+                    <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
+                            CornerRadius="3" VerticalAlignment="Top">
+                      <TextBlock Text="{Binding SuggestionText}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+                    </Border>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Source}" Style="{StaticResource Text.Caption}" />
+                      <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Caption}" Style="{StaticResource Text.Caption}" />
+                    </StackPanel>
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+          <TextBlock Text="{x:Static res:Strings.MorningNoCandidates}" Style="{StaticResource Text.Caption}"
+                     Margin="{StaticResource Gap.Top.4}"
+                     Visibility="{Binding HasNoCandidates, Converter={StaticResource BoolToVisibility}}" />
+
+          <!-- プラン: 01 最初にやる1件 ＋ 02〜05 の区分 -->
+          <TextBlock Text="{x:Static res:Strings.MorningPlanHeading}" Style="{StaticResource Text.Label}"
+                     Margin="{StaticResource Gap.Section}" />
+          <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
+                  BorderThickness="1" CornerRadius="8" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
+            <StackPanel DataContext="{Binding}">
+              <TextBlock Text="{Binding FirstThingHeadingText}" Style="{StaticResource Text.Caption}" />
+              <TextBlock Text="{Binding FirstThing.Title}" FontWeight="Medium" TextWrapping="Wrap"
+                         Visibility="{Binding FirstThing.HasFirstThing, Converter={StaticResource BoolToVisibility}}" />
+              <TextBlock Text="{Binding FirstThing.EmptyText}" Style="{StaticResource Text.Caption}"
+                         Visibility="{Binding FirstThing.HasFirstThing, Converter={StaticResource BoolToVisibilityInverse}}" />
+            </StackPanel>
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding Sections}" Margin="{StaticResource Gap.Top.2}">
+            <ItemsControl.ItemTemplate>
               <DataTemplate>
-                <StackPanel Margin="0,4">
-                  <TextBlock Text="{Binding Source}" Style="{StaticResource Text.Caption}" />
-                  <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                <StackPanel Margin="{StaticResource Gap.Top.4}">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Text.Caption}" />
+                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Text.Label}" />
+                  </DockPanel>
+                  <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Caption}"
+                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                  <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <Button Style="{StaticResource Btn.Ghost}" Command="{Binding OpenCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.1}">
+                          <DockPanel>
+                            <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}"
+                                    Padding="{StaticResource Pad.Chip}" CornerRadius="3" VerticalAlignment="Top"
+                                    Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
+                              <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Text.Caption}"
+                                         Foreground="{StaticResource Brush.Accent}" />
+                            </Border>
+                            <StackPanel>
+                              <TextBlock Text="{Binding Title}" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                  <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </TextBlock.Style>
+                              </TextBlock>
+                              <TextBlock Text="{Binding Caption}" Style="{StaticResource Text.Caption}"
+                                         Visibility="{Binding Caption, Converter={StaticResource NullToVisibility}}" />
+                            </StackPanel>
+                          </DockPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
                 </StackPanel>
               </DataTemplate>
-            </ListBox.ItemTemplate>
-          </ListBox>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
         </StackPanel>
       </ScrollViewer>
     </Grid>

@@ -8,6 +8,7 @@ using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.Core;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 
 namespace MoTask.App.ViewModels;
@@ -28,15 +29,15 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     /// 書き戻すと(共有 DbContext の) 次の SaveChangesAsync が古い状態を復活させてしまうため。
     /// </summary>
     private sealed record RunState(
-        int Id, DateOnly Date, MorningRunStatus Status, string? ErrorMessage, string JobFolder, bool HasPlan)
+        int Id, DateOnly Date, MorningRunStatus Status, string? ErrorMessage, string JobFolder, bool HasPlan, string PlanJson)
     {
         public static RunState From(MorningRun run) => new(
             run.Id, run.Date, run.Status, run.ErrorMessage, run.JobFolder,
-            run.Status == MorningRunStatus.Ingested);
+            run.Status == MorningRunStatus.Ingested, run.PlanJson);
 
         public static RunState From(MorningRunSnapshot snapshot) => new(
             snapshot.RunId, snapshot.Date, snapshot.Status, snapshot.ErrorMessage, snapshot.JobFolder,
-            snapshot.Status == MorningRunStatus.Ingested);
+            snapshot.Status == MorningRunStatus.Ingested, "");
     }
 
     private readonly IMorningService _service;
@@ -55,7 +56,20 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     /// <summary>左パネル・状態 1。生成は 1 度だけで、Show で中身を差し替える。</summary>
     public TriagePanelViewModel Triage { get; }
 
-    /// <summary>左パネルに出す VM。Triage か null（Task 5 で FirstThingViewModel が加わる）。</summary>
+    /// <summary>左パネル・状態 2。</summary>
+    public FirstThingViewModel FirstThing { get; }
+
+    /// <summary>右カラムの 4 区分。PlanGroupKey の順で固定。</summary>
+    public IReadOnlyList<PlanSectionViewModel> Sections { get; }
+
+    /// <summary>ボードへ飛ぶ（「ボードで開く」とタスク行のクリック）。MainWindow が購読する。</summary>
+    public event EventHandler<int>? NavigateToTask;
+
+    private Board? _board;
+    private IReadOnlyList<Project> _projects = Array.Empty<Project>();
+    private TriageSummary _summary = TriageSummary.None;
+
+    /// <summary>左パネルに出す VM。Triage か FirstThing か null。</summary>
     [ObservableProperty] private object? _leftPanel;
 
     [ObservableProperty] private CandidateItemViewModel? _selected;
@@ -64,6 +78,14 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     [ObservableProperty] private bool _isFailed;
     [ObservableProperty] private bool _canControl;
     [ObservableProperty] private bool _hasNoCandidates;
+    [ObservableProperty] private bool _isTriaging;
+    [ObservableProperty] private bool _isPlanReady;
+    [ObservableProperty] private string _dateHeading = "";
+    [ObservableProperty] private string _statusLine = "";
+    /// <summary>右カラムの「01 ／ 最初にやる1件」。仕分け中と繰り下げは「（暫定）」を付ける。</summary>
+    [ObservableProperty] private string _firstThingHeadingText = "";
+    /// <summary>タブのバッジ。候補キューの件数。</summary>
+    [ObservableProperty] private int _pendingCount;
     /// <summary>
     /// 「今日のプランはまだありません」を出すべきか。取り込み済み(Ingested)なら候補が 0 件でも
     /// この朝のプランは存在するので出さない(仕様 §4・§11)。CanStart とは目的が違う値なので
@@ -86,6 +108,8 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             "MorningPlanViewModel は UI スレッドで生成すること。");
 
         Triage = new TriagePanelViewModel(service, AfterDecisionAsync, path => OpenPath(path));
+        FirstThing = new FirstThingViewModel(id => NavigateToTask?.Invoke(this, id));
+        Sections = Enum.GetValues<PlanGroupKey>().Select(key => new PlanSectionViewModel(key, OpenRow)).ToList();
         service.RunChanged += (_, e) => Post(() => OnRunChanged(e));
     }
 
@@ -104,23 +128,35 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 登録先の列（完了以外）と統合先のタスク（完了列と論理削除済み以外）を盤面から作る。
-    /// 盤面の取得に失敗したら選択肢は空のままにして、画面そのものは出す。
+    /// 盤面とプロジェクトを読み、登録先の列（完了以外）と統合先のタスク（完了列と論理削除済み以外）を
+    /// Triage に渡す。盤面の取得に失敗したら理由を警告に出し、盤面なしで続ける（候補の仕分けは
+    /// 盤面が無くても動く・仕様 §8）。
     /// </summary>
-    private async Task LoadBoardChoicesAsync()
+    private async Task LoadBoardAsync()
     {
         var board = await _boardService.GetBoardAsync().ConfigureAwait(true);
-        if (!board.IsSuccess) return;
-        var columns = board.Value!.Columns.Where(c => c.Role != ColumnRole.Done).OrderBy(c => c.Order).ToList();
+        if (!board.IsSuccess)
+        {
+            _board = null;
+            WarningMessage = board.Error;
+            Triage.SetChoices(Array.Empty<ColumnChoice>(), Array.Empty<TaskChoice>());
+            return;
+        }
+        _board = board.Value!;
+        _projects = await _boardService.GetProjectsAsync().ConfigureAwait(true);
+        var columns = _board.Columns.Where(c => c.Role != ColumnRole.Done).OrderBy(c => c.Order).ToList();
         Triage.SetChoices(
             columns.Select(c => new ColumnChoice(c.Id, c.Name)),
             columns.SelectMany(c => c.Tasks.Where(t => !t.IsDeleted).OrderBy(t => t.Position)
                 .Select(t => new TaskChoice(t.Id, t.Title, c.Name))));
     }
 
+    private string? ProjectName(int? projectId)
+        => projectId is int id ? _projects.FirstOrDefault(p => p.Id == id)?.Name : null;
+
     private async Task ReloadQueueAsync()
     {
-        await LoadBoardChoicesAsync().ConfigureAwait(true);
+        await LoadBoardAsync().ConfigureAwait(true);
         var previous = Selected?.CandidateId;
         Candidates.Clear();
         if (_run is not null)
@@ -128,7 +164,37 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             foreach (var candidate in await _service.GetQueueAsync(_run.Id).ConfigureAwait(true))
                 Candidates.Add(new CandidateItemViewModel(candidate));
         }
+        await ResolvePlanAsync().ConfigureAwait(true);
         Select(Candidates.FirstOrDefault(c => c.CandidateId == previous) ?? Candidates.FirstOrDefault());
+    }
+
+    /// <summary>
+    /// PlanJson を行に解決する（仕様 §4・§6）。仕分けの 1 件ごとに呼ばれるので、登録した候補の行は
+    /// その場で実タスクに変わり、却下した行は消える。取り込み前は空のプラン。
+    /// </summary>
+    private async Task ResolvePlanAsync()
+    {
+        ResolvedPlan plan;
+        if (_run is { Status: MorningRunStatus.Ingested } run)
+        {
+            var candidates = await _service.GetCandidatesOfRunAsync(run.Id).ConfigureAwait(true);
+            plan = MorningPlanResolver.Resolve(run.PlanJson, candidates, _board, ProjectName);
+        }
+        else
+        {
+            plan = ResolvedPlan.Empty(TriageSummary.None);
+        }
+        _summary = plan.Summary;
+        FirstThing.Update(plan);
+        for (var i = 0; i < Sections.Count; i++) Sections[i].Update(plan.Groups[i]);
+    }
+
+    /// <summary>タスク行はボードへ、候補行は候補キューの選択へ。</summary>
+    private void OpenRow(PlanRowViewModel row)
+    {
+        if (row.TaskId is int taskId) NavigateToTask?.Invoke(this, taskId);
+        else if (row.CandidateId is int candidateId)
+            Select(Candidates.FirstOrDefault(c => c.CandidateId == candidateId) ?? Selected);
     }
 
     private void Select(CandidateItemViewModel? candidate)
@@ -148,7 +214,6 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private void UpdateCounters()
     {
         var ingested = _run is { Status: MorningRunStatus.Ingested };
-        HasNoCandidates = Candidates.Count == 0 && ingested;
         CanStart = _run is null || (_run.Status.IsTerminal() && Candidates.Count == 0);
         IsRunning = _run is not null && _run.Status.IsActive();
         IsFailed = _run is { Status: MorningRunStatus.Failed };
@@ -162,13 +227,29 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             ? ""
             : string.Format(Strings.MorningLastRunFormat, _run.Date.ToString("M/d", CultureInfo.InvariantCulture));
         ErrorMessage = IsFailed ? _run!.ErrorMessage : ErrorMessage;
-        LeftPanel = ingested && Candidates.Count > 0 ? Triage : null;
+        HasNoCandidates = ingested && _summary.Total == 0 && Candidates.Count == 0;
+        IsTriaging = ingested && Candidates.Count > 0;
+        IsPlanReady = ingested && Candidates.Count == 0;
+        LeftPanel = IsTriaging ? Triage : IsPlanReady ? FirstThing : null;
+        PendingCount = Candidates.Count;
+        DateHeading = _run is null
+            ? ""
+            : string.Format(Strings.MorningDateHeadingFormat, _run.Date.ToString("M月d日（ddd）", new CultureInfo("ja-JP")));
+        StatusLine = IsTriaging
+            ? string.Format(Strings.MorningTriagingFormat, Candidates.Count)
+            : IsPlanReady
+                ? string.Format(Strings.MorningTriageDoneFormat,
+                    _summary.Total, _summary.Registered, _summary.Merged, _summary.Rejected, _summary.Later)
+                : "";
+        FirstThingHeadingText = Strings.MorningFirstThingHeading
+            + (IsTriaging || FirstThing.IsFallback ? Strings.MorningFirstThingProvisional : "");
     }
 
     private void OnRunChanged(MorningRunChangedEventArgs e)
     {
         if (_run is not null && _run.Id != e.Run.RunId) return;
         WarningMessage = e.Warning ?? WarningMessage;
+        var wasTerminal = _run is not null && _run.Status.IsTerminal();
         if (_run is not null)
         {
             // 実行の状態遷移は Pending/Running → 終了状態の一方向で、終了状態から後戻りする遷移は
@@ -192,7 +273,8 @@ public sealed partial class MorningPlanViewModel : ObservableObject
             _run = RunState.From(e.Run);
         }
         UpdateCounters();
-        if (e.CandidatesChanged) PendingLoad = RefreshAsync();
+        var becameIngested = !wasTerminal && e.Run.Status == MorningRunStatus.Ingested;
+        if (e.CandidatesChanged || becameIngested) PendingLoad = RefreshAsync();
     }
 
     /// <summary>

@@ -194,4 +194,27 @@
   <data name="MorningTaskChoiceFormat" xml:space="preserve"><value>{0}（{1}）</value></data>
   <data name="MorningMergeTarget" xml:space="preserve"><value>統合先</value></data>
   <data name="MorningKeyHint" xml:space="preserve"><value>T: 登録　E: 統合　X: 却下　L: あとで</value></data>
+  <data name="MorningFirstThingHeading" xml:space="preserve"><value>01 ／ 最初にやる1件</value></data>
+  <data name="MorningFirstThingProvisional" xml:space="preserve"><value>（暫定）</value></data>
+  <data name="MorningNoFirstThing" xml:space="preserve"><value>最初にやる1件はありません</value></data>
+  <data name="MorningOpenOnBoard" xml:space="preserve"><value>ボードで開く</value></data>
+  <data name="MorningDateHeadingFormat" xml:space="preserve"><value>{0} の実行プラン</value></data>
+  <data name="MorningTriagingFormat" xml:space="preserve"><value>候補 {0} 件を仕分け中 — 終わるとプランが確定します</value></data>
+  <data name="MorningTriageDoneFormat" xml:space="preserve"><value>仕分け完了　候補 {0} 件 → 登録 {1}・統合 {2}・却下 {3}・あとで {4}</value></data>
+  <data name="MorningQueueHeading" xml:space="preserve"><value>候補キュー</value></data>
+  <data name="MorningPlanHeading" xml:space="preserve"><value>プラン</value></data>
+  <data name="MorningGroupToday" xml:space="preserve"><value>02 ／ 今日中</value></data>
+  <data name="MorningGroupIfTime" xml:space="preserve"><value>03 ／ 余裕があれば</value></data>
+  <data name="MorningGroupAiReady" xml:space="preserve"><value>04 ／ AI 準備完了</value></data>
+  <data name="MorningGroupWaiting" xml:space="preserve"><value>05 ／ 待ち</value></data>
+  <data name="MorningGroupCountFormat" xml:space="preserve"><value>{0} 件</value></data>
+  <data name="MorningGroupCountWithCandidatesFormat" xml:space="preserve"><value>{0} 件（+候補 {1} 件）</value></data>
+  <data name="MorningGroupEmpty" xml:space="preserve"><value>なし</value></data>
+  <data name="MorningRowNew" xml:space="preserve"><value>新規</value></data>
+  <data name="MorningRowMerged" xml:space="preserve"><value>統合</value></data>
+  <data name="MorningRowPendingCandidate" xml:space="preserve"><value>仕分け待ち</value></data>
+  <data name="MorningSuggestRegister" xml:space="preserve"><value>登録が推奨</value></data>
+  <data name="MorningSuggestMerge" xml:space="preserve"><value>統合が推奨</value></data>
+  <data name="MorningSuggestLater" xml:space="preserve"><value>あとでが推奨</value></data>
+  <data name="MorningSuggestReject" xml:space="preserve"><value>却下が推奨</value></data>
 </root>

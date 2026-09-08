@@ -185,4 +185,27 @@ public static class Strings
     public static string MorningTaskChoiceFormat => Get(nameof(MorningTaskChoiceFormat));
     public static string MorningMergeTarget => Get(nameof(MorningMergeTarget));
     public static string MorningKeyHint => Get(nameof(MorningKeyHint));
+    public static string MorningFirstThingHeading => Get(nameof(MorningFirstThingHeading));
+    public static string MorningFirstThingProvisional => Get(nameof(MorningFirstThingProvisional));
+    public static string MorningNoFirstThing => Get(nameof(MorningNoFirstThing));
+    public static string MorningOpenOnBoard => Get(nameof(MorningOpenOnBoard));
+    public static string MorningDateHeadingFormat => Get(nameof(MorningDateHeadingFormat));
+    public static string MorningTriagingFormat => Get(nameof(MorningTriagingFormat));
+    public static string MorningTriageDoneFormat => Get(nameof(MorningTriageDoneFormat));
+    public static string MorningQueueHeading => Get(nameof(MorningQueueHeading));
+    public static string MorningPlanHeading => Get(nameof(MorningPlanHeading));
+    public static string MorningGroupToday => Get(nameof(MorningGroupToday));
+    public static string MorningGroupIfTime => Get(nameof(MorningGroupIfTime));
+    public static string MorningGroupAiReady => Get(nameof(MorningGroupAiReady));
+    public static string MorningGroupWaiting => Get(nameof(MorningGroupWaiting));
+    public static string MorningGroupCountFormat => Get(nameof(MorningGroupCountFormat));
+    public static string MorningGroupCountWithCandidatesFormat => Get(nameof(MorningGroupCountWithCandidatesFormat));
+    public static string MorningGroupEmpty => Get(nameof(MorningGroupEmpty));
+    public static string MorningRowNew => Get(nameof(MorningRowNew));
+    public static string MorningRowMerged => Get(nameof(MorningRowMerged));
+    public static string MorningRowPendingCandidate => Get(nameof(MorningRowPendingCandidate));
+    public static string MorningSuggestRegister => Get(nameof(MorningSuggestRegister));
+    public static string MorningSuggestMerge => Get(nameof(MorningSuggestMerge));
+    public static string MorningSuggestLater => Get(nameof(MorningSuggestLater));
+    public static string MorningSuggestReject => Get(nameof(MorningSuggestReject));
 }
