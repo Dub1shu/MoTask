@@ -136,6 +136,22 @@ public class TriagePanelViewModelTests
     }
 
     [Fact]
+    public async Task RunAsync_Reject_IgnoresARepeatWhileTheFirstCallIsStillRunning()
+    {
+        var tcs = new TaskCompletionSource<Result>();
+        _service.RejectAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(tcs.Task);
+        _panel.Show(Candidate(), 0, 1);
+
+        var first = _panel.RunAsync(TriageKeyAction.Reject);
+        var second = _panel.RunAsync(TriageKeyAction.Reject);
+        tcs.SetResult(Result.Ok());
+        await Task.WhenAll(first, second);
+
+        await _service.Received(1).RejectAsync(1, Arg.Any<CancellationToken>());
+        _decisions.Should().ContainSingle();
+    }
+
+    [Fact]
     public void OpenLink_OpensTheCandidateLink()
     {
         _panel.Show(Candidate(), 0, 1);

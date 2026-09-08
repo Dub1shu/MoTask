@@ -112,15 +112,21 @@ public sealed partial class TriagePanelViewModel : ObservableObject
         await _afterDecision(await _service.RejectAsync(Selected.CandidateId).ConfigureAwait(true)).ConfigureAwait(true);
     }
 
-    /// <summary>キーからの操作。統合は統合先が選ばれているときだけ（ボタンと同じ）。</summary>
+    /// <summary>
+    /// キーからの操作。ボタンと同じガードを通す（統合は統合先が選ばれているときだけ、実行中の二重起動なし）。
+    /// AsyncRelayCommand.ExecuteAsync は CanExecute を見ないので、ここで先に確認する
+    /// （キーリピートや連打で RejectAsync 等が多重に走らないように）。
+    /// </summary>
     public Task RunAsync(TriageKeyAction action) => action switch
     {
-        TriageKeyAction.Register => RegisterCommand.ExecuteAsync(null),
-        TriageKeyAction.Merge => CanMerge ? MergeCommand.ExecuteAsync(null) : Task.CompletedTask,
-        TriageKeyAction.Reject => RejectCommand.ExecuteAsync(null),
-        TriageKeyAction.Postpone => PostponeCommand.ExecuteAsync(null),
+        TriageKeyAction.Register => RunIfAllowed(RegisterCommand),
+        TriageKeyAction.Merge => RunIfAllowed(MergeCommand),
+        TriageKeyAction.Reject => RunIfAllowed(RejectCommand),
+        TriageKeyAction.Postpone => RunIfAllowed(PostponeCommand),
         _ => Task.CompletedTask,
     };
+
+    private static Task RunIfAllowed(IAsyncRelayCommand command) => command.CanExecute(null) ? command.ExecuteAsync(null) : Task.CompletedTask;
 
     [RelayCommand]
     private void OpenLink()

@@ -142,7 +142,9 @@ public partial class MainWindow : Window
 
         if (MorningHost.Visibility == Visibility.Visible)
         {
-            if (_morning.LeftPanel is TriagePanelViewModel triage
+            // OS のキーリピートで押しっぱなしのまま多重実行しないよう、リピートは無視する。
+            if (!e.IsRepeat
+                && _morning.LeftPanel is TriagePanelViewModel triage
                 && MorningKeyMap.Resolve(e.Key, Keyboard.Modifiers) is { } action)
             {
                 e.Handled = true;
