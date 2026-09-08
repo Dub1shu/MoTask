@@ -52,4 +52,10 @@ public sealed class MorningRepository : IMorningRepository
                         || (c.MorningRunId != runId && c.Status == TriageStatus.Later))
             .OrderBy(c => c.Id)
             .ToListAsync(ct);
+
+    public async Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default)
+        => await _db.TriageCandidates
+            .Where(c => c.MorningRunId == runId)
+            .OrderBy(c => c.Id)
+            .ToListAsync(ct);
 }

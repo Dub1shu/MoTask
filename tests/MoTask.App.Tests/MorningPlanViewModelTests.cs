@@ -11,13 +11,17 @@ namespace MoTask.App.Tests;
 
 public class MorningPlanViewModelTests
 {
-    /// <summary>呼ばれた操作を記録するだけの偽サービス。</summary>
+    /// <summary>
+    /// 呼ばれた操作を記録する偽サービス。候補は全状態を 1 つのリストに持ち、キューは実リポジトリと
+    /// 同じ規則（この実行の Pending ＋ 他の実行の Later）で計算する。4 アクションは実サービスと同じく
+    /// Status / ResultTaskId を書き換える（そうしないと「登録した行が実タスクに変わる」を試せない）。
+    /// </summary>
     private sealed class FakeMorningService : IMorningService
     {
         public event EventHandler<MorningRunChangedEventArgs>? RunChanged;
 
         public MorningRun? Current { get; set; }
-        public List<TriageCandidate> Queue { get; } = new();
+        public List<TriageCandidate> Candidates { get; } = new();
         public List<string> Calls { get; } = new();
         public Result<MorningRun> StartResult { get; set; } = Result.Ok(new MorningRun());
         public Result<TaskItem> RegisterResult { get; set; } = Result.Ok(new TaskItem { Id = 1 });
@@ -42,7 +46,14 @@ public class MorningPlanViewModelTests
         }
 
         public Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<TriageCandidate>>(Queue.ToList());
+            => Task.FromResult<IReadOnlyList<TriageCandidate>>(Candidates
+                .Where(c => (c.MorningRunId == runId && c.Status == TriageStatus.Pending)
+                            || (c.MorningRunId != runId && c.Status == TriageStatus.Later))
+                .OrderBy(c => c.Id).ToList());
+
+        public Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<TriageCandidate>>(
+                Candidates.Where(c => c.MorningRunId == runId).OrderBy(c => c.Id).ToList());
 
         public Task<IReadOnlyList<string>> GetLogTailAsync(int runId, int lines, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<string>>(Array.Empty<string>());
@@ -70,32 +81,39 @@ public class MorningPlanViewModelTests
 
         public Task RecoverOnStartupAsync(CancellationToken ct = default) => Task.CompletedTask;
 
+        private void Decide(int candidateId, TriageStatus status, int? resultTaskId = null)
+        {
+            var candidate = Candidates.Single(c => c.Id == candidateId);
+            candidate.Status = status;
+            candidate.ResultTaskId = resultTaskId;
+        }
+
         public Task<Result<TaskItem>> RegisterAsync(CandidateDecision decision, CancellationToken ct = default)
         {
             Calls.Add("Register");
             LastDecision = decision;
-            if (RegisterResult.IsSuccess) Queue.RemoveAll(c => c.Id == decision.CandidateId);
+            if (RegisterResult.IsSuccess) Decide(decision.CandidateId, TriageStatus.Registered, RegisterResult.Value!.Id);
             return Task.FromResult(RegisterResult);
         }
 
         public Task<Result> MergeAsync(int candidateId, int targetTaskId, CancellationToken ct = default)
         {
             Calls.Add($"Merge:{targetTaskId}");
-            Queue.RemoveAll(c => c.Id == candidateId);
+            Decide(candidateId, TriageStatus.Merged, targetTaskId);
             return Task.FromResult(Result.Ok());
         }
 
         public Task<Result> PostponeAsync(int candidateId, CancellationToken ct = default)
         {
             Calls.Add("Postpone");
-            Queue.RemoveAll(c => c.Id == candidateId);
+            Decide(candidateId, TriageStatus.Later);
             return Task.FromResult(Result.Ok());
         }
 
         public Task<Result> RejectAsync(int candidateId, CancellationToken ct = default)
         {
             Calls.Add("Reject");
-            Queue.RemoveAll(c => c.Id == candidateId);
+            Decide(candidateId, TriageStatus.Rejected);
             return Task.FromResult(Result.Ok());
         }
     }
@@ -152,8 +170,8 @@ public class MorningPlanViewModelTests
     public async Task Load_WithCandidates_SelectsTheFirstAndFillsTheEditor()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
-        _service.Queue.Add(Candidate(2));
+        _service.Candidates.Add(Candidate());
+        _service.Candidates.Add(Candidate(2));
 
         await _vm.LoadAsync();
 
@@ -214,8 +232,8 @@ public class MorningPlanViewModelTests
     public async Task Register_PassesTheEditedValues_AndMovesToTheNextCandidate()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
-        _service.Queue.Add(Candidate(2));
+        _service.Candidates.Add(Candidate());
+        _service.Candidates.Add(Candidate(2));
         await _vm.LoadAsync();
         _vm.EditTitle = "書き換えた題名";
         _vm.EditDueDate = new DateTime(2026, 9, 10);
@@ -235,7 +253,7 @@ public class MorningPlanViewModelTests
     public async Task Register_KeepsTheCandidate_WhenTheServiceFails()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
         _service.RegisterResult = Result.Fail<TaskItem>("列が見つかりません");
 
@@ -249,7 +267,7 @@ public class MorningPlanViewModelTests
     public async Task Merge_UsesTheSuggestedTarget()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate(suggested: TriageAction.Merge));
+        _service.Candidates.Add(Candidate(suggested: TriageAction.Merge));
         await _vm.LoadAsync();
 
         _vm.Selected!.CanMerge.Should().BeTrue();
@@ -262,7 +280,7 @@ public class MorningPlanViewModelTests
     public async Task Merge_IsNotOfferedWithoutASuggestedTarget()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
 
         _vm.Selected!.CanMerge.Should().BeFalse("統合先が無ければ 2 本目の計画で選ばせる。今は出さない");
@@ -274,7 +292,7 @@ public class MorningPlanViewModelTests
     public async Task PostponeAndReject_TakeTheCandidateOutOfTheQueue(string call)
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
 
         if (call == "Postpone") await _vm.PostponeCommand.ExecuteAsync(null);
@@ -290,7 +308,7 @@ public class MorningPlanViewModelTests
     public async Task OpenLink_OpensTheCandidateLink()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
 
         _vm.OpenLinkCommand.Execute(null);
@@ -369,7 +387,7 @@ public class MorningPlanViewModelTests
         await _vm.LoadAsync();
         var run = IngestedRun();
         _service.Current = run;
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
 
         _service.Raise(run, candidates: true);
         await _vm.PendingLoad;
@@ -381,7 +399,7 @@ public class MorningPlanViewModelTests
     public async Task ErrorMessage_ClearsOnTheNextSuccessfulAction()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
         _service.RegisterResult = Result.Fail<TaskItem>("列が見つかりません");
         await _vm.RegisterCommand.ExecuteAsync(null);
@@ -396,7 +414,7 @@ public class MorningPlanViewModelTests
     public async Task WarningMessage_ClearsOnTheNextSuccessfulDecision()
     {
         _service.Current = IngestedRun();
-        _service.Queue.Add(Candidate());
+        _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
         _service.Raise(IngestedRun(), warning: "5 件のうち 1 件は読み取れませんでした");
         _vm.WarningMessage.Should().Be("5 件のうち 1 件は読み取れませんでした");

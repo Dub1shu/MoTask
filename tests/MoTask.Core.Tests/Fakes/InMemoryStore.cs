@@ -199,6 +199,10 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
                         || (c.MorningRunId != runId && c.Status == TriageStatus.Later))
             .OrderBy(c => c.Id).ToList());
 
+    public Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<TriageCandidate>>(
+            Candidates.Where(c => c.MorningRunId == runId).OrderBy(c => c.Id).ToList());
+
     // ---- IUnitOfWork ----
 
     public Task SaveChangesAsync(CancellationToken ct = default)

@@ -65,6 +65,9 @@ public sealed class MorningService : IMorningService
     public Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default)
         => _gate.RunAsync(() => _runs.GetQueueAsync(runId, ct), ct);
 
+    public Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default)
+        => _gate.RunAsync(() => _runs.GetCandidatesOfRunAsync(runId, ct), ct);
+
     public async Task<IReadOnlyList<string>> GetLogTailAsync(int runId, int lines, CancellationToken ct = default)
     {
         var run = await _gate.RunAsync(() => _runs.GetRunAsync(runId, ct), ct).ConfigureAwait(false);

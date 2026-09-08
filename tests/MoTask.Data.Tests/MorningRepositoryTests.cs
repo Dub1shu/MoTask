@@ -170,6 +170,30 @@ public class MorningRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task GetCandidatesOfRun_ReturnsEveryStatus_ButOnlyThatRun()
+    {
+        await InitAsync();
+        await using var ctx = _db.CreateContext();
+        var repo = new MorningRepository(ctx);
+        var yesterday = NewRun(new DateOnly(2026, 9, 6), MorningRunStatus.Ingested);
+        var today = NewRun(new DateOnly(2026, 9, 7), MorningRunStatus.Ingested);
+        repo.Add(yesterday);
+        repo.Add(today);
+        await ctx.SaveChangesAsync();
+        repo.AddCandidate(NewCandidate(yesterday.Id, "outlook:old", TriageStatus.Later));
+        repo.AddCandidate(NewCandidate(today.Id, "outlook:registered", TriageStatus.Registered));
+        repo.AddCandidate(NewCandidate(today.Id, "outlook:rejected", TriageStatus.Rejected));
+        repo.AddCandidate(NewCandidate(today.Id, "outlook:pending"));
+        await ctx.SaveChangesAsync();
+
+        var all = await repo.GetCandidatesOfRunAsync(today.Id);
+
+        all.Select(c => c.ExternalId).Should().Equal(
+            new[] { "outlook:registered", "outlook:rejected", "outlook:pending" },
+            "解決には決着済みの候補も要る。他の実行の候補は含めない");
+    }
+
+    [Fact]
     public async Task GetUnfinishedRun_FindsOnlyPendingOrRunning()
     {
         await InitAsync();

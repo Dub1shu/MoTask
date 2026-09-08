@@ -17,6 +17,10 @@ public interface IMorningService
     // 照会
     Task<MorningRun?> GetCurrentRunAsync(CancellationToken ct = default);
     Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default);
+
+    /// <summary>この実行の候補を状態を問わず。プランの解決に使う（仕様 §5）。</summary>
+    Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default);
+
     /// <summary>events.jsonl の末尾。進行の表示に使う(DB には持たない)。</summary>
     Task<IReadOnlyList<string>> GetLogTailAsync(int runId, int lines, CancellationToken ct = default);
     /// <summary>記憶しているターン数。追跡していなければ 0。</summary>
