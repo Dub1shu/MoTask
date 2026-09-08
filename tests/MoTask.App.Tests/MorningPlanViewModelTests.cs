@@ -82,11 +82,17 @@ public class MorningPlanViewModelTests
 
         public Task RecoverOnStartupAsync(CancellationToken ct = default) => Task.CompletedTask;
 
+        /// <summary>
+        /// 実サービス(MorningService.DecideAsync)と同じく、候補を書き換えたら RunChanged
+        /// (candidatesChanged: true) を上げる。これが無いと C1(仕分けのたびにキューが二重になる)を
+        /// 偽サービスで再現できない(finding I2)。
+        /// </summary>
         private void Decide(int candidateId, TriageStatus status, int? resultTaskId = null)
         {
             var candidate = Candidates.Single(c => c.Id == candidateId);
             candidate.Status = status;
             candidate.ResultTaskId = resultTaskId;
+            if (Current is not null) Raise(Current, warning: null, candidates: true);
         }
 
         public Task<Result<TaskItem>> RegisterAsync(CandidateDecision decision, CancellationToken ct = default)
@@ -390,6 +396,27 @@ public class MorningPlanViewModelTests
         _vm.CanControl.Should().BeTrue("『完了にする』『追跡をやめる』を出す");
         _vm.ProgressText.Should().Be(string.Format(Strings.MorningTurnsFormat, 0),
             "仕様 §11『実行中』はターン数を出す");
+    }
+
+    /// <summary>
+    /// finding I3。仕様 §7: 右カラム(候補キュー＋プラン)は実行前・実行中・失敗のときは空にする。
+    /// HasNoPlanYet は取り込み済みなら候補 0 件でも false になるだけの値で、実行中はそれだけでは
+    /// 右カラムを隠せないので、別の HasPlanView で見せる/隠すを決める。
+    /// </summary>
+    [Fact]
+    public async Task HasPlanView_IsFalseWhileRunning_AndTrueOnceIngested()
+    {
+        await _vm.LoadAsync();
+
+        _service.Raise(new MorningRun
+        {
+            Id = 1, Date = new DateOnly(2026, 9, 7), Status = MorningRunStatus.Running,
+        });
+        _vm.HasPlanView.Should().BeFalse("実行中は右カラムを空にする（仕様 §7）");
+
+        _service.Current = IngestedRun();
+        await _vm.LoadAsync();
+        _vm.HasPlanView.Should().BeTrue("取り込み済みなら右カラムを出す");
     }
 
     /// <summary>
@@ -743,5 +770,30 @@ public class MorningPlanViewModelTests
 
         _vm.PendingCount.Should().Be(0);
         _vm.HasPendingCandidates.Should().BeFalse("0 のときはバッジを出さない");
+    }
+
+    /// <summary>
+    /// finding C1 の回帰試験。偽サービスの RejectAsync が候補を書き換えて RunChanged
+    /// (candidatesChanged: true) を上げると、OnRunChanged→RefreshAsync→ReloadQueueAsync
+    /// (R)が、RejectCommand 自身の後始末である AfterDecisionAsync→ReloadQueueAsync(D)より前に
+    /// (仕分け経路の中から再入して)動く。テストでは SynchronizationContext.Current が null なので
+    /// Post はインラインで実行される(それでよい。まず問い合わせてから Clear+Add をまとめて行う
+    /// 順序と、世代番号による古い読み直しの打ち切りが、仕分け経路から再入されたときにも
+    /// 崩れないことを確かめる)。
+    /// </summary>
+    [Fact]
+    public async Task Reject_DoesNotDuplicateTheQueue_WhenTheServiceAlsoRaisesRunChanged()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        _service.Candidates.Add(Candidate(2));
+        await _vm.LoadAsync();
+
+        await _vm.Triage.RejectCommand.ExecuteAsync(null);
+        await _vm.PendingLoad;
+
+        _vm.Candidates.Should().ContainSingle();
+        _vm.PendingCount.Should().Be(1);
+        _vm.Triage.PositionText.Should().Be("1 / 1");
     }
 }

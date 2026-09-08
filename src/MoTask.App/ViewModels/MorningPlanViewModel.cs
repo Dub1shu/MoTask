@@ -45,6 +45,12 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private readonly SynchronizationContext? _ui;
     private RunState? _run;
 
+    /// <summary>重なった <see cref="ReloadQueueAsync"/> の世代。古い方は await から戻った時点で降りる
+    /// (BoardViewModel.ReloadAsync と同じ手筋)。AfterDecisionAsync 自身の読み直しと、
+    /// MorningService.RunChanged 経由の読み直し(OnRunChanged→RefreshAsync)が同じ FIFO
+    /// OperationGate 上で重なりうるので、これが無いと Candidates が二重に積まれる。</summary>
+    private int _reloadGeneration;
+
     /// <summary>リンクや成果物を開く。テストでは差し替える。</summary>
     public Action<string> OpenPath { get; set; } = ShellOpener.Open;
 
@@ -101,6 +107,12 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     /// 分けている(CanStart はボタンの活性、こちらは案内文の要否)。
     /// </summary>
     [ObservableProperty] private bool _hasNoPlanYet;
+    /// <summary>
+    /// 右カラム(候補キュー＋プラン)を出すか。仕様 §7: 実行前・実行中・失敗のときは右カラムを空にする。
+    /// HasNoPlanYet は取り込み済みなら候補 0 件でも false になる値なので、実行中はそれだけでは
+    /// 右カラムを隠せない(finding I3)。ここは「見せる」側の値として持つ。
+    /// </summary>
+    [ObservableProperty] private bool _hasPlanView;
     /// <summary>プラン未生成のときの「前回: 9/5」（仕様 §11）。無ければ空文字。</summary>
     [ObservableProperty] private string _lastRunText = "";
     /// <summary>実行中の進捗。ターン数と直近のツール使用（仕様 §11）。</summary>
@@ -139,11 +151,14 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     /// <summary>
     /// 盤面とプロジェクトを読み、登録先の列（完了以外）と統合先のタスク（完了列と論理削除済み以外）を
     /// Triage に渡す。盤面の取得に失敗したら理由を警告に出し、盤面なしで続ける（候補の仕分けは
-    /// 盤面が無くても動く・仕様 §8）。
+    /// 盤面が無くても動く・仕様 §8）。generation は呼び出し元(ReloadQueueAsync)の世代。await から
+    /// 戻るたびに確かめ、その間に新しい読み直しが始まっていたら以降のフィールド書き換えをやめる
+    /// (このメソッドは ReloadQueueAsync からしか呼ばない)。
     /// </summary>
-    private async Task LoadBoardAsync()
+    private async Task LoadBoardAsync(int generation)
     {
         var board = await _boardService.GetBoardAsync().ConfigureAwait(true);
+        if (generation != _reloadGeneration) return;
         if (!board.IsSuccess)
         {
             _board = null;
@@ -153,6 +168,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         }
         _board = board.Value!;
         _projects = await _boardService.GetProjectsAsync().ConfigureAwait(true);
+        if (generation != _reloadGeneration) return;
         var columns = _board.Columns.Where(c => c.Role != ColumnRole.Done).OrderBy(c => c.Order).ToList();
         Triage.SetChoices(
             columns.Select(c => new ColumnChoice(c.Id, c.Name)),
@@ -163,30 +179,47 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     private string? ProjectName(int? projectId)
         => projectId is int id ? _projects.FirstOrDefault(p => p.Id == id)?.Name : null;
 
+    /// <summary>
+    /// 候補キューとプランの読み直し。AfterDecisionAsync の読み直しと、MorningService.RunChanged
+    /// (candidatesChanged) 経由の読み直し(OnRunChanged→RefreshAsync)が同じ 1 件の仕分けの後に
+    /// どちらも走り、FIFO の OperationGate 上で重なりうる。素朴に Clear() してから
+    /// await で問い合わせると、2 つの読み直しの Clear と Add が入り乱れて候補が二重に積まれるので、
+    /// (a) まずキューを取得してから Clear と Add をまとめて(await を挟まず)行い、(b) 世代番号で
+    /// 古い方の読み直しが新しい方の結果を上書きしないようにする(BoardViewModel.ReloadAsync と同じ手筋)。
+    /// </summary>
     private async Task ReloadQueueAsync()
     {
-        await LoadBoardAsync().ConfigureAwait(true);
+        var generation = ++_reloadGeneration;
+        await LoadBoardAsync(generation).ConfigureAwait(true);
+        if (generation != _reloadGeneration) return;
+
+        var queue = _run is null
+            ? Array.Empty<TriageCandidate>()
+            : await _service.GetQueueAsync(_run.Id).ConfigureAwait(true);
+        if (generation != _reloadGeneration) return;
+
         var previous = Selected?.CandidateId;
         Candidates.Clear();
-        if (_run is not null)
-        {
-            foreach (var candidate in await _service.GetQueueAsync(_run.Id).ConfigureAwait(true))
-                Candidates.Add(new CandidateItemViewModel(candidate));
-        }
-        await ResolvePlanAsync().ConfigureAwait(true);
+        foreach (var candidate in queue) Candidates.Add(new CandidateItemViewModel(candidate));
+
+        await ResolvePlanAsync(generation).ConfigureAwait(true);
+        if (generation != _reloadGeneration) return;
+
         Select(Candidates.FirstOrDefault(c => c.CandidateId == previous) ?? Candidates.FirstOrDefault());
     }
 
     /// <summary>
     /// PlanJson を行に解決する（仕様 §4・§6）。仕分けの 1 件ごとに呼ばれるので、登録した候補の行は
-    /// その場で実タスクに変わり、却下した行は消える。取り込み前は空のプラン。
+    /// その場で実タスクに変わり、却下した行は消える。取り込み前は空のプラン。generation の扱いは
+    /// LoadBoardAsync と同じ(ReloadQueueAsync からしか呼ばない)。
     /// </summary>
-    private async Task ResolvePlanAsync()
+    private async Task ResolvePlanAsync(int generation)
     {
         ResolvedPlan plan;
         if (_run is { Status: MorningRunStatus.Ingested } run)
         {
             var candidates = await _service.GetCandidatesOfRunAsync(run.Id).ConfigureAwait(true);
+            if (generation != _reloadGeneration) return;
             plan = MorningPlanResolver.Resolve(run.PlanJson, candidates, _board, ProjectName);
         }
         else
@@ -208,17 +241,20 @@ public sealed partial class MorningPlanViewModel : ObservableObject
 
     private void Select(CandidateItemViewModel? candidate)
     {
+        // Selected の代入が OnSelectedChanged を呼び、そこで Triage.Show する(候補の参照は読み直しの
+        // たびに新しく作り直すので、ここで選ぶインスタンスは常に前と違う参照になり、確実に呼ばれる)。
+        // ここで重ねて Show を呼ぶと同じ内容を 2 回描き直すだけなので呼ばない。
         Selected = candidate;
-        Triage.Show(candidate, candidate is null ? 0 : Candidates.IndexOf(candidate), Candidates.Count);
         UpdateCounters();
     }
 
-    /// <summary>候補キューで別の 1 件を選んだとき（ListBox の SelectedItem から）。</summary>
+    /// <summary>
+    /// Selected が変わったとき。候補キューの ListBox の SelectedItem からと、Select() からの
+    /// どちらでも呼ばれる(Selected プロパティの代入がトリガーなので)。参照が変わらない代入では
+    /// 呼ばれない(値が同じなら PropertyChanged を上げない、CommunityToolkit.Mvvm の既定の挙動)。
+    /// </summary>
     partial void OnSelectedChanged(CandidateItemViewModel? value)
-    {
-        if (!ReferenceEquals(Triage.Selected, value))
-            Triage.Show(value, value is null ? 0 : Candidates.IndexOf(value), Candidates.Count);
-    }
+        => Triage.Show(value, value is null ? 0 : Candidates.IndexOf(value), Candidates.Count);
 
     private void UpdateCounters()
     {
@@ -240,6 +276,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         IsTriaging = ingested && Candidates.Count > 0;
         IsPlanReady = ingested && Candidates.Count == 0;
         LeftPanel = IsTriaging ? Triage : IsPlanReady ? FirstThing : null;
+        HasPlanView = IsTriaging || IsPlanReady;
         PendingCount = Candidates.Count;
         HasPendingCandidates = Candidates.Count > 0;
         DateHeading = _run is null
@@ -356,14 +393,16 @@ public sealed partial class MorningPlanViewModel : ObservableObject
 
     /// <summary>
     /// Triage の 4 アクションが終わった後。片づいたら次の 1 件へ。失敗したらキューはそのままで理由だけ出す。
-    /// 警告は結果から無条件に写す: 今回は無ければ null にして、前回の警告を居座らせない。
-    /// バナーは操作の前に消す（ClearBanners と同じ意図。Triage は画面のバナーを知らない）。
+    /// バナーは操作の前ではなく、ここ(結果が分かった後)で書き換える。成功なら警告は結果から無条件に
+    /// 写す(今回は無ければ null にして、前回の警告を居座らせない)。失敗ならエラーを出し、警告も
+    /// 一緒に消す(前回の警告を新しいエラーの隣に居座らせない。Triage は画面のバナーを知らない)。
     /// </summary>
     private async Task AfterDecisionAsync(Result result)
     {
         if (!result.IsSuccess)
         {
             ErrorMessage = result.Error;
+            WarningMessage = null;
             return;
         }
         ErrorMessage = null;
@@ -382,6 +421,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         var column = Triage.ColumnChoices.FirstOrDefault();
         if (column is null)
         {
+            ClearBanners();
             ErrorMessage = Strings.MorningBulkNoColumn;
             return;
         }

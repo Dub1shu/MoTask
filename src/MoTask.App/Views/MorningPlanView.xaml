@@ -53,10 +53,6 @@
               Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisibility}}" />
     </StackPanel>
 
-    <TextBlock DockPanel.Dock="Top" Text="{x:Static res:Strings.MorningNoCandidates}"
-               Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.4}"
-               Visibility="{Binding HasNoCandidates, Converter={StaticResource BoolToVisibility}}" />
-
     <Grid Margin="{StaticResource Gap.Top.4}">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="360" />
@@ -152,7 +148,7 @@
 
       <!-- 右カラム。日付見出し・状況、候補キュー（状態 1）、プラン（01 最初にやる1件 ＋ 02〜05）。 -->
       <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="{StaticResource Gap.Left.4}">
-        <StackPanel Visibility="{Binding HasNoPlanYet, Converter={StaticResource BoolToVisibilityInverse}}">
+        <StackPanel Visibility="{Binding HasPlanView, Converter={StaticResource BoolToVisibility}}">
           <TextBlock Text="{Binding DateHeading}" Style="{StaticResource Text.Section}" />
           <TextBlock Text="{Binding StatusLine}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.1}" />
 
@@ -232,7 +228,7 @@
                      Margin="{StaticResource Gap.Section}" />
           <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
                   BorderThickness="1" CornerRadius="8" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
-            <StackPanel DataContext="{Binding}">
+            <StackPanel>
               <TextBlock Text="{Binding FirstThingHeadingText}" Style="{StaticResource Text.Caption}" />
               <TextBlock Text="{Binding FirstThing.Title}" FontWeight="Medium" TextWrapping="Wrap"
                          Visibility="{Binding FirstThing.HasFirstThing, Converter={StaticResource BoolToVisibility}}" />
