@@ -121,13 +121,13 @@ public partial class MainWindow : Window
         tab.Foreground = (Brush)tab.FindResource(active ? "Brush.Accent" : "Brush.TextMuted");
     }
 
-    /// <summary>仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は N/Delete を奪わない。</summary>
+    /// <summary>
+    /// 仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は奪わない。
+    /// 朝の画面では T/E/X/L（仕分け）だけを受け、ボードのキーは渡さない（候補の仕分け中に Delete を
+    /// 押しただけでボードのタスクが消えないように）。
+    /// </summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        // 朝の画面を表示している間は N（新規）と Delete（削除）をボードへ渡さない。
-        // さもないと候補の仕分け中に Delete を押しただけでボードのタスクが消える。
-        if (MorningHost.Visibility == Visibility.Visible && e.Key is Key.N or Key.Delete) return;
-
         if (e.Key == Key.F && Keyboard.Modifiers == ModifierKeys.Control)
         {
             FilterBar.FocusSearch();
@@ -139,6 +139,17 @@ public partial class MainWindow : Window
         // IsEditable を問わず ComboBox は「入力中」として扱う。
         var typing = Keyboard.FocusedElement is TextBoxBase or ComboBox or DatePicker;
         if (typing) return; // インライン編集中の Enter/Esc は各入力欄が処理する
+
+        if (MorningHost.Visibility == Visibility.Visible)
+        {
+            if (_morning.LeftPanel is TriagePanelViewModel triage
+                && MorningKeyMap.Resolve(e.Key, Keyboard.Modifiers) is { } action)
+            {
+                e.Handled = true;
+                _ = RunTriageKeyAsync(triage, action);
+            }
+            return;
+        }
 
         switch (e.Key)
         {
@@ -154,6 +165,19 @@ public partial class MainWindow : Window
                 _vm.CloseDetailCommand.Execute(null);
                 e.Handled = true;
                 break;
+        }
+    }
+
+    /// <summary>誰も待たない Task なので、例外はここで捕まえてバナーへ回す（OnLoaded と同じ考え方）。</summary>
+    private async Task RunTriageKeyAsync(TriagePanelViewModel triage, TriageKeyAction action)
+    {
+        try
+        {
+            await triage.RunAsync(action);
+        }
+        catch (Exception ex)
+        {
+            _vm.ShowBanner(string.Format(CultureInfo.CurrentCulture, Strings.StartupFailedFormat, ex.Message));
         }
     }
 }

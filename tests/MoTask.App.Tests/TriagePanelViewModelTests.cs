@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MoTask.App;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
@@ -110,6 +111,28 @@ public class TriagePanelViewModelTests
         await _service.Received(1).RegisterAsync(
             new CandidateDecision(1, "書き換えた題名", new DateOnly(2026, 9, 10), "別プロジェクト", 2),
             Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_Merge_DoesNothingWithoutATarget()
+    {
+        _panel.Show(Candidate(), 0, 1);
+
+        await _panel.RunAsync(TriageKeyAction.Merge);
+
+        await _service.DidNotReceive().MergeAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RunAsync_Reject_CallsTheService()
+    {
+        _service.RejectAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
+        _panel.Show(Candidate(), 0, 1);
+
+        await _panel.RunAsync(TriageKeyAction.Reject);
+
+        await _service.Received(1).RejectAsync(1, Arg.Any<CancellationToken>());
+        _decisions.Should().ContainSingle();
     }
 
     [Fact]
