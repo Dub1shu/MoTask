@@ -727,4 +727,21 @@ public class MorningPlanViewModelTests
         _vm.ApplySuggestionsCommand.CanExecute(null).Should().BeFalse();
         _vm.PostponeAllCommand.CanExecute(null).Should().BeFalse();
     }
+
+    [Fact]
+    public async Task PendingBadge_FollowsTheQueue()
+    {
+        _service.Current = IngestedRunWithPlan();
+        _service.Candidates.Add(Candidate());
+        _service.Candidates.Add(Candidate(2));
+        await _vm.LoadAsync();
+        _vm.PendingCount.Should().Be(2);
+        _vm.HasPendingCandidates.Should().BeTrue();
+
+        await _vm.Triage.RejectCommand.ExecuteAsync(null);
+        await _vm.Triage.RejectCommand.ExecuteAsync(null);
+
+        _vm.PendingCount.Should().Be(0);
+        _vm.HasPendingCandidates.Should().BeFalse("0 のときはバッジを出さない");
+    }
 }

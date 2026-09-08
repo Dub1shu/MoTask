@@ -288,6 +288,16 @@ public sealed partial class BoardViewModel : ObservableObject
         }
     }
 
+    /// <summary>
+    /// 朝のプランの「ボードで開く」とタスク行のクリックから（仕様 §6）。フィルタで隠れていても
+    /// 選択（と詳細パネル）は開く。盤面に無ければ何もしない（仕様 §8）。
+    /// </summary>
+    public void SelectTask(int taskId)
+    {
+        var card = Columns.SelectMany(c => c.AllCards).FirstOrDefault(c => c.Id == taskId);
+        if (card is not null) SelectCard(card);
+    }
+
     partial void OnSelectedCardChanged(TaskCardViewModel? value)
     {
         Detail = value is null ? null : new TaskDetailViewModel(value, this);

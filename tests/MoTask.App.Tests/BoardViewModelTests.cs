@@ -811,4 +811,26 @@ public class BoardViewModelTests
         _vm.NewColumnName.Should().BeEmpty();
         _vm.NewColumnRole.Value.Should().Be(ColumnRole.Active);
     }
+
+    [Fact]
+    public async Task SelectTask_SelectsTheCardById_AndOpensTheDetail()
+    {
+        await _vm.LoadAsync();
+
+        _vm.SelectTask(12);
+
+        _vm.SelectedCard!.Id.Should().Be(12);
+        _vm.Detail.Should().NotBeNull("朝のプランの『ボードで開く』は詳細パネルまで開く");
+    }
+
+    [Fact]
+    public async Task SelectTask_DoesNothing_ForAnUnknownId()
+    {
+        await _vm.LoadAsync();
+        _vm.SelectTask(10);
+
+        _vm.SelectTask(999);
+
+        _vm.SelectedCard!.Id.Should().Be(10, "無ければ選択を変えない（仕様 §8）");
+    }
 }

@@ -25,6 +25,7 @@ public partial class MainWindow : Window
         DataContext = vm;
         InitializeComponent();
         MorningHost.DataContext = morning;
+        morning.NavigateToTask += OnNavigateToTask;
         DarkWindowChrome.Apply(this);
         // 起動直後はボード表示。タブの見た目もそれに合わせておく(仕様に無い見た目調整なので、
         // 専用のスタイル/コンバーターは足さず、切り替えと同じコード経路で決める)。
@@ -37,6 +38,8 @@ public partial class MainWindow : Window
         try
         {
             await _vm.LoadAsync();
+            // タブのバッジを起動直後から出す（仕様 §6）。タブを押したときも LoadAsync で読み直す。
+            await _morning.LoadAsync();
         }
         catch (Exception ex)
         {
@@ -70,6 +73,13 @@ public partial class MainWindow : Window
     }
 
     private void OnShowBoardClick(object sender, RoutedEventArgs e) => ShowBoard(true);
+
+    /// <summary>朝のプランの「ボードで開く」／タスク行のクリック。ボードへ切り替えてそのタスクを選ぶ。</summary>
+    private void OnNavigateToTask(object? sender, int taskId)
+    {
+        ShowBoard(true);
+        _vm.SelectTask(taskId);
+    }
 
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
     private async void OnShowMorningClick(object sender, RoutedEventArgs e)

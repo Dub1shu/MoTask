@@ -93,6 +93,8 @@ public sealed partial class MorningPlanViewModel : ObservableObject
     [ObservableProperty] private string _firstThingHeadingText = "";
     /// <summary>タブのバッジ。候補キューの件数。</summary>
     [ObservableProperty] private int _pendingCount;
+    /// <summary>タブのバッジを出すか。0 件のときは出さない。</summary>
+    [ObservableProperty] private bool _hasPendingCandidates;
     /// <summary>
     /// 「今日のプランはまだありません」を出すべきか。取り込み済み(Ingested)なら候補が 0 件でも
     /// この朝のプランは存在するので出さない(仕様 §4・§11)。CanStart とは目的が違う値なので
@@ -239,6 +241,7 @@ public sealed partial class MorningPlanViewModel : ObservableObject
         IsPlanReady = ingested && Candidates.Count == 0;
         LeftPanel = IsTriaging ? Triage : IsPlanReady ? FirstThing : null;
         PendingCount = Candidates.Count;
+        HasPendingCandidates = Candidates.Count > 0;
         DateHeading = _run is null
             ? ""
             : string.Format(Strings.MorningDateHeadingFormat, _run.Date.ToString("M月d日（ddd）", new CultureInfo("ja-JP")));

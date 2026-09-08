@@ -31,7 +31,16 @@
           </Button>
           <Button x:Name="MorningTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowMorningClick"
                   Padding="{StaticResource Pad.Tab}" Margin="{StaticResource Gap.Left.2}">
-            <TextBlock Text="{x:Static res:Strings.ViewMorningPlan}" FontWeight="Medium" />
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{x:Static res:Strings.ViewMorningPlan}" FontWeight="Medium" VerticalAlignment="Center" />
+              <!-- 候補件数のバッジ（ワイヤー 4c）。同じ画面への導線を 2 つ作らず、タブに付ける（仕様 §3） -->
+              <Border Background="{StaticResource Brush.Accent}" CornerRadius="8" Padding="{StaticResource Pad.Chip}"
+                      Margin="{StaticResource Gap.Left.1}" VerticalAlignment="Center"
+                      Visibility="{Binding DataContext.HasPendingCandidates, ElementName=MorningHost, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding DataContext.PendingCount, ElementName=MorningHost}"
+                           Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.OnAccent}" />
+              </Border>
+            </StackPanel>
           </Button>
         </StackPanel>
       </DockPanel>
