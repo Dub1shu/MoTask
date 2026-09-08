@@ -116,7 +116,9 @@ PlanRow は2種類のどちらか
 
 「解決できない」は上の表で「行を落とす」に該当する場合すべてを指す。
 
-`Summary` は `candidates` の `Status` を数えるだけ。`Pending` と `Later` は「未処理」にまとめる。
+`Summary` は `candidates` の `Status` を数えるだけ。`Registered` / `Merged` / `Rejected` / `Later` / `Pending` を
+それぞれ数える。今日の `Later` はキューに乗らない（キューは今日の `Pending` ＋ 過去の `Later`）ので、
+「あとで」は決着済みとして数える。`Pending` が 0 でないのは仕分け中だけ。
 
 ### 何を保証しないか
 
