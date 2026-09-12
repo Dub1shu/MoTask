@@ -344,16 +344,18 @@ FluentAssertions は残るので、検証の読みやすさは落ちない。
 - `gong` / `GongSolutions` / `NSubstitute` を `src/` `tests/` `Directory.Packages.props`
   `MoTask.sln` から検索して、`obj/` を除いて何も出ない
 
-着手前の実測値（2026-09-12）は次のとおり。MoTask.App.Tests だけは
-アプリが起動していると出力 DLL がロックされて測れないので、
-着手時に MoTask.exe と Visual Studio を閉じて基準を取り直すこと。
+着手前の実測値（2026-09-12、`dotnet build` は 0 警告 0 エラー）。
 
 | プロジェクト | テスト数 |
 |---|---|
 | MoTask.Core.Tests | 294 |
 | MoTask.Data.Tests | 41 |
+| MoTask.App.Tests | 395 |
 | MoTask.Mcp.Tests | 21 |
-| MoTask.App.Tests | 未計測 |
+| **合計** | **751** |
+
+MoTask.exe が起動したままだと `MoTask.App` の出力 DLL がロックされて
+ビルドが失敗する。作業中はアプリを閉じておくこと。
 
 ### 7.2 手動チェックリスト（1 本目のあと）
 
