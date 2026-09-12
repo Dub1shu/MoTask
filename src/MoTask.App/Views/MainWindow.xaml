@@ -23,14 +23,13 @@
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">
-          <!-- どちらが今の画面かは Click ハンドラ側(ShowBoard)が BorderThickness/BorderBrush/
-               Foreground を切り替えて示す(仕様にはないタブなので、専用のスタイルは足さない)。 -->
-          <Button x:Name="BoardTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowBoardClick"
-                  Padding="{StaticResource Pad.Tab}">
+          <!-- どちらが今の画面かは Click ハンドラ側(ShowBoard)が Tag を切り替えて示す。
+               下線と文字色そのものは Btn.Tab スタイルが持つ。 -->
+          <Button x:Name="BoardTabButton" Style="{StaticResource Btn.Tab}" Click="OnShowBoardClick">
             <TextBlock Text="{x:Static res:Strings.ViewBoard}" FontWeight="Medium" />
           </Button>
-          <Button x:Name="MorningTabButton" Style="{StaticResource Btn.Ghost}" Click="OnShowMorningClick"
-                  Padding="{StaticResource Pad.Tab}" Margin="{StaticResource Gap.Left.2}">
+          <Button x:Name="MorningTabButton" Style="{StaticResource Btn.Tab}" Click="OnShowMorningClick"
+                  Margin="{StaticResource Gap.Left.2}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{x:Static res:Strings.ViewMorningPlan}" FontWeight="Medium" VerticalAlignment="Center" />
               <!-- 候補件数のバッジ（ワイヤー 4c）。同じ画面への導線を 2 つ作らず、タブに付ける（仕様 §3） -->

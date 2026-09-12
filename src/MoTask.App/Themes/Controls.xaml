@@ -138,6 +138,49 @@
     <Setter Property="Padding" Value="6.8,3.4" />
   </Style>
 
+  <!-- 画面切り替えタブ（ボード / 朝の実行プラン）。既定 Button のテンプレートは角丸 6px なので、
+       BorderThickness="0,0,0,2" で下線だけを残すと両端が角丸に沿って反り上がる。タブは角丸を
+       持たない専用テンプレートにし、下線は中身とは別の高さ 2px の矩形として底に敷く。
+       選択中かどうかは Tag="Active" で渡す（コード側から色を直接当てると局所値になり、
+       ホバーなどのトリガが効かなくなる）。 -->
+  <Style x:Key="Btn.Tab" TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
+    <Setter Property="Padding" Value="{StaticResource Pad.Tab}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid Background="Transparent" SnapsToDevicePixels="True">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="*" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Border Grid.Row="0" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            </Border>
+            <Rectangle x:Name="Underline" Grid.Row="1" Height="2" Fill="Transparent" SnapsToDevicePixels="True" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <!-- ホバーは塗りではなく下線の薄い予告で示す（枠も塗りも無い行なので、
+                 四角い背景が乗ると帯の中で浮く）。選択中の accent が勝つよう後に置く。 -->
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Underline" Property="Fill" Value="{StaticResource Brush.Neutral.600}" />
+            </Trigger>
+            <Trigger Property="Tag" Value="Active">
+              <Setter TargetName="Underline" Property="Fill" Value="{StaticResource Brush.Accent}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+    <Style.Triggers>
+      <Trigger Property="IsMouseOver" Value="True">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+      </Trigger>
+      <Trigger Property="Tag" Value="Active">
+        <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+      </Trigger>
+    </Style.Triggers>
+  </Style>
+
   <!-- 枠も塗りも無いまま「押せる」ことを色で示すボタン。Btn.Ghost は muted なので、
        同じ色のラベル（Text.Caption 系）と見分けが付かない。開く・たどる操作はこちらを使う。
        ホバーの背景は既定 Button のトリガから継承する。 -->
