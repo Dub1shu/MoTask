@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Diagnostics;
+using System.IO;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.Core;
@@ -264,6 +265,51 @@ public class TerminalLauncherTests : IDisposable
 
         command.IsSuccess.Should().BeFalse();
         command.Error.Should().Be(Messages.ClaudeNotFound);
+    }
+
+    [Fact]
+    public void CloseOwned_IgnoresAnOwnerItNeverLaunched()
+    {
+        var launcher = Launcher();
+
+        launcher.Invoking(l => l.CloseOwned(4242)).Should().NotThrow("知らない ownerId は黙って無視する");
+    }
+
+    [Fact]
+    public void Dispose_DoesNotThrowWhenNothingIsOwned()
+    {
+        Launcher().Invoking(l => l.Dispose()).Should().NotThrow();
+    }
+
+    [Fact]
+    public void TryReattach_FailsWhenThereIsNoSuchProcess()
+    {
+        Launcher().TryReattach(1, 0, DateTime.UtcNow).Should().BeFalse("pid が記録されていない");
+        Launcher().TryReattach(1, int.MaxValue, DateTime.UtcNow).Should().BeFalse("そんな pid は居ない");
+    }
+
+    /// <summary>
+    /// pid は再利用される。開始時刻が合わないなら無関係のプロセスなので掴んではいけない（仕様 §7）。
+    /// テストプロセス自身は必ず生きているので、偽の開始時刻で拒否されることだけを確かめる。
+    /// </summary>
+    [Fact]
+    public void TryReattach_FailsWhenTheStartTimeDoesNotMatch()
+    {
+        using var self = Process.GetCurrentProcess();
+
+        Launcher().TryReattach(1, self.Id, self.StartTime.ToUniversalTime().AddSeconds(1)).Should().BeFalse();
+    }
+
+    /// <summary>掛け直しても殺さない。Dispose はハンドルを手放すだけである（仕様 §5.3）。</summary>
+    [Fact]
+    public void TryReattach_SucceedsWhenThePidAndStartTimeMatch()
+    {
+        using var self = Process.GetCurrentProcess();
+        var launcher = Launcher();
+
+        launcher.TryReattach(1, self.Id, self.StartTime.ToUniversalTime()).Should().BeTrue();
+
+        launcher.Invoking(l => l.Dispose()).Should().NotThrow();
     }
 
     public void Dispose()

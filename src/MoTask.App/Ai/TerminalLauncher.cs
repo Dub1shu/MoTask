@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -10,7 +11,7 @@ namespace MoTask.App.Ai;
 /// 端末で claude を起こす（ターミナル AI 仕様 §7）。AI 遂行は起こして手放し、朝の実行は
 /// Process ハンドルごと所有する（MCP 受け渡し仕様 §5）。Process を触るのはこのクラスだけ。
 /// </summary>
-public sealed class TerminalLauncher : ISessionLauncher
+public sealed class TerminalLauncher : ISessionLauncher, IDisposable
 {
     /// <summary>AI 遂行の既定。claude が終わってもシェルを残す（続けて打てる）。</summary>
     internal const string DefaultTemplate = "cmd.exe /k {command}";
@@ -32,6 +33,13 @@ public sealed class TerminalLauncher : ISessionLauncher
 
     private readonly IAiSettingsStore _settings;
     private readonly string? _pathVariable;
+
+    /// <summary>
+    /// 所有しているプロセス。ハンドルを開いたままにするのが要点で、Windows は開いている
+    /// ハンドルのある pid を再利用しないため、「死んだ後に同じ pid の別プロセスを殺す」
+    /// 事故が起きない（仕様 §5.3）。
+    /// </summary>
+    private readonly ConcurrentDictionary<int, Process> _owned = new();
 
     public TerminalLauncher(IAiSettingsStore settings)
         : this(settings, null)
@@ -122,6 +130,106 @@ public sealed class TerminalLauncher : ISessionLauncher
         {
             // 何で失敗したかより「何を実行しようとしたか」が要る（仕様 §12）
             return Result.Fail(string.Format(Messages.TerminalLaunchFailedFormat, command.Display));
+        }
+    }
+
+    public event EventHandler<int>? OwnedSessionExited;
+
+    public Result<OwnedSession> LaunchOwned(int ownerId, TerminalCommand command)
+    {
+        try
+        {
+            // UseShellExecute = true で自前のウィンドウを持たせる（Launch と同じ）。ハンドルは捨てずに持つ。
+            var started = Process.Start(new ProcessStartInfo(command.FileName, command.Arguments)
+            {
+                UseShellExecute = true,
+                WorkingDirectory = command.WorkingDirectory,
+            });
+            if (started is null)
+            {
+                return Result.Fail<OwnedSession>(string.Format(Messages.TerminalLaunchFailedFormat, command.Display));
+            }
+            var session = new OwnedSession(started.Id, started.StartTime.ToUniversalTime());
+            Track(ownerId, started);
+            return Result.Ok(session);
+        }
+        catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or FileNotFoundException)
+        {
+            // 何で失敗したかより「何を実行しようとしたか」が要る（ターミナル AI 仕様 §12）
+            return Result.Fail<OwnedSession>(string.Format(Messages.TerminalLaunchFailedFormat, command.Display));
+        }
+    }
+
+    public void CloseOwned(int ownerId)
+    {
+        // 先に辞書から外す。Kill が起こす Exited は「こちらが意図した終了」なので、
+        // OnExited の TryRemove が空振りして OwnedSessionExited には流れない。
+        if (!_owned.TryRemove(ownerId, out var process)) return;
+        try
+        {
+            // cmd / claude / MoTask.Mcp.exe をまとめて落とす。終了コードに依存しないので確実に窓が消える。
+            process.Kill(entireProcessTree: true);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or Win32Exception or NotSupportedException)
+        {
+            // すでに終了している。目的は窓が消えることなので、消えているならそれでよい（仕様 §5.3）。
+        }
+        finally
+        {
+            process.Dispose();
+        }
+    }
+
+    public bool TryReattach(int ownerId, int processId, DateTime startedAt)
+    {
+        if (processId <= 0) return false;
+        Process? process = null;
+        try
+        {
+            process = Process.GetProcessById(processId);
+            // pid は再利用される。開始時刻が一致しなければ無関係のプロセスなので掴まない（仕様 §7）。
+            if (process.HasExited || process.StartTime.ToUniversalTime() != startedAt)
+            {
+                process.Dispose();
+                return false;
+            }
+            Track(ownerId, process);
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
+        {
+            process?.Dispose();
+            return false;
+        }
+    }
+
+    private void Track(int ownerId, Process process)
+    {
+        process.EnableRaisingEvents = true;
+        process.Exited += (_, _) => OnExited(ownerId);
+        if (_owned.TryRemove(ownerId, out var previous)) previous.Dispose();
+        _owned[ownerId] = process;
+        // 登録し終える前に死んでいた場合、Exited は _owned に居ない ownerId を見て黙って降りている。
+        // 取りこぼさないようにここで拾い直す（OnExited は TryRemove のおかげで 1 度しか通らない）。
+        if (process.HasExited) OnExited(ownerId);
+    }
+
+    private void OnExited(int ownerId)
+    {
+        if (!_owned.TryRemove(ownerId, out var process)) return;
+        OwnedSessionExited?.Invoke(this, ownerId);
+        process.Dispose();
+    }
+
+    /// <summary>
+    /// MoTask を閉じたときに来る。ハンドルを解放するだけで端末は殺さない（仕様 §3・§5.3）。
+    /// 実行の途中でアプリを閉じただけで仕事を潰さない。
+    /// </summary>
+    public void Dispose()
+    {
+        foreach (var ownerId in _owned.Keys)
+        {
+            if (_owned.TryRemove(ownerId, out var process)) process.Dispose();
         }
     }
 }
