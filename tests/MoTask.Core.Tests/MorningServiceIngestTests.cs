@@ -78,9 +78,13 @@ public class MorningServiceIngestTests
         _events.IsFollowing(run.Id).Should().BeTrue();
     }
 
-    /// <summary>掛け直せた実行は、その後の取り込みでちゃんと閉じられる(仕様 §7)。</summary>
+    /// <summary>
+    /// 掛け直しを挟んでも、通常の取り込み→クローズの順序が壊れない(二重登録も、終端にならず
+    /// 残る実行も起きない)。閉じること自体は取り込み成功時に無条件なので、掛け直しの成否には
+    /// 依らない — このテストはその因果までは主張していない。
+    /// </summary>
     [Fact]
-    public async Task Recover_ThenIngest_StillClosesTheTerminal()
+    public async Task Recover_ThenIngest_DoesNotDisruptTheNormalCloseSequence()
     {
         var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
         PutRunJson(run, 31337);
