@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using System.Windows.Media;
 using MoTask.App.Resources;
 using MoTask.App.Themes;
 using MoTask.App.ViewModels;
@@ -27,8 +26,7 @@ public partial class MainWindow : Window
         MorningHost.DataContext = morning;
         morning.NavigateToTask += OnNavigateToTask;
         DarkWindowChrome.Apply(this);
-        // 起動直後はボード表示。タブの見た目もそれに合わせておく(仕様に無い見た目調整なので、
-        // 専用のスタイル/コンバーターは足さず、切り替えと同じコード経路で決める)。
+        // 起動直後はボード表示。タブの選択状態もそれに合わせておく(切り替えと同じコード経路で決める)。
         SetActiveTab(board: true);
     }
 
@@ -104,9 +102,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// どちらのタブが今の画面かを、下線と文字色で示す(この 2 ボタンだけの見た目調整なので、
-    /// 新しいスタイルやコンバーターは足さず、既存の Brush.Accent / Brush.TextMuted を
-    /// コードから直接当てる)。
+    /// どちらのタブが今の画面かを示す。下線と文字色は Btn.Tab スタイルが持ち、ここでは
+    /// 選択中かどうかだけを Tag で渡す(色を局所値で当てるとホバーのトリガが効かない)。
     /// </summary>
     private void SetActiveTab(bool board)
     {
@@ -116,9 +113,7 @@ public partial class MainWindow : Window
 
     private static void SetActiveTab(Button tab, bool active)
     {
-        tab.BorderThickness = active ? new Thickness(0, 0, 0, 2) : new Thickness(0);
-        tab.BorderBrush = active ? (Brush)tab.FindResource("Brush.Accent") : Brushes.Transparent;
-        tab.Foreground = (Brush)tab.FindResource(active ? "Brush.Accent" : "Brush.TextMuted");
+        tab.Tag = active ? "Active" : null;
     }
 
     /// <summary>
