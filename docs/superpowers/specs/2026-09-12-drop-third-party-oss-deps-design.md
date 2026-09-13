@@ -379,6 +379,18 @@ MoTask.exe が起動したままだと `MoTask.App` の出力 DLL がロック�
 
 自動テストのみで足りる。振る舞いは変わらない。
 
+2026-09-14 実施。手動確認は不要だったので行っていない。§7.1 の 3 項目はすべて満たした。
+
+- [x] `dotnet build` が通り、コンパイラ警告は 0 のまま
+- [x] `dotnet test` が全緑。770 本（Core 294 / Data 41 / App 414 / Mcp 21）で着手前と同数
+- [x] `gong` / `GongSolutions` / `NSubstitute` を `src/` `tests/` `Directory.Packages.props`
+      `MoTask.sln` から検索して、`obj/` を除いて何も出ない
+
+移行は 11 ファイル・約 280 箇所。各タスクのレビューで、置き換えたアサーションが
+元の NSubstitute 版と同じだけ証明していることを 1 箇所ずつ突き合わせて確認した。
+`Received(1)` を `ContainSingle()` に写した箇所は、呼び出し総数まで縛るぶん
+むしろ検証が強くなっている。
+
 ## 8. 残るリスク
 
 - **自前の D&D は gong より作り込みが浅い。** 複数選択のドラッグ、
