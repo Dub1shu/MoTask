@@ -18,7 +18,8 @@ public sealed class FakeSessionLauncher : ISessionLauncher
     {
         Requests.Add(request);
         if (BuildFailure is { } failure) return Result.Fail<TerminalCommand>(failure.Error!);
-        return Result.Ok(new TerminalCommand("wt.exe", $"-d \"{request.WorkingDirectory}\" cmd /k claude", request.WorkingDirectory));
+        var switches = request.CloseOnExit ? "/c" : "/k";
+        return Result.Ok(new TerminalCommand("cmd.exe", $"{switches} claude", request.WorkingDirectory));
     }
 
     public Result Launch(TerminalCommand command)

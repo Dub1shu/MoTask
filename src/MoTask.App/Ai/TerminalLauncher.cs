@@ -7,31 +7,29 @@ using MoTask.Core.Ai;
 namespace MoTask.App.Ai;
 
 /// <summary>
-/// 端末で claude を対話起動して手放す（仕様 §7）。プロセスは所有しないので、
-/// 起動したハンドルはその場で捨てる。
+/// 端末で claude を起こす（ターミナル AI 仕様 §7）。AI 遂行は起こして手放し、朝の実行は
+/// Process ハンドルごと所有する（MCP 受け渡し仕様 §5）。Process を触るのはこのクラスだけ。
 /// </summary>
 public sealed class TerminalLauncher : ISessionLauncher
 {
-    /// <summary>wt.exe があるときの既定。cwd は wt に渡す（新しいタブがそこで開く）。</summary>
-    internal const string WindowsTerminalTemplate = "wt.exe -d \"{cwd}\" cmd /k {command}";
+    /// <summary>AI 遂行の既定。claude が終わってもシェルを残す（続けて打てる）。</summary>
+    internal const string DefaultTemplate = "cmd.exe /k {command}";
 
-    /// <summary>wt.exe が無い環境の逃げ道。cwd は ProcessStartInfo 側で渡す。</summary>
-    internal const string FallbackTemplate = "cmd.exe /k {command}";
+    /// <summary>朝の実行の既定。claude が終われば窓も畳む（仕様 §5.2）。</summary>
+    internal const string MorningTemplate = "cmd.exe /c {command}";
 
     private readonly IAiSettingsStore _settings;
     private readonly string? _pathVariable;
-    private readonly Func<bool> _hasWindowsTerminal;
 
     public TerminalLauncher(IAiSettingsStore settings)
-        : this(settings, null, () => FindWindowsTerminal() is not null)
+        : this(settings, null)
     {
     }
 
-    internal TerminalLauncher(IAiSettingsStore settings, string? pathVariable, Func<bool> hasWindowsTerminal)
+    internal TerminalLauncher(IAiSettingsStore settings, string? pathVariable)
     {
         _settings = settings;
         _pathVariable = pathVariable;
-        _hasWindowsTerminal = hasWindowsTerminal;
     }
 
     public Result CheckAvailable()
@@ -77,7 +75,7 @@ public sealed class TerminalLauncher : ISessionLauncher
         var inner = string.Join(" ", parts.Select(CommandLine.Quote));
         var template = settings.TerminalCommandTemplate is { Length: > 0 } configured
             ? configured
-            : _hasWindowsTerminal() ? WindowsTerminalTemplate : FallbackTemplate;
+            : request.CloseOnExit ? MorningTemplate : DefaultTemplate;
         // テンプレート側で {cwd} はすでに "..." に囲まれている（既定テンプレートも利用者定義も同じ形）。
         // ドライブ直下（D:\ など）のように末尾が \ で終わる cwd をそのまま埋めると、
         // テンプレートの閉じ " の直前が奇数個の \ になり、CommandLineToArgvW がその " を
@@ -109,23 +107,5 @@ public sealed class TerminalLauncher : ISessionLauncher
             // 何で失敗したかより「何を実行しようとしたか」が要る（仕様 §12）
             return Result.Fail(string.Format(Messages.TerminalLaunchFailedFormat, command.Display));
         }
-    }
-
-    private static string? FindWindowsTerminal()
-    {
-        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "")
-                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            try
-            {
-                var candidate = Path.Combine(dir, "wt.exe");
-                if (File.Exists(candidate)) return candidate;
-            }
-            catch (ArgumentException)
-            {
-                // PATH に不正な文字が混ざっていても探索を続ける
-            }
-        }
-        return null;
     }
 }

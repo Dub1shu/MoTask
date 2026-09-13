@@ -95,7 +95,16 @@ public class MorningServiceStartTests
         text.Should().NotBeNull("DB が壊れてもフォルダだけで何の実行か分かるようにする（仕様 §6）");
         var root = JsonDocument.Parse(text!).RootElement;
         root.GetProperty("runId").GetInt32().Should().Be(run.Id);
-        root.GetProperty("launchCommand").GetString().Should().StartWith("wt.exe ");
+        root.GetProperty("launchCommand").GetString().Should().StartWith("cmd.exe /c ");
+    }
+
+    /// <summary>朝の実行は claude が終われば窓も畳む形で頼む（仕様 §5.2）。</summary>
+    [Fact]
+    public async Task Start_AsksForATerminalThatClosesWhenClaudeExits()
+    {
+        await _service.StartAsync();
+
+        _launcher.Requests.Should().ContainSingle().Which.CloseOnExit.Should().BeTrue();
     }
 
     [Fact]

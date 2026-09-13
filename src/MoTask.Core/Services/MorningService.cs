@@ -139,7 +139,8 @@ public sealed class MorningService : IMorningService
             // 成果物の出力先は result/(AI 遂行の既定 artifacts/ とは違う)。起動プロンプトを
             // instruction.md の指示と一致させる。
             var command = _launcher.BuildCommand(new SessionLaunchRequest(
-                sessionId, root, root, Resume: false, OutputDirectoryName: JobFolderPaths.ResultDirectoryName));
+                sessionId, root, root, Resume: false,
+                OutputDirectoryName: JobFolderPaths.ResultDirectoryName, CloseOnExit: true));
             if (!command.IsSuccess) return Result.Fail<MorningRun>(command.Error!);
 
             // フォルダとコマンドが確定してから DB に書く。

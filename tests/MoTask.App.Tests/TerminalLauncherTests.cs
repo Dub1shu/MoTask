@@ -36,8 +36,7 @@ public class TerminalLauncherTests : IDisposable
         public void Save(AiSettings settings) => _settings = settings;
     }
 
-    private TerminalLauncher Launcher(bool hasWt = true)
-        => new(_store, pathVariable: "", hasWindowsTerminal: () => hasWt);
+    private TerminalLauncher Launcher() => new(_store, pathVariable: "");
 
     [Fact]
     public void CheckAvailable_FailsWhenClaudeIsMissing()
@@ -53,14 +52,28 @@ public class TerminalLauncherTests : IDisposable
         Launcher().CheckAvailable().IsSuccess.Should().BeTrue();
     }
 
+    /// <summary>AI 遂行は cmd.exe /k。claude が終わってもシェルが残る（続けて打てる）。</summary>
     [Fact]
-    public void BuildCommand_UsesWindowsTerminalWithTheProjectAsCwd()
+    public void BuildCommand_UsesCmdWithSlashK_ForAnAiJob()
     {
         var command = Launcher().BuildCommand(_request).Value!;
 
-        command.FileName.Should().Be("wt.exe");
+        command.FileName.Should().Be("cmd.exe");
+        command.Arguments.Should().StartWith("/k ");
+        // 既定テンプレートに {cwd} は現れない。cwd は ProcessStartInfo 側で渡す
+        command.Arguments.Should().NotContain(@"-d ""D:\repo\sample""");
         command.WorkingDirectory.Should().Be(@"D:\repo\sample");
-        command.Arguments.Should().StartWith("-d \"D:\\repo\\sample\" cmd /k ");
+    }
+
+    /// <summary>朝の実行は cmd.exe /c。claude が終われば窓も畳む（仕様 §5.2）。</summary>
+    [Fact]
+    public void BuildCommand_UsesCmdWithSlashC_ForAMorningRun()
+    {
+        var command = Launcher().BuildCommand(_request with { CloseOnExit = true }).Value!;
+
+        command.FileName.Should().Be("cmd.exe");
+        command.Arguments.Should().StartWith("/c ");
+        command.Arguments.Should().Contain("--session-id");
     }
 
     [Fact]
@@ -157,17 +170,6 @@ public class TerminalLauncherTests : IDisposable
     }
 
     [Fact]
-    public void BuildCommand_FallsBackToCmdWhenWindowsTerminalIsMissing()
-    {
-        var command = Launcher(hasWt: false).BuildCommand(_request).Value!;
-
-        command.FileName.Should().Be("cmd.exe");
-        command.Arguments.Should().StartWith("/k ");
-        // wt が無いので cwd は ProcessStartInfo 側で渡す
-        command.WorkingDirectory.Should().Be(@"D:\repo\sample");
-    }
-
-    [Fact]
     public void BuildCommand_HonoursTheConfiguredTemplate()
     {
         _store.Save(_store.Load() with { TerminalCommandTemplate = "pwsh.exe -NoExit -Command {command}" });
@@ -192,9 +194,12 @@ public class TerminalLauncherTests : IDisposable
     {
         // ドライブ直下（D:\）も正当な作業ディレクトリ。末尾の \ をそのまま埋めると
         // テンプレートの閉じ " が \" と解釈され、以降が丸ごと 1 引数に飲み込まれてしまう。
+        // 既定テンプレートに {cwd} は無くなったので、置換の規則は利用者定義テンプレートで固定する。
+        _store.Save(_store.Load() with { TerminalCommandTemplate = "pwsh.exe -d \"{cwd}\" -Command {command}" });
+
         var command = Launcher().BuildCommand(_request with { WorkingDirectory = @"D:\" }).Value!;
 
-        command.Arguments.Should().StartWith("-d \"D:\\\\\" cmd /k ");
+        command.Arguments.Should().StartWith("-d \"D:\\\\\" -Command ");
         command.Arguments.Should().Contain("--session-id");
     }
 
