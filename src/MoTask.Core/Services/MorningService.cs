@@ -290,6 +290,8 @@ public sealed class MorningService : IMorningService
             {
                 _events.StopFollowing(run.Id);
                 _turns.TryRemove(run.Id, out _);
+                // 読めないまま終わった実行でも窓は畳む(仕様 §7)
+                _launcher.CloseOwned(run.Id);
             }
             return new IngestOutcome(false, finished ? Messages.MorningResultUnreadable : null);
         }
@@ -335,6 +337,9 @@ public sealed class MorningService : IMorningService
 
         _events.StopFollowing(run.Id);
         _turns.TryRemove(run.Id, out _);
+        // 取り込みが終わったら窓を畳む。知らない ownerId は launcher が黙って無視するので、
+        // 2 度目の Stop で重ねて呼ばれても実害は無い(仕様 §5.3)。
+        _launcher.CloseOwned(run.Id);
 
         // 保存失敗のほうが重い。バナーは 1 本なのでそちらを優先する。
         warning ??= result.DiscardedLines > 0

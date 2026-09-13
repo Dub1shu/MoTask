@@ -337,4 +337,63 @@ public class MorningServiceIngestTests
 
         tail.Should().Equal("2", "3", "4");
     }
+
+    /// <summary>仕事が終わったら窓も畳む(仕様 §7)。</summary>
+    [Fact]
+    public async Task Stop_ClosesTheTerminalOnceTheResultIsIngested()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    [Fact]
+    public async Task Stop_LeavesTheTerminalOpen_WhileTheResultIsNotThereYet()
+    {
+        var run = await StartAsync();
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        _launcher.Closed.Should().BeEmpty("Stop は何度でも来る。揃うまでは閉じない");
+    }
+
+    /// <summary>読めないまま終わった実行も後始末する。窓だけ残しても人は困る(仕様 §7)。</summary>
+    [Fact]
+    public async Task SessionEnd_WithoutAPlan_ClosesTheTerminalToo()
+    {
+        var run = await StartAsync();
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.SessionEnd());
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>人の「完了にする」はその場で閉じる。待つべき Stop が来る保証が無い(仕様 §7)。</summary>
+    [Fact]
+    public async Task Complete_ClosesTheTerminal()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        await _service.CompleteAsync(run.Id);
+
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>「追跡をやめる」は端末を殺さない。既存の約束をここでは守る(仕様 §7)。</summary>
+    [Fact]
+    public async Task StopTracking_DoesNotCloseTheTerminal()
+    {
+        var run = await StartAsync();
+
+        await _service.StopTrackingAsync(run.Id);
+
+        run.Status.Should().Be(MorningRunStatus.Cancelled);
+        _launcher.Closed.Should().BeEmpty();
+    }
 }
