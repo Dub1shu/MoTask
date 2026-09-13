@@ -248,7 +248,7 @@ public static class InsertIndexCalculator
 位置の更新はドラッグ元の `GiveFeedback` で行う。このイベントはドロップ先の
 有無にかかわらず継続して起きるので、ドロップ先の隙間にカーソルがあっても
 ゴーストが止まらない。画面座標は `user32.dll` の `GetCursorPos` を
-`LibraryImport` で呼んで得る。`GiveFeedback` では `DragEventArgs` を使えないためである。
+`DllImport` で呼んで得る。`GiveFeedback` では `DragEventArgs` を使えないためである。
 
 `DoDragDrop` から戻ったときに必ず外す。例外が出ても外すよう `finally` に置く。
 
@@ -386,8 +386,10 @@ MoTask.exe が起動したままだと `MoTask.App` の出力 DLL がロック�
   再現しない。MoTask はどれも使っていないので今は困らないが、
   将来必要になったら自分で足すことになる。
 - **`GetCursorPos` の P/Invoke が 1 箇所入る。** WPF の `GiveFeedback` から
-  カーソル位置を取る手段が他にないためである。`LibraryImport` で書き、
-  用途をその場に注釈する。
+  カーソル位置を取る手段が他にないためである。`DllImport` で書き、
+  用途をその場に注釈する。`LibraryImport` は使わない。`out` 構造体を返す
+  シグネチャだと生成されるマーシャリングがプロジェクト全体での
+  `AllowUnsafeBlocks` 有効化を要求するため（SYSLIB1062 で確認済み）である。
 - **仮想化されたリストの端の挙動。** §4.6 の方針は「見えている所にしか落とせない」
   前提に立つ。自動スクロールがあるので実用上は届くが、
   極端に長い列では gong と微妙に違う位置に入る余地がある。

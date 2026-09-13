@@ -334,7 +334,9 @@ public static class DragDropBehavior
         var containers = RealizedContainers(items, element);
         if (containers.Count == 0)
         {
-            RemoveInsertion();
+            // カードが 0 枚の列。項目が無くても落とせるので、一覧の先頭に線を引いて
+            // どこが受け皿になるかを見せる。
+            ShowInsertionAt(element, items, new Rect(0, 0, element.ActualWidth, element.ActualHeight), after: false);
             return;
         }
 
@@ -361,6 +363,12 @@ public static class DragDropBehavior
             return;
         }
 
+        ShowInsertionAt(element, items, bounds, after);
+    }
+
+    /// <summary>挿入線を出す、または既にあるものを動かす。ドロップ先が変わったら作り直す。</summary>
+    private static void ShowInsertionAt(FrameworkElement element, ItemsControl items, Rect bounds, bool after)
+    {
         if (_insertion is null || !ReferenceEquals(_insertion.AdornedElement, element))
         {
             RemoveInsertion();
@@ -422,37 +430,41 @@ public static class DragDropBehavior
     }
 
     /// <summary>
-    /// カーソルが端の近くにいる間だけスクロールを回す。
-    /// ScrollViewer の Line 系を使うので、物理スクロールと論理スクロール（仮想化 ListBox）の
-    /// どちらでも同じように動く。
+    /// カーソルが端の近くにいる間だけスクロールを回す。自分のテンプレート内のスクロール領域を
+    /// 先に見て、そこで端に届いていなければ外側のスクロール領域を見る。カードを掴んだまま
+    /// 画面の右端へ寄せたときに盤面が横スクロールするのは、この後者の経路である
+    /// （カード一覧は横スクロールしないので、自分側では端に届かない）。
     /// </summary>
     private static void UpdateAutoScroll(FrameworkElement element, DragEventArgs e)
     {
-        if (FindScrollViewer(element) is not { } viewer)
-        {
-            StopAutoScroll();
-            return;
-        }
+        if (TryAutoScroll(element, FindOwnScrollViewer(element, element), e)) return;
+        if (TryAutoScroll(element, FindAncestor(element), e)) return;
+        StopAutoScroll();
+    }
 
-        var position = e.GetPosition(viewer);
-        var direction = DirectionFor(viewer, position);
-        if (direction == ScrollDirection.None)
-        {
-            StopAutoScroll();
-            return;
-        }
+    /// <summary>
+    /// この ScrollViewer でカーソルが端に届いていればスクロールを仕込んで true。
+    /// 届いていなければ何も変えずに false を返し、呼び手に次の候補を試させる。
+    /// </summary>
+    private static bool TryAutoScroll(FrameworkElement element, ScrollViewer? viewer, DragEventArgs e)
+    {
+        if (viewer is null) return false;
+
+        var direction = DirectionFor(viewer, e.GetPosition(viewer));
+        if (direction == ScrollDirection.None) return false;
 
         _autoScrollViewer = viewer;
         _autoScrollDirection = direction;
         _autoScrollTarget = element;
 
-        if (_autoScrollTimer is not null) return;
+        if (_autoScrollTimer is not null) return true;
         _autoScrollTimer = new DispatcherTimer(DispatcherPriority.Normal)
         {
             Interval = AutoScrollInterval,
         };
         _autoScrollTimer.Tick += OnAutoScrollTick;
         _autoScrollTimer.Start();
+        return true;
     }
 
     private static ScrollDirection DirectionFor(ScrollViewer viewer, Point position)
@@ -487,16 +499,25 @@ public static class DragDropBehavior
             default: StopAutoScroll(); break;
         }
 
-        // スクロールした分だけ項目の位置が動くので、挿入線も引き直す。DragOver は
-        // カーソルが動かない限り来ないため、ここで引き直さないと線だけ取り残される。
-        viewer.UpdateLayout();
-        if (_autoScrollTarget is not { } target) return;
-        if (!NativeCursor.GetCursorPos(out var point)) return;
+        try
+        {
+            // スクロールした分だけ項目の位置が動くので、挿入線も引き直す。DragOver は
+            // カーソルが動かない限り来ないため、ここで引き直さないと線だけ取り残される。
+            viewer.UpdateLayout();
+            if (_autoScrollTarget is not { } target) return;
+            if (!NativeCursor.GetCursorPos(out var point)) return;
 
-        var items = target as ItemsControl;
-        var cursor = target.PointFromScreen(new Point(point.X, point.Y));
-        var index = InsertIndexCalculator.Calculate(RealizedContainers(items, target), cursor, OrientationOf(items));
-        ShowInsertion(target, index);
+            var items = target as ItemsControl;
+            var cursor = target.PointFromScreen(new Point(point.X, point.Y));
+            var index = InsertIndexCalculator.Calculate(RealizedContainers(items, target), cursor, OrientationOf(items));
+            ShowInsertion(target, index);
+        }
+        catch (InvalidOperationException)
+        {
+            // ドラッグ中に盤面が作り直され、ドロップ先が visual tree から外れた場合。
+            // タイマーから例外を投げるとアプリごと落ちるので、静かにスクロールをやめる。
+            StopAutoScroll();
+        }
     }
 
     private static void StopAutoScroll()
@@ -513,21 +534,17 @@ public static class DragDropBehavior
     }
 
     /// <summary>
-    /// スクロールさせる ScrollViewer。カード一覧（ListBox）は自分のテンプレートの中に持ち、
-    /// 列一覧（素の ItemsControl）は持たないので BoardView の外側のものを使う。内側を先に探す。
-    /// </summary>
-    private static ScrollViewer? FindScrollViewer(FrameworkElement element)
-        => FindOwnScrollViewer(element, element) ?? FindAncestor(element);
-
-    /// <summary>
-    /// 自分のテンプレートの中の ScrollViewer だけを探す。入れ子の ItemsControl に入ったら
+    /// 自分のテンプレートの中の ScrollViewer だけを探す。ルート以外の Control に入ったら
     /// そこで打ち切る。これをしないと、列一覧から探したときに中のカード一覧の
     /// ScrollViewer を掴んでしまい、列を掴んでいるのにカードが縦スクロールする。
     /// </summary>
     private static ScrollViewer? FindOwnScrollViewer(DependencyObject node, FrameworkElement root)
     {
         if (node is ScrollViewer found) return found;
-        if (!ReferenceEquals(node, root) && node is ItemsControl) return null;
+        // 自分のテンプレートの外へは降りない。ItemsControl だけで止めると TextBox の
+        // テンプレートに入り込み、改名欄の PART_ContentHost を掴んでしまう
+        // （一度表示した TextBox のテンプレートは畳んだ後も visual tree に残る）。
+        if (!ReferenceEquals(node, root) && node is Control) return null;
 
         var count = VisualTreeHelper.GetChildrenCount(node);
         for (var i = 0; i < count; i++)
