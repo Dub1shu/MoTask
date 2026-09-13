@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace MoTask.App.DragDrop;
 
@@ -35,6 +36,18 @@ public static class DragDropBehavior
     private static InsertionAdorner? _insertion;
 
     private static DragGhostAdorner? _ghost;
+
+    /// <summary>端から何 dip 以内でスクロールを始めるか。</summary>
+    private const double AutoScrollMargin = 24;
+
+    /// <summary>スクロールの刻み。1 tick ごとに ScrollViewer の Line 系を 1 回呼ぶ。</summary>
+    private static readonly TimeSpan AutoScrollInterval = TimeSpan.FromMilliseconds(50);
+
+    private enum ScrollDirection { None, Left, Right, Up, Down }
+
+    private static DispatcherTimer? _autoScrollTimer;
+    private static ScrollViewer? _autoScrollViewer;
+    private static ScrollDirection _autoScrollDirection = ScrollDirection.None;
 
     // ---- 添付プロパティ ----
 
@@ -220,8 +233,12 @@ public static class DragDropBehavior
 
     private static void OnDragOver(object sender, DragEventArgs e) => HandleOver(sender, e);
 
-    /// <summary>ハンドラは呼ばない。装飾を外すだけ。</summary>
-    private static void OnDragLeave(object sender, DragEventArgs e) => RemoveInsertion();
+    /// <summary>ハンドラは呼ばない。装飾を外してスクロールを止めるだけ。</summary>
+    private static void OnDragLeave(object sender, DragEventArgs e)
+    {
+        RemoveInsertion();
+        StopAutoScroll();
+    }
 
     private static void HandleOver(object sender, DragEventArgs e)
     {
@@ -233,8 +250,15 @@ public static class DragDropBehavior
         e.Effects = context.Effects;
         e.Handled = !context.NotHandled;
 
-        if (context.NotHandled) RemoveInsertion();
-        else ShowInsertion(element, context.InsertIndex);
+        if (context.NotHandled)
+        {
+            RemoveInsertion();
+            StopAutoScroll();
+            return;
+        }
+
+        ShowInsertion(element, context.InsertIndex);
+        UpdateAutoScroll(element, e);
     }
 
     private static void OnDrop(object sender, DragEventArgs e)
@@ -394,10 +418,123 @@ public static class DragDropBehavior
         _ghost = null;
     }
 
+    /// <summary>
+    /// カーソルが端の近くにいる間だけスクロールを回す。
+    /// ScrollViewer の Line 系を使うので、物理スクロールと論理スクロール（仮想化 ListBox）の
+    /// どちらでも同じように動く。
+    /// </summary>
+    private static void UpdateAutoScroll(FrameworkElement element, DragEventArgs e)
+    {
+        if (FindScrollViewer(element) is not { } viewer)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        var position = e.GetPosition(viewer);
+        var direction = DirectionFor(viewer, position);
+        if (direction == ScrollDirection.None)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        _autoScrollViewer = viewer;
+        _autoScrollDirection = direction;
+
+        if (_autoScrollTimer is not null) return;
+        _autoScrollTimer = new DispatcherTimer(DispatcherPriority.Normal)
+        {
+            Interval = AutoScrollInterval,
+        };
+        _autoScrollTimer.Tick += OnAutoScrollTick;
+        _autoScrollTimer.Start();
+    }
+
+    private static ScrollDirection DirectionFor(ScrollViewer viewer, Point position)
+    {
+        if (viewer.ScrollableHeight > 0)
+        {
+            if (position.Y < AutoScrollMargin) return ScrollDirection.Up;
+            if (position.Y > viewer.ActualHeight - AutoScrollMargin) return ScrollDirection.Down;
+        }
+        if (viewer.ScrollableWidth > 0)
+        {
+            if (position.X < AutoScrollMargin) return ScrollDirection.Left;
+            if (position.X > viewer.ActualWidth - AutoScrollMargin) return ScrollDirection.Right;
+        }
+        return ScrollDirection.None;
+    }
+
+    private static void OnAutoScrollTick(object? sender, EventArgs e)
+    {
+        if (_autoScrollViewer is not { } viewer)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        switch (_autoScrollDirection)
+        {
+            case ScrollDirection.Up: viewer.LineUp(); break;
+            case ScrollDirection.Down: viewer.LineDown(); break;
+            case ScrollDirection.Left: viewer.LineLeft(); break;
+            case ScrollDirection.Right: viewer.LineRight(); break;
+            default: StopAutoScroll(); break;
+        }
+    }
+
+    private static void StopAutoScroll()
+    {
+        if (_autoScrollTimer is not null)
+        {
+            _autoScrollTimer.Stop();
+            _autoScrollTimer.Tick -= OnAutoScrollTick;
+            _autoScrollTimer = null;
+        }
+        _autoScrollViewer = null;
+        _autoScrollDirection = ScrollDirection.None;
+    }
+
+    /// <summary>
+    /// スクロールさせる ScrollViewer。カード一覧（ListBox）は自分のテンプレートの中に持ち、
+    /// 列一覧（素の ItemsControl）は持たないので BoardView の外側のものを使う。内側を先に探す。
+    /// </summary>
+    private static ScrollViewer? FindScrollViewer(FrameworkElement element)
+        => FindOwnScrollViewer(element, element) ?? FindAncestor(element);
+
+    /// <summary>
+    /// 自分のテンプレートの中の ScrollViewer だけを探す。入れ子の ItemsControl に入ったら
+    /// そこで打ち切る。これをしないと、列一覧から探したときに中のカード一覧の
+    /// ScrollViewer を掴んでしまい、列を掴んでいるのにカードが縦スクロールする。
+    /// </summary>
+    private static ScrollViewer? FindOwnScrollViewer(DependencyObject node, FrameworkElement root)
+    {
+        if (node is ScrollViewer found) return found;
+        if (!ReferenceEquals(node, root) && node is ItemsControl) return null;
+
+        var count = VisualTreeHelper.GetChildrenCount(node);
+        for (var i = 0; i < count; i++)
+        {
+            if (FindOwnScrollViewer(VisualTreeHelper.GetChild(node, i), root) is { } child) return child;
+        }
+        return null;
+    }
+
+    private static ScrollViewer? FindAncestor(DependencyObject node)
+    {
+        for (var current = ParentOf(node); current is not null; current = ParentOf(current))
+        {
+            if (current is ScrollViewer found) return found;
+        }
+        return null;
+    }
+
     /// <summary>ドラッグが終わったときに必ず呼ぶ。</summary>
     private static void RemoveDecorations()
     {
         RemoveInsertion();
         RemoveGhost();
+        StopAutoScroll();
     }
 }
