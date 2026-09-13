@@ -1,12 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Windows;
-using GongSolutions.Wpf.DragDrop;
 using MoTask.App.ViewModels;
 
 namespace MoTask.App.DragDrop;
 
 /// <summary>列の並び替え。列ヘッダーから始めたドラッグを列の ItemsControl で受ける。</summary>
-public sealed class ColumnDropHandler : IDropTarget
+public sealed class ColumnDropHandler : IDropHandler
 {
     private readonly BoardViewModel _board;
 
@@ -15,7 +14,7 @@ public sealed class ColumnDropHandler : IDropTarget
         _board = board;
     }
 
-    public void DragOver(IDropInfo dropInfo)
+    public void DragOver(IDropContext dropInfo)
     {
         // 列以外（カードのドラッグ）はここでは受けない。握らず親へ返す。
         if (!CanAccept(dropInfo))
@@ -23,15 +22,14 @@ public sealed class ColumnDropHandler : IDropTarget
             dropInfo.NotHandled = true;
             return;
         }
-        dropInfo.DropTargetAdorner = DropTargetAdorners.Insert;
         dropInfo.Effects = DragDropEffects.Move;
     }
 
-    public void Drop(IDropInfo dropInfo)
+    public void Drop(IDropContext dropInfo)
     {
-        // DragOver と同じく、受けないドロップは NotHandled を立てて返す（Gong は立てないと
-        // e.Handled = true にしてしまう）。ここは最上位の drop target なので実害は小さいが、
-        // 「受けなかったのに握る」状態を残さない。
+        // DragOver と同じく、受けないドロップは NotHandled を立てて返す（立てないと
+        // DragDropBehavior が e.Handled = true にしてしまう）。ここは最上位の drop target なので
+        // 実害は小さいが、「受けなかったのに握る」状態を残さない。
         if (dropInfo.Data is not ColumnViewModel moving)
         {
             dropInfo.NotHandled = true;
@@ -55,16 +53,6 @@ public sealed class ColumnDropHandler : IDropTarget
         _board.RunGuarded(() => _board.ReorderColumnsAsync(order));
     }
 
-    public void DragEnter(IDropInfo dropInfo) => DragOver(dropInfo);
-
-    public void DragLeave(IDropInfo dropInfo)
-    {
-    }
-
-    public void DropHint(IDropHintInfo dropHintInfo)
-    {
-    }
-
-    private static bool CanAccept(IDropInfo dropInfo)
+    private static bool CanAccept(IDropContext dropInfo)
         => dropInfo.Data is ColumnViewModel && dropInfo.TargetCollection is ObservableCollection<ColumnViewModel>;
 }

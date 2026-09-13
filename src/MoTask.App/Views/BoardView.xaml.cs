@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using MoTask.App.DragDrop;
 using MoTask.App.ViewModels;
-using GongDragDrop = GongSolutions.Wpf.DragDrop.DragDrop;
 
 namespace MoTask.App.Views;
 
@@ -22,7 +21,7 @@ public partial class BoardView : UserControl
     private void AttachDragDrop()
     {
         if (DataContext is not BoardViewModel vm) return;
-        GongDragDrop.SetDropHandler(ColumnsHost, new ColumnDropHandler(vm));
+        DragDropBehavior.SetDropHandler(ColumnsHost, new ColumnDropHandler(vm));
     }
 
     private void NewColumnEditor_KeyDown(object sender, KeyEventArgs e)

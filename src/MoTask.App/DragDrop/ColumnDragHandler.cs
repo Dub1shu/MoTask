@@ -1,21 +1,20 @@
 using System.Windows;
-using GongSolutions.Wpf.DragDrop;
 using MoTask.App.ViewModels;
 
 namespace MoTask.App.DragDrop;
 
 /// <summary>
 /// 列ヘッダー（ItemsControl ではない要素）からのドラッグ。既定のハンドラは ItemsControl の
-/// 選択項目から Data を組み立てるので、ここでは要素の DataContext から列を直接載せる。
+/// 項目から Data を組み立てるので、ここでは要素の DataContext から列を直接載せる。
 /// </summary>
-public sealed class ColumnDragHandler : DefaultDragHandler
+public sealed class ColumnDragHandler : IDragHandler
 {
-    public override bool CanStartDrag(IDragInfo dragInfo)
-        => (dragInfo.VisualSource as FrameworkElement)?.DataContext is ColumnViewModel;
+    public bool CanStartDrag(IDragContext dragInfo)
+        => dragInfo.VisualSource?.DataContext is ColumnViewModel;
 
-    public override void StartDrag(IDragInfo dragInfo)
+    public void StartDrag(IDragContext dragInfo)
     {
-        var column = (dragInfo.VisualSource as FrameworkElement)?.DataContext as ColumnViewModel;
+        var column = dragInfo.VisualSource?.DataContext as ColumnViewModel;
         dragInfo.Data = column;
         dragInfo.Effects = column is null ? DragDropEffects.None : DragDropEffects.Move;
     }

@@ -4,12 +4,12 @@ namespace MoTask.App.DragDrop;
 
 /// <summary>
 /// D&amp;D の挿入位置を Core が期待する position へ直す純粋な計算。UI スレッドも
-/// gong-wpf-dragdrop の型も要らないので、そのまま単体テストできる。
+/// WPF の型も要らないので、そのまま単体テストできる。
 /// </summary>
 public static class DropPositionCalculator
 {
     /// <summary>
-    /// Gong の InsertIndex（表示カード列での挿入位置）を、Core の position
+    /// InsertIndex（表示カード列での挿入位置）を、Core の position
     /// （移動カードを除いた列内全カード列での挿入位置）に変換する。null は「自分の上に落とした」= 変化なし。
     /// </summary>
     public static int? ToPosition(
