@@ -86,6 +86,10 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="10.2,5" />
+    <!-- 中身の寄せは既定で中央。テンプレート側で固定せずここに置くことで、
+         行全体が押せるボタン（朝プランの各行など）は Stretch に上書きして左端寄せにできる。 -->
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
     <Setter Property="Cursor" Value="Hand" />
@@ -95,7 +99,9 @@
           <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
                   CornerRadius="6" SnapsToDevicePixels="True">
-            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                              RecognizesAccessKey="True" />
           </Border>
         </ControlTemplate>
       </Setter.Value>

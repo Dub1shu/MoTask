@@ -250,9 +250,12 @@
                   <ItemsControl ItemsSource="{Binding Rows}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <Button Style="{StaticResource Btn.Ghost}" Command="{Binding OpenCommand}"
+                        <!-- 行の境界はカードで示す。Btn.Ghost（透明・枠なし）だと余白しか手がかりが
+                             無く、行が続いて見える。既定の Button スタイルは SurfaceRaised の塗りと
+                             Divider の枠を持つので、候補キューや「01 最初にやる1件」と同じ見た目に揃う。 -->
+                        <Button Command="{Binding OpenCommand}"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.1}">
+                                Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
                           <DockPanel>
                             <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}"
                                     Padding="{StaticResource Pad.Chip}" CornerRadius="3" VerticalAlignment="Top"
