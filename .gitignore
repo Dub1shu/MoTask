@@ -9,3 +9,4 @@ publish/
 TestResults/
 .worktrees/
 .claude/worktrees/
+.superpowers/
