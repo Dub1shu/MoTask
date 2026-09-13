@@ -253,7 +253,7 @@ public sealed class FakeBoardService : IBoardService
     /// <summary>SetProjectWorkingDirectoryAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
     public Func<SetProjectWorkingDirectoryCall, Task<Result>>? OnSetProjectWorkingDirectory { get; set; }
 
-    /// <summary>CreateLabelAsync の既定応答を差し替える。null なら Name を設定した Label を Result.Ok で返す。</summary>
+    /// <summary>CreateLabelAsync の既定応答を差し替える。null なら Name/Color を設定した Label を Result.Ok で返す。</summary>
     public Func<CreateLabelCall, Task<Result<Label>>>? OnCreateLabel { get; set; }
 
     /// <summary>ArchiveLabelAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
