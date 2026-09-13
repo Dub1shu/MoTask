@@ -10,7 +10,6 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="FluentAssertions" />
-    <PackageReference Include="NSubstitute" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MoTask.App\MoTask.App.csproj" />

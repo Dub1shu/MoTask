@@ -1,11 +1,11 @@
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.App.Resources;
+using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -14,40 +14,26 @@ public class TaskAiPanelViewModelTests
 {
     private const string Folder = @"C:\w\jobs\0001-t";
 
-    private readonly IBoardService _service = Substitute.For<IBoardService>();
-    private readonly IAiJobService _ai = Substitute.For<IAiJobService>();
-    private readonly List<AiJob> _jobs = new();
-    private readonly List<AiJobEvent> _events = new();
-    private readonly List<string> _artifacts = new();
+    private readonly FakeBoardService _service = new();
+    private readonly FakeAiJobService _ai = new();
     private readonly List<string> _opened = new();
     private readonly BoardViewModel _vm;
 
     public TaskAiPanelViewModelTests()
     {
         var board = TestBoards.Sample();
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(board)));
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<Project>>(new[] { TestBoards.ProjectA() }));
-        _service.GetLabelsAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<Label>>(new[] { TestBoards.Urgent() }));
-        _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>()));
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(board));
+        _service.Projects = new[] { TestBoards.ProjectA() };
+        _service.Labels = new[] { TestBoards.Urgent() };
 
-        _ai.GetUnfinishedJobsAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => !j.Status.IsTerminal()).ToList()));
-        _ai.GetJobsForTaskAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<IReadOnlyList<AiJob>>(_jobs.Where(j => j.TaskId == ci.Arg<int>()).OrderByDescending(j => j.Id).ToList()));
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(ci => Task.FromResult<IReadOnlyList<AiJobEvent>>(_events.Where(e => e.JobId == ci.ArgAt<int>(0)).OrderBy(e => e.Seq).ToList()));
-        _ai.GetArtifactsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult<IReadOnlyList<string>>(_artifacts.ToList()));
-        _ai.StartJobAsync(Arg.Any<int>(), Arg.Any<AiJobKind>(), Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(ci =>
+        _ai.OnStartJob = call =>
         {
-            var job = new AiJob { Id = _jobs.Count + 1, TaskId = ci.Arg<int>(), Kind = ci.Arg<AiJobKind>(), Status = AiJobStatus.Running, Instruction = ci.Arg<string>(), WorkingDirectory = @"C:\w", JobFolder = Folder };
-            _jobs.Add(job);
+            var job = new AiJob { Id = _ai.Jobs.Count + 1, TaskId = call.TaskId, Kind = call.Kind, Status = AiJobStatus.Running, Instruction = call.Instruction, WorkingDirectory = @"C:\w", JobFolder = Folder };
+            _ai.Jobs.Add(job);
             return Task.FromResult(Result.Ok(job));
-        });
-        _ai.CompleteJobAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
-        _ai.StopTrackingAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
-        _ai.ReopenTerminalAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
+        };
 
-        _vm = new BoardViewModel(_service, new TestClock(), _ai, Substitute.For<IBoardChangeSource>()) { OpenPath = _opened.Add };
+        _vm = new BoardViewModel(_service, new TestClock(), _ai, new FakeBoardChangeSource()) { OpenPath = _opened.Add };
     }
 
     private async Task<TaskAiPanelViewModel> OpenAsync(int taskId = 10)
@@ -61,7 +47,7 @@ public class TaskAiPanelViewModelTests
     }
 
     private void RaiseChanged(AiJobSnapshot job, AiJobEvent? newEvent = null, string? warning = null)
-        => _ai.JobChanged += Raise.EventWith(_ai, new AiJobChangedEventArgs(job, newEvent, warning));
+        => _ai.RaiseJobChanged(job, newEvent, warning);
 
     private static AiJobSnapshot Snapshot(int jobId, AiJobStatus status, int taskId = 10, int turns = 1,
         AiJobKind kind = AiJobKind.Execute, string? error = null)
@@ -108,7 +94,8 @@ public class TaskAiPanelViewModelTests
 
         await ai.ConfirmStartCommand.ExecuteAsync(null);
 
-        await _ai.Received(1).StartJobAsync(10, AiJobKind.Execute, "請求先を最新にしてください", Arg.Any<CancellationToken>());
+        _ai.StartJobCalls.Should().ContainSingle()
+            .Which.Should().Be(new StartJobCall(10, AiJobKind.Execute, "請求先を最新にしてください"));
         ai.IsComposing.Should().BeFalse();
         ai.HasJob.Should().BeTrue();
         ai.IsActive.Should().BeTrue();
@@ -122,8 +109,7 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task ConfirmStart_WhenServiceRejects_ShowsBanner_AndStaysComposing()
     {
-        _ai.StartJobAsync(Arg.Any<int>(), Arg.Any<AiJobKind>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail<AiJob>(Messages.ClaudeNotFound)));
+        _ai.OnStartJob = _ => Task.FromResult(Result.Fail<AiJob>(Messages.ClaudeNotFound));
         var ai = await OpenAsync();
         ai.BeginExecuteCommand.Execute(null);
 
@@ -146,7 +132,7 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task JobChanged_ForThisTask_AppendsLog_AndUpdatesBadge()
     {
-        _jobs.Add(Job(1, AiJobStatus.Running));
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
         var toolUse = new AiJobEvent
         {
@@ -177,7 +163,7 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task JobChanged_WaitingForInput_ShowsTheInputBadge_AndKeepsTheControls()
     {
-        _jobs.Add(Job(1, AiJobStatus.Running));
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
 
         RaiseChanged(Snapshot(1, AiJobStatus.WaitingForInput));
@@ -192,7 +178,7 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task JobChanged_TurnEnded_ShowsTheLastAssistantMessageAsTheResult()
     {
-        _jobs.Add(Job(1, AiJobStatus.Running));
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
         var stop = new AiJobEvent
         {
@@ -208,15 +194,15 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task JobChanged_Succeeded_ClearsBadge_AndAllowsANewJob()
     {
-        _jobs.Add(Job(1, AiJobStatus.Running));
-        _events.Add(new AiJobEvent
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
+        _ai.Events.Add(new AiJobEvent
         {
             JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.TurnEnded,
             Payload = """{"hook_event_name":"Stop","last_assistant_message":"レポートを書きました"}""",
         });
         var ai = await OpenAsync();
-        _jobs[0].Status = AiJobStatus.Succeeded;
-        _jobs[0].NumTurns = 3;
+        _ai.Jobs[0].Status = AiJobStatus.Succeeded;
+        _ai.Jobs[0].NumTurns = 3;
 
         RaiseChanged(Snapshot(1, AiJobStatus.Succeeded, turns: 3));
         await ai.PendingLoad;
@@ -240,13 +226,13 @@ public class TaskAiPanelViewModelTests
         var board = TestBoards.Sample();
         var review = new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review };
         board.Columns.Add(review);
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(board)));
-        _jobs.Add(Job(1, AiJobStatus.Running));
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(board));
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
         var card = _vm.Detail!.Card;
 
         TestBoards.Move(board.Columns[0], review, 10, int.MaxValue);
-        _jobs[0].Status = AiJobStatus.Succeeded;
+        _ai.Jobs[0].Status = AiJobStatus.Succeeded;
 
         RaiseChanged(Snapshot(1, AiJobStatus.Succeeded, turns: 3));
         await ai.PendingLoad;
@@ -264,27 +250,27 @@ public class TaskAiPanelViewModelTests
     /// LoadAsync は Log.Clear() → await → Log.Add() なので、重なると 2 倍に増える。
     /// 実際にこうなる: StartJobAsync が同期的に JobChanged を上げるため、ConfirmStartAsync が
     /// まだ待っている間に OnJobChanged 経由の読み込みが始まり、その後 ConfirmStartAsync も読み込む。
-    /// substitute は同期完了するので、照会をゲートで止めて本当に重ねる。
+    /// フェイクは同期完了するので、照会をゲートで止めて本当に重ねる。
     /// </summary>
     [Fact]
     public async Task OverlappingLoads_DoNotDoubleTheLog()
     {
-        _jobs.Add(Job(1, AiJobStatus.Running));
-        _events.Add(new AiJobEvent
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
+        _ai.Events.Add(new AiJobEvent
         {
             JobId = 1, Seq = 1, At = DateTime.UtcNow, Kind = AiJobEventKind.SessionStarted,
             Payload = """{"hook_event_name":"SessionStart","source":"startup"}""",
         });
-        _artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
+        _ai.Artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
         var ai = await OpenAsync();
 
         var gate = new TaskCompletionSource();
         async Task<IReadOnlyList<AiJobEvent>> Gated(int jobId)
         {
             await gate.Task;
-            return _events.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList();
+            return _ai.Events.Where(e => e.JobId == jobId).OrderBy(e => e.Seq).ToList();
         }
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(ci => Gated(ci.ArgAt<int>(0)));
+        _ai.OnGetEvents = call => Gated(call.JobId);
 
         var first = ai.LoadAsync();
         var second = ai.LoadAsync();
@@ -298,10 +284,10 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task JobChanged_Failed_ShowsErrorMessage()
     {
-        _jobs.Add(Job(1, AiJobStatus.Running));
+        _ai.Jobs.Add(Job(1, AiJobStatus.Running));
         var ai = await OpenAsync();
-        _jobs[0].Status = AiJobStatus.Failed;
-        _jobs[0].ErrorMessage = "だめでした";
+        _ai.Jobs[0].Status = AiJobStatus.Failed;
+        _ai.Jobs[0].ErrorMessage = "だめでした";
 
         RaiseChanged(Snapshot(1, AiJobStatus.Failed, error: "だめでした"));
         await ai.PendingLoad;
@@ -321,45 +307,45 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task Complete_CallsService_AndReloads()
     {
-        _jobs.Add(Job(5, AiJobStatus.WaitingForInput));
+        _ai.Jobs.Add(Job(5, AiJobStatus.WaitingForInput));
         var ai = await OpenAsync();
 
         ai.CanControl.Should().BeTrue();
         await ai.CompleteCommand.ExecuteAsync(null);
 
-        await _ai.Received(1).CompleteJobAsync(5, Arg.Any<CancellationToken>());
+        _ai.CompleteJobCalls.Should().ContainSingle().Which.Should().Be(5);
     }
 
     [Fact]
     public async Task StopTracking_CallsService()
     {
-        _jobs.Add(Job(5, AiJobStatus.Running));
+        _ai.Jobs.Add(Job(5, AiJobStatus.Running));
         var ai = await OpenAsync();
 
         await ai.StopTrackingCommand.ExecuteAsync(null);
 
-        await _ai.Received(1).StopTrackingAsync(5, Arg.Any<CancellationToken>());
+        _ai.StopTrackingCalls.Should().ContainSingle().Which.Should().Be(5);
     }
 
     [Fact]
     public async Task ReopenTerminal_CallsService()
     {
-        _jobs.Add(Job(5, AiJobStatus.WaitingForInput));
+        _ai.Jobs.Add(Job(5, AiJobStatus.WaitingForInput));
         var ai = await OpenAsync();
 
         await ai.ReopenTerminalCommand.ExecuteAsync(null);
 
-        await _ai.Received(1).ReopenTerminalAsync(5, Arg.Any<CancellationToken>());
+        _ai.ReopenTerminalCalls.Should().ContainSingle().Which.Should().Be(5);
     }
 
     [Fact]
     public async Task Artifacts_ComeFromTheService_NotFromTheEventLog()
     {
-        _jobs.Add(Job(1, AiJobStatus.Succeeded));
-        _artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
+        _ai.Jobs.Add(Job(1, AiJobStatus.Succeeded));
+        _ai.Artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
         var ai = await OpenAsync();
 
-        await _ai.Received(1).GetArtifactsAsync(1, Arg.Any<CancellationToken>());
+        _ai.GetArtifactsCalls.Should().ContainSingle().Which.Should().Be(1);
         ai.Artifacts.Should().ContainSingle().Which.Path.Should().Be(@"C:\w\jobs\0001-t\artifacts\report.md");
         ai.Artifacts[0].FileName.Should().Be("report.md");
     }
@@ -367,8 +353,8 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task OpenArtifact_WorkingDirectory_AndJobFolder_UseOpenPath()
     {
-        _jobs.Add(Job(1, AiJobStatus.Succeeded));
-        _artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
+        _ai.Jobs.Add(Job(1, AiJobStatus.Succeeded));
+        _ai.Artifacts.Add(@"C:\w\jobs\0001-t\artifacts\report.md");
         var ai = await OpenAsync();
 
         ai.OpenArtifactCommand.Execute(ai.Artifacts.Single());
@@ -381,9 +367,9 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task Load_RestoresBadgesFromUnfinishedJobs()
     {
-        _jobs.Add(new AiJob { Id = 1, TaskId = 11, Kind = AiJobKind.Research, Status = AiJobStatus.WaitingForInput, WorkingDirectory = @"C:\w", JobFolder = Folder });
-        _jobs.Add(new AiJob { Id = 2, TaskId = 12, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w", JobFolder = Folder });
-        _ai.TurnCountOf(2).Returns(6);
+        _ai.Jobs.Add(new AiJob { Id = 1, TaskId = 11, Kind = AiJobKind.Research, Status = AiJobStatus.WaitingForInput, WorkingDirectory = @"C:\w", JobFolder = Folder });
+        _ai.Jobs.Add(new AiJob { Id = 2, TaskId = 12, Kind = AiJobKind.Execute, Status = AiJobStatus.Running, WorkingDirectory = @"C:\w", JobFolder = Folder });
+        _ai.TurnCounts[2] = 6;
 
         await _vm.LoadAsync();
 
@@ -397,7 +383,7 @@ public class TaskAiPanelViewModelTests
     public async Task DeletedTask_CannotStart()
     {
         var board = TestBoards.WithDeletedCard();
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(board)));
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(board));
         var ai = await OpenAsync(11);
         ai.CanStart.Should().BeFalse();
     }
@@ -405,7 +391,7 @@ public class TaskAiPanelViewModelTests
     /// <summary>ジョブが 1 件走っている状態のパネル。既存の OpenAsync と同じ手順で開く。</summary>
     private async Task<TaskAiPanelViewModel> PanelWithRunningJobAsync()
     {
-        _jobs.Add(new AiJob
+        _ai.Jobs.Add(new AiJob
         {
             Id = 1, TaskId = 10, Kind = AiJobKind.Execute, Status = AiJobStatus.Running,
             WorkingDirectory = @"C:\w", JobFolder = @"C:\w\jobs\0001-a",
@@ -436,8 +422,7 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task Panel_ListsTheArtifactsTheServiceReports()
     {
-        _ai.GetArtifactsAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<string>>(new[] { @"C:\w\jobs\0001-a\artifacts\report.md" }));
+        _ai.OnGetArtifacts = _ => Task.FromResult<IReadOnlyList<string>>(new[] { @"C:\w\jobs\0001-a\artifacts\report.md" });
 
         var panel = await PanelWithRunningJobAsync();
 
@@ -455,15 +440,14 @@ public class TaskAiPanelViewModelTests
     [Fact]
     public async Task Panel_ShowsOnlyTheLastThreeLogLines()
     {
-        _ai.GetEventsAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(new AiJobEvent[]
-            {
-                Event(1, AiJobEventKind.ToolUse, "Read"),
-                Event(2, AiJobEventKind.ToolUse, "Grep"),
-                Event(3, AiJobEventKind.ToolUse, "Bash"),
-                Event(4, AiJobEventKind.ToolUse, "Write"),
-                Event(5, AiJobEventKind.ToolUse, "Edit"),
-            });
+        _ai.OnGetEvents = _ => Task.FromResult<IReadOnlyList<AiJobEvent>>(new AiJobEvent[]
+        {
+            Event(1, AiJobEventKind.ToolUse, "Read"),
+            Event(2, AiJobEventKind.ToolUse, "Grep"),
+            Event(3, AiJobEventKind.ToolUse, "Bash"),
+            Event(4, AiJobEventKind.ToolUse, "Write"),
+            Event(5, AiJobEventKind.ToolUse, "Edit"),
+        });
 
         var panel = await PanelWithRunningJobAsync();
 

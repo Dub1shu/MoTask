@@ -2,27 +2,24 @@ using System.Text.Json;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.App.Ai.BoardTools;
+using MoTask.App.Tests.Fakes;
 using MoTask.Core;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
 
 public class BoardToolHostReadTests
 {
-    private readonly IBoardService _service = Substitute.For<IBoardService>();
+    private readonly FakeBoardService _service = new();
     private readonly Board _board = TestBoards.Sample();
     private readonly BoardToolHost _host;
 
     public BoardToolHostReadTests()
     {
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(_board)));
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Project>>(new[] { TestBoards.ProjectA() }));
-        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Label>>(new[] { TestBoards.Urgent() }));
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(_board));
+        _service.Projects = new[] { TestBoards.ProjectA() };
+        _service.Labels = new[] { TestBoards.Urgent() };
         // TestClock の既定日(2026-09-04, 金)だと、タスク 10 の期日(2026-09-08)が
         // WeekOf の週境界(2026-08-31〜2026-09-06)から外れて this_week に入らない
         // (tests/MoTask.Core.Tests/TaskFilterTests.cs の WeekOf_StartsMonday で検証済み)。
@@ -65,7 +62,7 @@ public class BoardToolHostReadTests
     [Fact]
     public async Task GetBoard_ServiceFails_ReturnsToolError()
     {
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail<Board>("ボードがありません")));
+        _service.OnGetBoard = () => Task.FromResult(Result.Fail<Board>("ボードがありません"));
 
         var (_, isError, text) = await CallAsync(BoardToolHost.GetBoard);
 

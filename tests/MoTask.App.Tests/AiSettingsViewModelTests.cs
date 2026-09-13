@@ -1,19 +1,19 @@
 using FluentAssertions;
 using MoTask.App.Resources;
+using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core.Ai;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
 
 public class AiSettingsViewModelTests
 {
-    private readonly IAiSettingsStore _store = Substitute.For<IAiSettingsStore>();
+    private readonly FakeAiSettingsStore _store = new();
 
     public AiSettingsViewModelTests()
     {
-        _store.Load().Returns(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5", AiSettings.DefaultPermissionMode, null));
+        _store.Settings = new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5", AiSettings.DefaultPermissionMode, null);
     }
 
     private AiSettingsViewModel Open() => new(_store);
@@ -40,7 +40,7 @@ public class AiSettingsViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        _store.Received(1).Save(new AiSettings(@"D:\ai", null, null, AiSettings.DefaultPermissionMode, null));
+        _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"D:\ai", null, null, AiSettings.DefaultPermissionMode, null));
         vm.StatusMessage.Should().Be(Strings.SettingsSaved);
         vm.ErrorMessage.Should().BeNull();
     }
@@ -54,7 +54,7 @@ public class AiSettingsViewModelTests
         vm.SaveCommand.Execute(null);
 
         vm.ErrorMessage.Should().Be(Strings.DefaultWorkingDirectoryRequired);
-        _store.DidNotReceive().Save(Arg.Any<AiSettings>());
+        _store.SaveCalls.Should().BeEmpty();
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public class AiSettingsViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+        _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             "plan", "pwsh.exe -NoExit -Command {command}"));
         vm.ErrorMessage.Should().BeNull();
     }
@@ -80,7 +80,7 @@ public class AiSettingsViewModelTests
         vm.SaveCommand.Execute(null);
 
         vm.ErrorMessage.Should().Be(Strings.PermissionModeInvalid);
-        _store.DidNotReceive().Save(Arg.Any<AiSettings>());
+        _store.SaveCalls.Should().BeEmpty();
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public class AiSettingsViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+        _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null));
     }
 
@@ -111,21 +111,21 @@ public class AiSettingsViewModelTests
 
         vm.SaveCommand.Execute(null);
 
-        _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+        _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null, "私の方針"));
     }
 
     [Fact]
     public void Save_ClearsTheMorningInstruction_WhenTheBoxIsEmptied()
     {
-        _store.Load().Returns(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
-            AiSettings.DefaultPermissionMode, null, "前の方針"));
+        _store.Settings = new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+            AiSettings.DefaultPermissionMode, null, "前の方針");
         var vm = Open();
         vm.MorningInstruction = "";
 
         vm.SaveCommand.Execute(null);
 
-        _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
+        _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null, null));
     }
 }
