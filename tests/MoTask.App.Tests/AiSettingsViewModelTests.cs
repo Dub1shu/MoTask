@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.App.ViewModels;
 using MoTask.Core.Ai;
@@ -127,5 +128,38 @@ public class AiSettingsViewModelTests
 
         _store.Received(1).Save(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null, null));
+    }
+
+    [Fact]
+    public void TemplateNotice_IsNullForAnOrdinaryTemplate()
+    {
+        var vm = new AiSettingsViewModel(new StubSettingsStore(AiSettings.Default()));
+
+        vm.TemplateNotice.Should().BeNull();
+
+        vm.TerminalCommandTemplate = "powershell.exe -NoExit -Command {command}";
+        vm.TemplateNotice.Should().BeNull();
+    }
+
+    /// <summary>朝の実行では使えないテンプレートなので、保存前から画面で知らせる（仕様 §5.2）。</summary>
+    [Fact]
+    public void TemplateNotice_AppearsWhileTypingAWindowsTerminalTemplate()
+    {
+        var vm = new AiSettingsViewModel(new StubSettingsStore(AiSettings.Default()));
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.TerminalCommandTemplate = "wt.exe -d \"{cwd}\" cmd /k {command}";
+
+        vm.TemplateNotice.Should().Be(Strings.MorningTemplateFallsBackToDefault);
+        raised.Should().Contain(nameof(AiSettingsViewModel.TemplateNotice));
+    }
+
+    private sealed class StubSettingsStore : IAiSettingsStore
+    {
+        private AiSettings _settings;
+        public StubSettingsStore(AiSettings settings) => _settings = settings;
+        public AiSettings Load() => _settings;
+        public void Save(AiSettings settings) => _settings = settings;
     }
 }

@@ -18,6 +18,18 @@ public sealed class TerminalLauncher : ISessionLauncher
     /// <summary>朝の実行の既定。claude が終われば窓も畳む（仕様 §5.2）。</summary>
     internal const string MorningTemplate = "cmd.exe /c {command}";
 
+    /// <summary>
+    /// 起動テンプレートの先頭トークンのファイル名が wt.exe か（フルパスも同じ扱い・大文字小文字は無視）。
+    /// 朝の実行はこのテンプレートを使えないので既定に落とし、AI 設定画面に注意を出す（仕様 §5.2）。
+    /// </summary>
+    internal static bool IsWindowsTerminalTemplate(string? template)
+    {
+        if (string.IsNullOrWhiteSpace(template)) return false;
+        var (fileName, _) = CommandLine.SplitFirstToken(template);
+        return fileName.Length > 0
+               && string.Equals(Path.GetFileName(fileName), "wt.exe", StringComparison.OrdinalIgnoreCase);
+    }
+
     private readonly IAiSettingsStore _settings;
     private readonly string? _pathVariable;
 
@@ -73,9 +85,13 @@ public sealed class TerminalLauncher : ISessionLauncher
         parts.Add(string.Format(Messages.TerminalStartPromptFormat, paths.InstructionMarkdown, outputDirectory));
 
         var inner = string.Join(" ", parts.Select(CommandLine.Quote));
-        var template = settings.TerminalCommandTemplate is { Length: > 0 } configured
-            ? configured
-            : request.CloseOnExit ? MorningTemplate : DefaultTemplate;
+        // 利用者定義のテンプレートは AI 遂行でも朝の実行でも効く。ただし朝の実行で wt を挟むと
+        // 掴めるのが起動役の pid になり、完了時に閉じられない。そこだけ既定に落とす（仕様 §5.2）。
+        var configured = settings.TerminalCommandTemplate is { Length: > 0 } text
+                         && !(request.CloseOnExit && IsWindowsTerminalTemplate(text))
+            ? text
+            : null;
+        var template = configured ?? (request.CloseOnExit ? MorningTemplate : DefaultTemplate);
         // テンプレート側で {cwd} はすでに "..." に囲まれている（既定テンプレートも利用者定義も同じ形）。
         // ドライブ直下（D:\ など）のように末尾が \ で終わる cwd をそのまま埋めると、
         // テンプレートの閉じ " の直前が奇数個の \ になり、CommandLineToArgvW がその " を

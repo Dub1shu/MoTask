@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.Core.Ai;
 
@@ -14,13 +15,23 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [ObservableProperty] private string _claudeExecutablePath = "";
     [ObservableProperty] private string _model = "";
     [ObservableProperty] private string _permissionMode = "";
-    [ObservableProperty] private string _terminalCommandTemplate = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TemplateNotice))]
+    private string _terminalCommandTemplate = "";
     [ObservableProperty] private string _morningInstruction = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _statusMessage;
 
     /// <summary>CLI が受け付ける値だけを選ばせる（仕様 §4.3）。</summary>
     public IReadOnlyList<string> PermissionModes => AiSettings.PermissionModes;
+
+    /// <summary>
+    /// wt.exe 始まりのテンプレートへの注意（仕様 §5.2）。朝の実行では既定の起動に落ちる。
+    /// 無ければ null（画面は NullToVisibility で隠す）。
+    /// </summary>
+    public string? TemplateNotice => TerminalLauncher.IsWindowsTerminalTemplate(TerminalCommandTemplate)
+        ? Strings.MorningTemplateFallsBackToDefault
+        : null;
 
     public AiSettingsViewModel(IAiSettingsStore store)
     {

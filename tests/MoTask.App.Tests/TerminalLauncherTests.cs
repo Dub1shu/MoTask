@@ -203,6 +203,58 @@ public class TerminalLauncherTests : IDisposable
         command.Arguments.Should().Contain("--session-id");
     }
 
+    /// <summary>
+    /// wt を経由すると Process.Start が返すのは即座に終了する起動役の pid で、完了時に
+    /// 端末を閉じられない。朝の実行のときだけ既定に落とす（仕様 §5.2）。
+    /// </summary>
+    [Theory]
+    [InlineData("wt.exe -d \"{cwd}\" cmd /k {command}")]
+    [InlineData("WT.EXE -d \"{cwd}\" cmd /k {command}")]
+    [InlineData("\"C:\\Program Files\\WindowsApps\\wt.exe\" -d \"{cwd}\" cmd /k {command}")]
+    public void BuildCommand_FallsBackToTheMorningDefault_WhenTheTemplateStartsWithWindowsTerminal(string template)
+    {
+        _store.Save(_store.Load() with { TerminalCommandTemplate = template });
+
+        var command = Launcher().BuildCommand(_request with { CloseOnExit = true }).Value!;
+
+        command.FileName.Should().Be("cmd.exe");
+        command.Arguments.Should().StartWith("/c ");
+    }
+
+    /// <summary>AI 遂行では利用者のテンプレートをそのまま使う（閉じる必要が無い）。</summary>
+    [Fact]
+    public void BuildCommand_KeepsAWindowsTerminalTemplate_ForAnAiJob()
+    {
+        _store.Save(_store.Load() with { TerminalCommandTemplate = "wt.exe -d \"{cwd}\" cmd /k {command}" });
+
+        Launcher().BuildCommand(_request).Value!.FileName.Should().Be("wt.exe");
+    }
+
+    /// <summary>先頭プロセスがウィンドウの持ち主なら、朝の実行でもそのまま使える（仕様 §5.2）。</summary>
+    [Fact]
+    public void BuildCommand_KeepsAPowerShellTemplate_ForAMorningRun()
+    {
+        _store.Save(_store.Load() with { TerminalCommandTemplate = "powershell.exe -NoExit -Command {command}" });
+
+        var command = Launcher().BuildCommand(_request with { CloseOnExit = true }).Value!;
+
+        command.FileName.Should().Be("powershell.exe");
+        command.Arguments.Should().StartWith("-NoExit -Command ");
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("   ", false)]
+    [InlineData("wt.exe -d \"{cwd}\" cmd /k {command}", true)]
+    [InlineData("\"C:\\x\\wt.exe\" {command}", true)]
+    [InlineData("wt {command}", false)]
+    [InlineData("pwsh.exe -Command wt.exe {command}", false)]
+    public void IsWindowsTerminalTemplate_LooksOnlyAtTheFirstTokensFileName(string? template, bool expected)
+    {
+        TerminalLauncher.IsWindowsTerminalTemplate(template).Should().Be(expected);
+    }
+
     [Fact]
     public void BuildCommand_FailsWhenClaudeIsMissing()
     {

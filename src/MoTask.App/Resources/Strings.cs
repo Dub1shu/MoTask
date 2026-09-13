@@ -214,4 +214,5 @@ public static class Strings
     public static string MorningBulkAppliedFormat => Get(nameof(MorningBulkAppliedFormat));
     public static string MorningBulkResultFormat => Get(nameof(MorningBulkResultFormat));
     public static string MorningBulkNoColumn => Get(nameof(MorningBulkNoColumn));
+    public static string MorningTemplateFallsBackToDefault => Get(nameof(MorningTemplateFallsBackToDefault));
 }
