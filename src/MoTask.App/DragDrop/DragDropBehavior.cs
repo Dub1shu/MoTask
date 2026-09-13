@@ -34,6 +34,8 @@ public static class DragDropBehavior
 
     private static InsertionAdorner? _insertion;
 
+    private static DragGhostAdorner? _ghost;
+
     // ---- 添付プロパティ ----
 
     public static readonly DependencyProperty IsDragSourceProperty = DependencyProperty.RegisterAttached(
@@ -93,12 +95,14 @@ public static class DragDropBehavior
         element.PreviewMouseLeftButtonDown -= OnSourceMouseDown;
         element.PreviewMouseMove -= OnSourceMouseMove;
         element.PreviewMouseLeftButtonUp -= OnSourceMouseUp;
+        element.GiveFeedback -= OnGiveFeedback;
 
         if (e.NewValue is not true) return;
 
         element.PreviewMouseLeftButtonDown += OnSourceMouseDown;
         element.PreviewMouseMove += OnSourceMouseMove;
         element.PreviewMouseLeftButtonUp += OnSourceMouseUp;
+        element.GiveFeedback += OnGiveFeedback;
     }
 
     private static void OnSourceMouseDown(object sender, MouseButtonEventArgs e)
@@ -154,6 +158,7 @@ public static class DragDropBehavior
         if (context.Data is null) return;
 
         _payload = context.Data;
+        ShowGhost(element, origin);
         try
         {
             var data = new DataObject(PayloadFormat, PayloadFormat);
@@ -347,6 +352,52 @@ public static class DragDropBehavior
         _insertion = null;
     }
 
-    /// <summary>ドラッグが終わったときに必ず呼ぶ。Task 3 と Task 4 でここに足す。</summary>
-    private static void RemoveDecorations() => RemoveInsertion();
+    /// <summary>
+    /// ゴーストを出す。載せ先はウィンドウ直下なので、ドロップ先の外へカーソルが出ても消えない。
+    /// </summary>
+    private static void ShowGhost(FrameworkElement element, Point origin)
+    {
+        if (GhostSourceOf(element, origin) is not { } source) return;
+        if (Window.GetWindow(element)?.Content is not UIElement root) return;
+        if (AdornerLayer.GetAdornerLayer(root) is not { } layer) return;
+
+        RemoveGhost();
+        _ghost = new DragGhostAdorner(root, source);
+        layer.Add(_ghost);
+    }
+
+    /// <summary>写す元。ItemsControl なら押した点の項目、そうでなければ要素そのもの（列ヘッダー）。</summary>
+    private static FrameworkElement? GhostSourceOf(FrameworkElement element, Point origin)
+    {
+        if (element is not ItemsControl items) return element;
+        if (items.InputHitTest(origin) is not DependencyObject hit) return null;
+        return ItemsControl.ContainerFromElement(items, hit) as FrameworkElement;
+    }
+
+    /// <summary>
+    /// ゴーストの追従。GiveFeedback はドロップ先の有無にかかわらず continuous に起きるので、
+    /// ドロップ先の隙間にカーソルがあってもゴーストが止まらない。
+    /// </summary>
+    private static void OnGiveFeedback(object sender, GiveFeedbackEventArgs e)
+    {
+        if (_ghost is null) return;
+        if (!NativeCursor.GetCursorPos(out var point)) return;
+
+        var root = (UIElement)_ghost.AdornedElement;
+        _ghost.MoveTo(root.PointFromScreen(new Point(point.X, point.Y)));
+    }
+
+    private static void RemoveGhost()
+    {
+        if (_ghost is null) return;
+        AdornerLayer.GetAdornerLayer(_ghost.AdornedElement)?.Remove(_ghost);
+        _ghost = null;
+    }
+
+    /// <summary>ドラッグが終わったときに必ず呼ぶ。</summary>
+    private static void RemoveDecorations()
+    {
+        RemoveInsertion();
+        RemoveGhost();
+    }
 }
