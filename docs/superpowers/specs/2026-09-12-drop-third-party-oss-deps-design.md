@@ -383,8 +383,12 @@ MoTask.exe が起動したままだと `MoTask.App` の出力 DLL がロック�
 
 - [x] `dotnet build` が通り、コンパイラ警告は 0 のまま
 - [x] `dotnet test` が全緑。770 本（Core 294 / Data 41 / App 414 / Mcp 21）で着手前と同数
-- [x] `gong` / `GongSolutions` / `NSubstitute` を `src/` `tests/` `Directory.Packages.props`
-      `MoTask.sln` から検索して、`obj/` を除いて何も出ない
+- [x] `using GongSolutions` / `urn:gong-wpf-dragdrop` / `using NSubstitute`、および
+      `gong-wpf-dragdrop` / `NSubstitute` への `PackageReference` / `PackageVersion` が、
+      `src/` `tests/` `Directory.Packages.props` `MoTask.sln` のいずれにも `obj/` を除いて残っていない
+      （依存参照はゼロ）。ただし `gong` という語を含む説明コメントは
+      `src/MoTask.App/DragDrop/InsertIndexCalculator.cs` と
+      `tests/MoTask.App.Tests/InsertIndexCalculatorTests.cs` の2箇所に意図して残している
 
 移行は 11 ファイル・約 280 箇所。各タスクのレビューで、置き換えたアサーションが
 元の NSubstitute 版と同じだけ証明していることを 1 箇所ずつ突き合わせて確認した。

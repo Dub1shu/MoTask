@@ -291,7 +291,7 @@ public sealed class FakeBoardService : IBoardService
     {
         var call = new CreateLabelCall(name, color);
         CreateLabelCalls.Add(call);
-        return OnCreateLabel?.Invoke(call) ?? Task.FromResult(Result.Ok(new Label { Name = name }));
+        return OnCreateLabel?.Invoke(call) ?? Task.FromResult(Result.Ok(new Label { Name = name, Color = color }));
     }
 
     public Task<Result> ArchiveLabelAsync(int labelId, CancellationToken ct = default)

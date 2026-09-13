@@ -8,6 +8,7 @@ public sealed class FakeAiSettingsStore : IAiSettingsStore
     /// <summary>Load が返す設定。テストが差し替える。</summary>
     public AiSettings Settings { get; set; } = AiSettings.Default();
 
+    /// <summary>Load が呼ばれた回数。</summary>
     public int LoadCalls { get; private set; }
 
     /// <summary>Save に渡された設定を呼ばれた順に。</summary>

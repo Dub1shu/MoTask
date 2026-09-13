@@ -3,7 +3,6 @@ using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
 using Xunit;
 
 namespace MoTask.App.Tests;

@@ -6,7 +6,6 @@ using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -213,9 +212,15 @@ public class BoardViewModelTests
         _service.OnMoveTask = call => call is { TaskId: 10, ToColumnId: 2, Position: 0 }
             ? Task.FromResult(Result.Fail("だめ"))
             : Task.FromResult(Result.Ok());
-        _service.OnDeleteTask = taskId => taskId == 10
-            ? RecordDelete(backlog, 10)
-            : Task.FromResult(Result.Ok());
+        _service.OnDeleteTask = taskId =>
+        {
+            if (taskId == 10)
+            {
+                backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+                return Task.FromResult(Result.Ok());
+            }
+            return Task.FromResult(Result.Ok());
+        };
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
         _vm.SelectCard(card);
@@ -226,12 +231,6 @@ public class BoardViewModelTests
         card.IsDeleted.Should().BeTrue();
         Ids(_vm.Columns[0]).Should().Equal(11);
         _vm.Columns[0].CountText.Should().Be("1");
-    }
-
-    private static Task<Result> RecordDelete(Column backlog, int taskId)
-    {
-        backlog.Tasks.Single(t => t.Id == taskId).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
-        return Task.FromResult(Result.Ok());
     }
 
     /// <summary>裁定2: 保存に失敗したときだけメモリ上の状態が信用できないので読み直す。</summary>

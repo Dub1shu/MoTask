@@ -8,7 +8,6 @@ using MoTask.App.Ai;
 using MoTask.App.Ai.BoardTools;
 using MoTask.Core;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
 using MoTask.App.Tests.Fakes;
 using Xunit;
 

@@ -5,7 +5,6 @@ using MoTask.App.Ai.BoardTools;
 using MoTask.App.Tests.Fakes;
 using MoTask.Core;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
 using Xunit;
 
 namespace MoTask.App.Tests;
