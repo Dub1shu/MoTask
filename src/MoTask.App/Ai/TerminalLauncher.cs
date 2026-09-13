@@ -138,10 +138,14 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
 
     public Result<OwnedSession> LaunchOwned(int ownerId, TerminalCommand command)
     {
+        // try の外に置く。Start は成功したのに StartTime が投げた場合、catch から
+        // このハンドルを閉じないと、端末は走っているのに Track もされず（CloseOwned の
+        // 届かないところへ消える）、開いたままのハンドルが pid を永久に予約してしまう。
+        Process? started = null;
         try
         {
             // UseShellExecute = true で自前のウィンドウを持たせる（Launch と同じ）。ハンドルは捨てずに持つ。
-            var started = Process.Start(new ProcessStartInfo(command.FileName, command.Arguments)
+            started = Process.Start(new ProcessStartInfo(command.FileName, command.Arguments)
             {
                 UseShellExecute = true,
                 WorkingDirectory = command.WorkingDirectory,
@@ -156,6 +160,8 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         }
         catch (Exception ex) when (ex is Win32Exception or InvalidOperationException or FileNotFoundException)
         {
+            // 掴み損ねたプロセスのハンドルは閉じる（端末そのものは殺さない。§3 と同じ規律）。
+            started?.Dispose();
             // 何で失敗したかより「何を実行しようとしたか」が要る（ターミナル AI 仕様 §12）
             return Result.Fail<OwnedSession>(string.Format(Messages.TerminalLaunchFailedFormat, command.Display));
         }
@@ -212,10 +218,11 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         _owned[ownerId] = process;
         // 登録し終える前に死んでいた場合、Exited は _owned に居ない ownerId を見て黙って降りている。
         // 取りこぼさないようにここで拾い直す。ただし呼び出しスレッド上で直接呼ぶと、LaunchOwned /
-        // TryReattach が Result を返す前に OwnedSessionExited が上がってしまい、呼び出し元が
-        // まだ状態を保存していない状態で終了通知を受け取って取りこぼす（Task 4 の MorningService
-        // は「戻り値で保存 → 終了イベントで締める」の順を前提にしている）。スレッドプールに逃がし、
-        // 通常の Exited 経路と同じく戻り値を返した後にしか届かないようにする。
+        // TryReattach がまだ Result を返していない呼び出し元のスタックの上で OwnedSessionExited が
+        // 走ってしまう。スレッドプールに逃がすのは、この再入を断ち（呼び出し元は通知に待たされない）、
+        // 通常の Exited 経路と同じ「別スレッドから届く」形に揃えるため。
+        // ※ 順序は保証されない — 通知が戻り値より先に届くことはありうるので、
+        // 呼び出し元は終了通知を受け取れる状態を作ってから起動すること（MorningService はそうしている）。
         if (process.HasExited) ThreadPool.QueueUserWorkItem(_ => OnExited(ownerId, process));
     }
 

@@ -496,6 +496,44 @@ public class MorningServiceIngestTests
         _changes.Last().Run.Status.Should().Be(MorningRunStatus.Failed);
     }
 
+    /// <summary>
+    /// 端末が死ぬのは SessionEnd の行を追従が拾うより先(こちらは 500ms ごとのポーリング)。
+    /// それでも result/ が揃っていれば取り込む。捨ててしまうと実行は終端になり、
+    /// 「完了にする」も受け付けないのでその朝の候補は取り返せない(仕様 §7)。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingWithAUsableResult_IngestsInsteadOfFailing()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.ErrorMessage.Should().BeNull();
+        _store.Candidates.Should().HaveCount(2);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+        _changes.Last().CandidatesChanged.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// 起こした端末が LaunchOwned の戻り値より先に死んでも、追従は残さない。
+    /// 追従を起動より後に掛けると、終わった実行に誰も止めないポーラーが付く(仕様 §7)。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingDuringTheLaunch_LeavesNoPollerBehind()
+    {
+        _launcher.ExitsDuringLaunch = true;
+
+        var run = await StartAsync();
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        run.ErrorMessage.Should().Be(Messages.MorningTerminalClosed);
+        _events.IsFollowing(run.Id).Should().BeFalse("起動より先に追従を掛けていれば止められる");
+    }
+
     /// <summary>閉じたのはこちらなので、取り込み済みの実行を Failed で上書きしない。</summary>
     [Fact]
     public async Task TheTerminalDyingAfterIngesting_ChangesNothing()

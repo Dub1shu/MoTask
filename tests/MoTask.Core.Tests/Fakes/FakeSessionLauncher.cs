@@ -47,11 +47,19 @@ public sealed class FakeSessionLauncher : ISessionLauncher
         return Result.Ok();
     }
 
+    /// <summary>
+    /// 起こした端末が LaunchOwned の戻り値より先に死ぬ筋（cmd /c で claude が即エラー終了した）。
+    /// 実機では終了通知はスレッドプールから届くので順序の保証が無い。ここでは「先に届く」側に
+    /// 寄せて、呼び出し元が終了通知を受け取れる状態を作ってから起こしているかを試せるようにする。
+    /// </summary>
+    public bool ExitsDuringLaunch { get; set; }
+
     public Result<OwnedSession> LaunchOwned(int ownerId, TerminalCommand command)
     {
         if (LaunchFailure is { } failure) return Result.Fail<OwnedSession>(failure.Error!);
         Launched.Add(command);
         LaunchedOwned.Add((ownerId, command));
+        if (ExitsDuringLaunch) RaiseExited(ownerId);
         return Result.Ok(Session);
     }
 

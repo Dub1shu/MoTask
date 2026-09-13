@@ -319,6 +319,9 @@ morning_complete 受信 → Ingested にして画面更新 → 「閉じる」�
 `OnExit` ではハンドルを解放するだけで端末は殺さない。朝の実行は走り続け、
 MCP 呼び出しはブリッジが MoTask を起動し直して届く（`EndpointResolver` が既にやっている）。
 
+`run.json` は pid と開始時刻が決まってからでないと書けないので**起動に成功した後に書く**。
+そのため起動に失敗した実行のジョブフォルダには `run.json` が無い（掛け直す相手も無いので困らない）。
+
 再起動後の MoTask は掛けどころを失っているので、`run.json` に書いた `processId` と `processStartedAt` を
 `RecoverOnStartupAsync` が読み、`TryReattach` で掛け直す。
 `Process.GetProcessById` が引けて `StartTime` が一致すれば成功。
