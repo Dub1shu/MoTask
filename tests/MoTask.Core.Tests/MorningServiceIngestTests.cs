@@ -396,4 +396,50 @@ public class MorningServiceIngestTests
         run.Status.Should().Be(MorningRunStatus.Cancelled);
         _launcher.Closed.Should().BeEmpty();
     }
+
+    /// <summary>
+    /// 人が × で閉じた・claude が落ちた。所有しているからこそ気づける(仕様 §7)。
+    /// 気づかないと events.jsonl を延々ポーリングし続けて実行が宙に浮く。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingFirst_FailsTheRunAndStopsFollowing()
+    {
+        var run = await StartAsync();
+        await _events.EmitAsync(run.Id, FakeJobEventSource.SessionStart());
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        run.ErrorMessage.Should().Be(Messages.MorningTerminalClosed);
+        run.EndedAt.Should().Be(_clock.UtcNow);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+        _changes.Last().Run.Status.Should().Be(MorningRunStatus.Failed);
+    }
+
+    /// <summary>閉じたのはこちらなので、取り込み済みの実行を Failed で上書きしない。</summary>
+    [Fact]
+    public async Task TheTerminalDyingAfterIngesting_ChangesNothing()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.ErrorMessage.Should().BeNull();
+    }
+
+    /// <summary>知らない runId のイベントで落ちない。</summary>
+    [Fact]
+    public async Task AnExitForARunWeDoNotKnow_IsIgnored()
+    {
+        _launcher.RaiseExited(9999);
+
+        await _service.PendingTerminalExit;
+
+        _store.Runs.Should().BeEmpty();
+    }
 }

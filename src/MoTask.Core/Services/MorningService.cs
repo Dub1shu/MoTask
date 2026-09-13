@@ -55,6 +55,10 @@ public sealed class MorningService : IMorningService
         _events = events;
         _settings = settings;
         _boardService = boardService;
+
+        // 所有した端末が先に死んだら気づけるようにする(仕様 §7)。MorningService も
+        // ISessionLauncher もアプリに 1 つずつの singleton なので、外すことはしない。
+        _launcher.OwnedSessionExited += OnOwnedSessionExited;
     }
 
     // ---------- 照会 ----------
@@ -398,6 +402,39 @@ public sealed class MorningService : IMorningService
         var run = await _gate.RunAsync(() => _runs.GetUnfinishedRunAsync(ct), ct).ConfigureAwait(false);
         if (run is null || run.JobFolder.Length == 0) return;
         Follow(run.Id, run.JobFolder, run.ProcessedLines);
+    }
+
+    /// <summary>
+    /// 端末の終了を受けた後始末。イベントは void で来るので、直近の 1 本をここに残して
+    /// テストが待てるようにする(MorningPlanViewModel.PendingLoad と同じ手)。
+    /// </summary>
+    public Task PendingTerminalExit { get; private set; } = Task.CompletedTask;
+
+    private void OnOwnedSessionExited(object? sender, int runId)
+        => PendingTerminalExit = OnOwnedSessionExitedAsync(runId);
+
+    /// <summary>
+    /// 端末が先に死んだ(人が × で閉じた・claude が落ちた)。追跡中なら Failed にして降りる。
+    /// 終端の実行はそのまま(閉じたのがこちらの CloseOwned なら、そもそもここへ来ない)。
+    /// </summary>
+    private async Task OnOwnedSessionExitedAsync(int runId)
+    {
+        MorningRun? run = null;
+        var warning = await _gate.RunAsync(async () =>
+        {
+            var current = await _runs.GetRunAsync(runId).ConfigureAwait(false);
+            if (current is null || current.Status.IsTerminal()) return (string?)null;
+            run = current;
+            current.Status = MorningRunStatus.Failed;
+            current.ErrorMessage = Messages.MorningTerminalClosed;
+            current.EndedAt = _clock.UtcNow;
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        if (run is null) return;
+        _events.StopFollowing(run.Id);
+        _turns.TryRemove(run.Id, out _);
+        Raise(run, warning, candidatesChanged: false);
     }
 
     private Task<Result<MorningRun>> FindActiveRunAsync(int runId, CancellationToken ct)

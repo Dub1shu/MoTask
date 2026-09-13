@@ -65,6 +65,7 @@ public static class Messages
     public static string MorningRunAlreadyFinished => Get(nameof(MorningRunAlreadyFinished));
     public static string MorningResultUnreadable => Get(nameof(MorningResultUnreadable));
     public static string MorningCandidatesDiscardedFormat => Get(nameof(MorningCandidatesDiscardedFormat));
+    public static string MorningTerminalClosed => Get(nameof(MorningTerminalClosed));
     public static string CandidateNotFound => Get(nameof(CandidateNotFound));
     public static string CandidateAlreadyDecided => Get(nameof(CandidateAlreadyDecided));
     public static string CandidateNoteHeaderFormat => Get(nameof(CandidateNoteHeaderFormat));
