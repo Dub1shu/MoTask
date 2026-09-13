@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:dd="urn:gong-wpf-dragdrop"
+             xmlns:dd="clr-namespace:MoTask.App.DragDrop"
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:model="clr-namespace:MoTask.Core.Model;assembly=MoTask.Core"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
@@ -16,12 +16,12 @@
            Background は塗りではなくヒットテストのため: 透明でないと余白でドラッグを掴めない。 -->
       <Border x:Name="Header" DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
               Padding="{StaticResource Pad.Section}" Background="Transparent"
-              dd:DragDrop.IsDragSource="True" dd:DragDrop.UseDefaultDragAdorner="True">
+              dd:DragDropBehavior.IsDragSource="True">
         <DockPanel>
           <!-- ヘッダー内の操作部品の上で押したときは列を掴まない（メニュー・改名・WIP の入力）。 -->
           <Button DockPanel.Dock="Right" Content="⋯" ToolTip="{x:Static res:Strings.ColumnMenu}"
                   Style="{StaticResource Btn.Ghost}" Click="MenuButton_Click"
-                  dd:DragDrop.DragSourceIgnore="True">
+                  dd:DragDropBehavior.DragSourceIgnore="True">
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                 <MenuItem Header="{x:Static res:Strings.Rename}" Command="{Binding BeginRenameCommand}" />
@@ -47,7 +47,7 @@
                        Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibilityInverse}}" />
             <TextBox Text="{Binding RenameText, UpdateSourceTrigger=PropertyChanged}" MinWidth="120"
                      Visibility="{Binding IsRenaming, Converter={StaticResource BoolToVisibility}}"
-                     dd:DragDrop.DragSourceIgnore="True"
+                     dd:DragDropBehavior.DragSourceIgnore="True"
                      KeyDown="RenameBox_KeyDown" LostFocus="RenameBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
             <TextBlock Text="{Binding CountText}" Margin="{StaticResource Gap.Left.2}" VerticalAlignment="Center">
               <TextBlock.Style>
@@ -64,7 +64,7 @@
             <TextBox Text="{Binding WipText, UpdateSourceTrigger=PropertyChanged}" Width="48"
                      Margin="{StaticResource Gap.Left.2}"
                      Visibility="{Binding IsEditingWip, Converter={StaticResource BoolToVisibility}}"
-                     dd:DragDrop.DragSourceIgnore="True"
+                     dd:DragDropBehavior.DragSourceIgnore="True"
                      KeyDown="WipBox_KeyDown" LostFocus="WipBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
           </StackPanel>
         </DockPanel>
@@ -87,8 +87,7 @@
       <ListBox x:Name="CardList" ItemsSource="{Binding Cards}" SelectedItem="{Binding SelectedCard}"
                Background="Transparent" BorderThickness="0" Padding="{StaticResource Pad.Section}"
                ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}"
-               dd:DragDrop.IsDragSource="True" dd:DragDrop.IsDropTarget="True"
-               dd:DragDrop.UseDefaultDragAdorner="True">
+               dd:DragDropBehavior.IsDragSource="True" dd:DragDropBehavior.IsDropTarget="True">
         <ListBox.ItemContainerStyle>
           <Style TargetType="ListBoxItem">
             <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />

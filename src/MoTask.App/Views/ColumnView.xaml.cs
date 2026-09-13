@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using MoTask.App.DragDrop;
 using MoTask.App.ViewModels;
-using GongDragDrop = GongSolutions.Wpf.DragDrop.DragDrop;
 
 namespace MoTask.App.Views;
 
@@ -20,13 +19,13 @@ public partial class ColumnView : UserControl
 
     /// <summary>
     /// D&amp;D のハンドラはここで挿す。ViewModel に持たせると ViewModels が
-    /// gong-wpf-dragdrop に依存してしまう（依存は DragDrop → ViewModels の一方通行）。
+    /// DragDrop に依存してしまう（依存は DragDrop → ViewModels の一方通行）。
     /// </summary>
     private void AttachDragDrop()
     {
         if (Vm is not { } vm) return;
-        GongDragDrop.SetDropHandler(CardList, new CardDropHandler(vm.Board));
-        GongDragDrop.SetDragHandler(Header, new ColumnDragHandler());
+        DragDropBehavior.SetDropHandler(CardList, new CardDropHandler(vm.Board));
+        DragDropBehavior.SetDragHandler(Header, new ColumnDragHandler());
     }
 
     private void MenuButton_Click(object sender, RoutedEventArgs e)

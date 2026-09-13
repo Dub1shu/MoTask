@@ -10,7 +10,6 @@
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
-    <PackageReference Include="gong-wpf-dragdrop" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\MoTask.Core\MoTask.Core.csproj" />

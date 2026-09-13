@@ -1,6 +1,6 @@
 using System.Collections;
+using System.Windows;
 using FluentAssertions;
-using GongSolutions.Wpf.DragDrop;
 using MoTask.App.Ai;
 using MoTask.App.DragDrop;
 using MoTask.App.ViewModels;
@@ -37,14 +37,8 @@ public class DropHandlerTests
         _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), Substitute.For<IBoardChangeSource>());
     }
 
-    private static IDropInfo Info(object? data, IEnumerable? targetCollection, int insertIndex)
-    {
-        var info = Substitute.For<IDropInfo>();
-        info.Data.Returns(data);
-        info.TargetCollection.Returns(targetCollection);
-        info.InsertIndex.Returns(insertIndex);
-        return info;
-    }
+    private static DropContext Info(object? data, IEnumerable? targetCollection, int insertIndex)
+        => new(data, targetCollection, insertIndex);
 
     private static string SaveFailure(string detail) => $"{Messages.SaveFailed}: {detail}";
 
@@ -112,12 +106,12 @@ public class DropHandlerTests
         await _service.DidNotReceive()
             .MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
         _vm.BannerMessage.Should().BeNull();
-        info.Received().NotHandled = true;   // 何もしなかったのに Drop を握らない
+        info.NotHandled.Should().BeTrue();   // 何もしなかったのに Drop を握らない
     }
 
     /// <summary>
     /// 列のドラッグはカード列で握らずに親へ返す。DragOver だけでなく Drop も同じで、
-    /// Gong は NotHandled を立てないと e.Handled = true にしてしまう。カード一覧は列のほぼ
+    /// NotHandled を立てないと e.Handled = true になる。カード一覧は列のほぼ
     /// 全面を覆うので、握ると列ヘッダーを別の列へ落としても何も起きない。
     /// </summary>
     [Fact]
@@ -129,7 +123,7 @@ public class DropHandlerTests
 
         handler.Drop(info);
 
-        info.Received().NotHandled = true;
+        info.NotHandled.Should().BeTrue();
         await _service.DidNotReceive()
             .MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
@@ -159,8 +153,8 @@ public class DropHandlerTests
 
         handler.DragOver(info);
 
-        info.Received().NotHandled = true;
-        info.DidNotReceiveWithAnyArgs().Effects = default;
+        info.NotHandled.Should().BeTrue();
+        info.Effects.Should().Be(DragDropEffects.None);
     }
 
     // ---- 列 ----
@@ -189,7 +183,7 @@ public class DropHandlerTests
 
         await _service.DidNotReceive()
             .ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
-        info.Received().NotHandled = true;
+        info.NotHandled.Should().BeTrue();
     }
 
     /// <summary>受け付けないドロップは Drop でも握らずに返す（DragOver と同じ扱い）。</summary>
@@ -202,7 +196,7 @@ public class DropHandlerTests
 
         handler.Drop(info);
 
-        info.Received().NotHandled = true;
+        info.NotHandled.Should().BeTrue();
         await _service.DidNotReceive()
             .ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
     }
@@ -229,7 +223,7 @@ public class DropHandlerTests
 
         handler.DragOver(info);
 
-        info.Received().NotHandled = true;
-        info.DidNotReceiveWithAnyArgs().Effects = default;
+        info.NotHandled.Should().BeTrue();
+        info.Effects.Should().Be(DragDropEffects.None);
     }
 }

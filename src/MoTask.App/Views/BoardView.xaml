@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:dd="urn:gong-wpf-dragdrop"
+             xmlns:dd="clr-namespace:MoTask.App.DragDrop"
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              xmlns:views="clr-namespace:MoTask.App.Views"
@@ -11,7 +11,7 @@
   <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="{StaticResource Pad.Board}">
     <StackPanel Orientation="Horizontal">
       <!-- 列の並び替えの受け皿。DropHandler はコードビハインドで挿す。 -->
-      <ItemsControl x:Name="ColumnsHost" ItemsSource="{Binding Columns}" dd:DragDrop.IsDropTarget="True">
+      <ItemsControl x:Name="ColumnsHost" ItemsSource="{Binding Columns}" dd:DragDropBehavior.IsDropTarget="True">
         <ItemsControl.ItemsPanel>
           <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
         </ItemsControl.ItemsPanel>
