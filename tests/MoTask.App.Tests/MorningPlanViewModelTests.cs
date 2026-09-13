@@ -5,7 +5,7 @@ using MoTask.Core;
 using MoTask.Core.Model;
 using MoTask.Core.Morning;
 using MoTask.Core.Services;
-using NSubstitute;
+using MoTask.App.Tests.Fakes;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -152,15 +152,15 @@ public class MorningPlanViewModelTests
     }
 
     private readonly FakeMorningService _service = new();
-    private readonly IBoardService _boards = Substitute.For<IBoardService>();
+    private readonly FakeBoardService _boards = new();
     private readonly MorningPlanViewModel _vm;
     private readonly List<string> _opened = new();
 
     public MorningPlanViewModelTests()
     {
         // 未着手(1) / 進行中(2) / 完了(3)。完了列は登録先に出さない。
-        _boards.GetBoardAsync().Returns(Task.FromResult(Result.Ok(TestBoards.Sample())));
-        _boards.GetProjectsAsync().Returns(Task.FromResult<IReadOnlyList<Project>>(new[] { TestBoards.ProjectA() }));
+        _boards.Board = TestBoards.Sample();
+        _boards.Projects = new[] { TestBoards.ProjectA() };
         _vm = new MorningPlanViewModel(_service, _boards) { OpenPath = _opened.Add };
     }
 
@@ -677,7 +677,7 @@ public class MorningPlanViewModelTests
     [Fact]
     public async Task Load_SurvivesABoardFailure_WithAnEmptyPlanAndAWarning()
     {
-        _boards.GetBoardAsync().Returns(Task.FromResult(Result.Fail<Board>("接続できません")));
+        _boards.OnGetBoard = () => Task.FromResult(Result.Fail<Board>("接続できません"));
         _service.Current = IngestedRunWithPlan();
         _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();

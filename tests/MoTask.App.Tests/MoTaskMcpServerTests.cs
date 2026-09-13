@@ -9,7 +9,7 @@ using MoTask.App.Ai.BoardTools;
 using MoTask.Core;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
-using NSubstitute;
+using MoTask.App.Tests.Fakes;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -20,17 +20,13 @@ namespace MoTask.App.Tests;
 /// </summary>
 public class MoTaskMcpServerTests : IDisposable
 {
-    private readonly IBoardService _board = Substitute.For<IBoardService>();
+    private readonly FakeBoardService _board = new();
     private readonly MoTaskMcpServer _server;
     private readonly HttpClient _http = new();
 
     public MoTaskMcpServerTests()
     {
-        _board.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok(TestBoards.Sample())));
-        _board.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Project>>(Array.Empty<Project>()));
-        _board.GetLabelsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Label>>(Array.Empty<Label>()));
+        _board.Board = TestBoards.Sample();
         _server = new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()));
         _server.Start();
     }
@@ -110,7 +106,7 @@ public class MoTaskMcpServerTests : IDisposable
         var (status, _) = await PostAsync("NOPE", GetBoardCall);
 
         status.Should().Be(HttpStatusCode.Unauthorized);
-        await _board.DidNotReceive().GetBoardAsync(Arg.Any<CancellationToken>());
+        _board.GetBoardCalls.Should().Be(0);
     }
 
     [Fact]
@@ -119,7 +115,7 @@ public class MoTaskMcpServerTests : IDisposable
         var (status, _) = await PostAsync(null, GetBoardCall);
 
         status.Should().Be(HttpStatusCode.Unauthorized);
-        await _board.DidNotReceive().GetBoardAsync(Arg.Any<CancellationToken>());
+        _board.GetBoardCalls.Should().Be(0);
 
         // 認証はメソッドで分岐する前に効く。ツール一覧も無トークンでは覗けない。
         var (listStatus, _) = await PostAsync(null, """{"jsonrpc":"2.0","id":1,"method":"tools/list"}""");
@@ -172,7 +168,7 @@ public class MoTaskMcpServerTests : IDisposable
     public async Task SlowTool_IsNotCutOffByAServerSideTimeout()
     {
         var gate = new TaskCompletionSource<Result<Board>>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _board.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => gate.Task);
+        _board.OnGetBoard = () => gate.Task;
 
         var call = PostAsync(_server.BoardToken, GetBoardCall);
         await Task.Delay(300);
@@ -189,12 +185,12 @@ public class MoTaskMcpServerTests : IDisposable
         // 割り込んでも、既に受理したリクエストの応答は書き終わることを固定する。
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _board.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(async _ =>
+        _board.OnGetBoard = async () =>
         {
             started.SetResult();
             await release.Task.WaitAsync(TimeSpan.FromSeconds(5));
             return Result.Ok(TestBoards.Sample());
-        });
+        };
 
         var call = PostAsync(_server.BoardToken, GetBoardCall);
         await started.Task.WaitAsync(TimeSpan.FromSeconds(5)); // 受理されツールが動き出してから競争を仕掛ける
