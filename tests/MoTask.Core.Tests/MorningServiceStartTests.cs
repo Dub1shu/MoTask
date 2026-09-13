@@ -3,6 +3,7 @@ using FluentAssertions;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
 using Xunit;
@@ -105,6 +106,35 @@ public class MorningServiceStartTests
         await _service.StartAsync();
 
         _launcher.Requests.Should().ContainSingle().Which.CloseOnExit.Should().BeTrue();
+    }
+
+    /// <summary>完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。</summary>
+    [Fact]
+    public async Task Start_OwnsTheTerminalItOpened()
+    {
+        var run = (await _service.StartAsync()).Value!;
+
+        var owned = _launcher.LaunchedOwned.Should().ContainSingle().Subject;
+        owned.OwnerId.Should().Be(run.Id, "ownerId は runId（宛先を取り違えない）");
+        owned.Command.FileName.Should().Be("cmd.exe");
+    }
+
+    /// <summary>再起動した MoTask はここから掛け直す（仕様 §7）。</summary>
+    [Fact]
+    public async Task Start_WritesTheProcessIdAndStartTimeIntoRunJson()
+    {
+        // Process.StartTime は 100ns tick の精度を持ち、TryReattach はこの値を完全一致で照合する
+        // (仕様 §7)。秒丸めの値だと run.json 経由で精度が落ちても気づけない。
+        var processStartedAt = new DateTime(2026, 9, 13, 6, 0, 1, DateTimeKind.Utc).AddTicks(1234567);
+        _launcher.Session = new OwnedSession(31337, processStartedAt);
+
+        var run = (await _service.StartAsync()).Value!;
+
+        var text = _folder.ReadText(run.JobFolder, JobFolderPaths.RunJsonName);
+        var descriptor = MorningRunDescriptor.TryParse(text);
+        descriptor.Should().NotBeNull();
+        descriptor!.ProcessId.Should().Be(31337);
+        descriptor.ProcessStartedAt.Should().Be(processStartedAt);
     }
 
     [Fact]
