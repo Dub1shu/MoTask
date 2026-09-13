@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using MoTask.Core;
 using MoTask.Core.Ai;
 
@@ -206,17 +207,24 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
     private void Track(int ownerId, Process process)
     {
         process.EnableRaisingEvents = true;
-        process.Exited += (_, _) => OnExited(ownerId);
+        process.Exited += (_, _) => OnExited(ownerId, process);
         if (_owned.TryRemove(ownerId, out var previous)) previous.Dispose();
         _owned[ownerId] = process;
         // 登録し終える前に死んでいた場合、Exited は _owned に居ない ownerId を見て黙って降りている。
-        // 取りこぼさないようにここで拾い直す（OnExited は TryRemove のおかげで 1 度しか通らない）。
-        if (process.HasExited) OnExited(ownerId);
+        // 取りこぼさないようにここで拾い直す。ただし呼び出しスレッド上で直接呼ぶと、LaunchOwned /
+        // TryReattach が Result を返す前に OwnedSessionExited が上がってしまい、呼び出し元が
+        // まだ状態を保存していない状態で終了通知を受け取って取りこぼす（Task 4 の MorningService
+        // は「戻り値で保存 → 終了イベントで締める」の順を前提にしている）。スレッドプールに逃がし、
+        // 通常の Exited 経路と同じく戻り値を返した後にしか届かないようにする。
+        if (process.HasExited) ThreadPool.QueueUserWorkItem(_ => OnExited(ownerId, process));
     }
 
-    private void OnExited(int ownerId)
+    private void OnExited(int ownerId, Process process)
     {
-        if (!_owned.TryRemove(ownerId, out var process)) return;
+        // CloseOwned が先に外していたら、こちらが起こした終了なので黙って降りる。
+        // 値でも照合するのは、同じ ownerId に別のプロセスが入っていたときに
+        // 生きているほうを蹴落とさないため。
+        if (!_owned.TryRemove(new KeyValuePair<int, Process>(ownerId, process))) return;
         OwnedSessionExited?.Invoke(this, ownerId);
         process.Dispose();
     }
