@@ -49,6 +49,9 @@ public static class DragDropBehavior
     private static ScrollViewer? _autoScrollViewer;
     private static ScrollDirection _autoScrollDirection = ScrollDirection.None;
 
+    /// <summary>スクロールに合わせて挿入線を引き直す対象のドロップ先。</summary>
+    private static FrameworkElement? _autoScrollTarget;
+
     // ---- 添付プロパティ ----
 
     public static readonly DependencyProperty IsDragSourceProperty = DependencyProperty.RegisterAttached(
@@ -441,6 +444,7 @@ public static class DragDropBehavior
 
         _autoScrollViewer = viewer;
         _autoScrollDirection = direction;
+        _autoScrollTarget = element;
 
         if (_autoScrollTimer is not null) return;
         _autoScrollTimer = new DispatcherTimer(DispatcherPriority.Normal)
@@ -482,6 +486,17 @@ public static class DragDropBehavior
             case ScrollDirection.Right: viewer.LineRight(); break;
             default: StopAutoScroll(); break;
         }
+
+        // スクロールした分だけ項目の位置が動くので、挿入線も引き直す。DragOver は
+        // カーソルが動かない限り来ないため、ここで引き直さないと線だけ取り残される。
+        viewer.UpdateLayout();
+        if (_autoScrollTarget is not { } target) return;
+        if (!NativeCursor.GetCursorPos(out var point)) return;
+
+        var items = target as ItemsControl;
+        var cursor = target.PointFromScreen(new Point(point.X, point.Y));
+        var index = InsertIndexCalculator.Calculate(RealizedContainers(items, target), cursor, OrientationOf(items));
+        ShowInsertion(target, index);
     }
 
     private static void StopAutoScroll()
@@ -494,6 +509,7 @@ public static class DragDropBehavior
         }
         _autoScrollViewer = null;
         _autoScrollDirection = ScrollDirection.None;
+        _autoScrollTarget = null;
     }
 
     /// <summary>
