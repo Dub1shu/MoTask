@@ -284,12 +284,26 @@ public sealed class TerminalLauncher : ISessionLauncher
     }
 ```
 
+- [ ] **Step 7b: 共有フェイクの既定を見ている AI 遂行のテストを 1 行直す**
+
+`FakeSessionLauncher` は `MorningService*Tests` と `AiJobService*Tests` の共有物なので、Step 6 で既定出力が
+`wt.exe` から `cmd.exe` に変わると AI 遂行側の 1 本が割れる。仕様 §5.2 は AI 遂行の既定も `cmd.exe /k` に
+すると決めているので、これは仕様どおりの帰結である。`tests/MoTask.Core.Tests/AiJobServiceLifecycleTests.cs`
+の `Start_WritesJobJsonWithTheLaunchCommand` の 1 行を置き換える:
+
+```csharp
+            .Which.LaunchCommand.Should().StartWith("cmd.exe ");
+```
+
+このファイルで直すのはこの 1 行だけである。`tests/MoTask.Core.Tests/AiJobServiceStartTests.cs:159` の
+`wt.exe` はテストが自前で失敗文字列を渡しているので触らない。
+
 - [ ] **Step 8: テストを走らせて通ることを確かめる**
 
 Run: `dotnet test tests/MoTask.App.Tests --filter "FullyQualifiedName~TerminalLauncherTests" -nologo -v q`
 Expected: PASS
 
-Run: `dotnet test tests/MoTask.Core.Tests --filter "FullyQualifiedName~MorningServiceStartTests" -nologo -v q`
+Run: `dotnet test tests/MoTask.Core.Tests --filter "FullyQualifiedName~MorningServiceStartTests|FullyQualifiedName~AiJobServiceLifecycleTests" -nologo -v q`
 Expected: PASS
 
 Run: `dotnet build MoTask.sln -nologo -v q -p:TreatWarningsAsErrors=true`
@@ -1520,10 +1534,21 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Run:
 
 ```bash
-git diff --stat master -- src/MoTask.Core/Services/AiJobService.cs src/MoTask.Core/Services/IAiJobService.cs src/MoTask.Core/Model/AiJob.cs src/MoTask.Core/Model/AiJobStatus.cs src/MoTask.Core/Model/AiJobKind.cs tests/MoTask.Core.Tests/AiJobServiceStartTests.cs tests/MoTask.Core.Tests/AiJobServiceLifecycleTests.cs
+git diff --stat master -- src/MoTask.Core/Services/AiJobService.cs src/MoTask.Core/Services/IAiJobService.cs src/MoTask.Core/Model/AiJob.cs src/MoTask.Core/Model/AiJobStatus.cs src/MoTask.Core/Model/AiJobKind.cs tests/MoTask.Core.Tests/AiJobServiceStartTests.cs
 ```
 
 Expected: 出力が空（仕様 §13 の完了条件）
+
+`tests/MoTask.Core.Tests/AiJobServiceLifecycleTests.cs` だけは例外で、Task 1 が 1 行だけ触っている
+（共有フェイクの既定出力が `wt.exe` から `cmd.exe` に変わるため。仕様 §5.2 が AI 遂行の既定も
+`cmd.exe /k` にすると決めているので、これは仕様どおりの帰結である）。その 1 行だけであることを確かめる:
+
+```bash
+git diff master -- tests/MoTask.Core.Tests/AiJobServiceLifecycleTests.cs
+```
+
+Expected: `-            .Which.LaunchCommand.Should().StartWith("wt.exe ");` と
+`+            .Which.LaunchCommand.Should().StartWith("cmd.exe ");` の 1 行差し替えだけ
 
 - [ ] **Step 2: 契約ファイルにも触れていないことを確かめる**
 
