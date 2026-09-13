@@ -401,6 +401,16 @@ public sealed class MorningService : IMorningService
     {
         var run = await _gate.RunAsync(() => _runs.GetUnfinishedRunAsync(ct), ct).ConfigureAwait(false);
         if (run is null || run.JobFolder.Length == 0) return;
+
+        // 掛け直せなければ「閉じる能力」だけを諦め、追従(events.jsonl)は続ける(仕様 §7)。
+        // 開始時刻を照合するのは launcher 側の仕事で、ここは材料を渡すだけ。
+        var descriptor = MorningRunDescriptor.TryParse(
+            _folder.ReadText(run.JobFolder, JobFolderPaths.RunJsonName));
+        if (descriptor is { ProcessId: > 0 })
+        {
+            _launcher.TryReattach(run.Id, descriptor.ProcessId, descriptor.ProcessStartedAt);
+        }
+
         Follow(run.Id, run.JobFolder, run.ProcessedLines);
     }
 

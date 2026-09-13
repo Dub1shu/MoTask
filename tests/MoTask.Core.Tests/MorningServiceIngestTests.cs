@@ -2,6 +2,7 @@ using FluentAssertions;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
 using Xunit;
@@ -54,6 +55,80 @@ public class MorningServiceIngestTests
     {
         if (candidates is not null) _folder.Put(run.JobFolder, JobFolderPaths.CandidatesRelativePath, candidates);
         if (plan is not null) _folder.Put(run.JobFolder, JobFolderPaths.PlanRelativePath, plan);
+    }
+
+    private void PutRunJson(MorningRun run, int processId)
+        => _folder.Put(run.JobFolder, JobFolderPaths.RunJsonName, MorningRunDescriptor.Serialize(
+            new MorningRunDescriptor(
+                run.Id, run.Date, run.SessionId, run.JobFolder, "cmd.exe /c claude",
+                new DateTime(2026, 9, 7, 6, 0, 0, DateTimeKind.Utc),
+                ProcessId: processId,
+                ProcessStartedAt: new DateTime(2026, 9, 7, 6, 0, 1, DateTimeKind.Utc))));
+
+    [Fact]
+    public async Task Recover_ReattachesToTheTerminalUsingRunJson()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, 31337);
+
+        await _service.RecoverOnStartupAsync();
+
+        _launcher.Reattached.Should().ContainSingle().Which.Should()
+            .Be((run.Id, 31337, new DateTime(2026, 9, 7, 6, 0, 1, DateTimeKind.Utc)));
+        _events.IsFollowing(run.Id).Should().BeTrue();
+    }
+
+    /// <summary>掛け直せた実行は、その後の取り込みでちゃんと閉じられる(仕様 §7)。</summary>
+    [Fact]
+    public async Task Recover_ThenIngest_StillClosesTheTerminal()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, 31337);
+        await _service.RecoverOnStartupAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>掛け直せなくても追従は続ける。諦めるのは「閉じる能力」だけ(仕様 §7)。</summary>
+    [Fact]
+    public async Task Recover_KeepsFollowingEvenWhenItCannotReattach()
+    {
+        _launcher.ReattachSucceeds = false;
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, 31337);
+
+        await _service.RecoverOnStartupAsync();
+
+        _events.IsFollowing(run.Id).Should().BeTrue();
+    }
+
+    /// <summary>pid の無い(この実装より前に作られた)run.json では掛け直しを試みない。</summary>
+    [Fact]
+    public async Task Recover_DoesNotTryToReattachWithoutAProcessId()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, processId: 0);
+
+        await _service.RecoverOnStartupAsync();
+
+        _launcher.Reattached.Should().BeEmpty();
+        _events.IsFollowing(run.Id).Should().BeTrue();
+    }
+
+    /// <summary>run.json そのものが無くても、追従だけは今までどおり再開する。</summary>
+    [Fact]
+    public async Task Recover_DoesNotTryToReattachWhenThereIsNoRunJson()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+
+        await _service.RecoverOnStartupAsync();
+
+        _launcher.Reattached.Should().BeEmpty();
+        _events.IsFollowing(run.Id).Should().BeTrue();
     }
 
     [Fact]
