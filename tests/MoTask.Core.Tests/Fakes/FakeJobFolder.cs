@@ -16,6 +16,8 @@ public sealed class FakeJobFolder : IJobFolder
     /// <summary>WriteText / Put で置かれたもの。キーは「ルート|相対パス」。</summary>
     public Dictionary<string, string> Files { get; } = new(StringComparer.OrdinalIgnoreCase);
     public Result? WriteFailure { get; set; }
+    /// <summary>設定すると、WriteFailure はこの相対パスへの書き込みだけに効く（他は成功する）。</summary>
+    public string? FailWritesTo { get; set; }
 
     public string ResolveRoot(JobFolderRequest request)
         => $@"C:\work\{request.Category}\{request.JobId:0000}-{request.TaskTitle}";
@@ -39,7 +41,11 @@ public sealed class FakeJobFolder : IJobFolder
 
     public Result WriteText(string root, string relativePath, string content)
     {
-        if (WriteFailure is { } failure) return failure;
+        if (WriteFailure is { } failure &&
+            (FailWritesTo is null || string.Equals(FailWritesTo, relativePath, StringComparison.OrdinalIgnoreCase)))
+        {
+            return failure;
+        }
         Files[Key(root, relativePath)] = content;
         return Result.Ok();
     }

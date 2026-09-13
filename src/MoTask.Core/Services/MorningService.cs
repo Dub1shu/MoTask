@@ -166,19 +166,20 @@ public sealed class MorningService : IMorningService
             }, ct).ConfigureAwait(false);
             if (!saved.IsSuccess) return Result.Fail<MorningRun>(saved.Error!);
 
-            // 朝の実行は MoTask が所有する。完了時に窓を閉じるには Process ハンドルが要る(仕様 §5.3)。
+            // 朝の実行は MoTask が所有する。完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。
             var owned = _launcher.LaunchOwned(run.Id, command.Value!);
             if (!owned.IsSuccess) return await FailAsync(run, owned.Error!).ConfigureAwait(false);
 
-            // 掛け直しの材料(pid と開始時刻)は起動できてからでないと書けないので、run.json は
-            // 起動の後に書く。起動に失敗した実行はその場で Failed になり、追いかける先も無い。
-            _folder.WriteText(root, JobFolderPaths.RunJsonName, MorningRunDescriptor.Serialize(
+            // 掛け直しの材料（pid と開始時刻）は起動できてからでないと書けないので、run.json は
+            // 起動の後に書く。書けなくても実行そのものは続ける（端末はもう走っている）が、
+            // 再起動後に掛け直せなくなるので警告として人に見せる（仕様 §7）。
+            var wroteRun = _folder.WriteText(root, JobFolderPaths.RunJsonName, MorningRunDescriptor.Serialize(
                 new MorningRunDescriptor(run.Id, date, sessionId, root, command.Value!.Display, now,
                     owned.Value!.ProcessId, owned.Value!.StartedAt)));
 
             _turns[run.Id] = 0;
             Follow(run.Id, root, skipLines: 0);
-            Raise(run, null, candidatesChanged: false);
+            Raise(run, wroteRun.IsSuccess ? null : wroteRun.Error, candidatesChanged: false);
             return Result.Ok(run);
         }
         finally
