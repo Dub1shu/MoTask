@@ -121,12 +121,18 @@ MoTask.exe (MoTask.App)
 ### 5.2 テンプレートの統一
 
 ```
-DefaultTemplate  = "cmd.exe /k {command}"   AI 遂行（対話を続ける）
-MorningTemplate  = "cmd.exe /c {command}"   朝の実行（claude が終われば窓も畳む）
+DefaultTemplate  = "cmd.exe /s /k \"{command}\""   AI 遂行（対話を続ける）
+MorningTemplate  = "cmd.exe /s /c \"{command}\""   朝の実行（claude が終われば窓も畳む）
 ```
 
 `WindowsTerminalTemplate` と `FindWindowsTerminal()` と `_hasWindowsTerminal` を落とす。
 `TerminalLauncher` の内部テスト用構築子から `Func<bool> hasWindowsTerminal` 引数も消える。
+
+`{command}` を引用符で包み `/s` を付けるのは省略できない。`cmd /?` の規則により、`/c` や `/k` の
+後ろに引用符が 3 個以上あると cmd は**先頭の 1 個と末尾の 1 個を剥がして**残りを解釈し直す。
+MoTask は引数を 1 つずつ引用符で囲むので十数個になり、包まないと実行ファイルのパスが壊れて
+claude が一度も起動しない（2026-09-15 の手動確認で実際に踏んだ）。`/s` はこの剥がす規則を
+無条件にして、引用符の個数に依存させないための指定である。
 
 既定テンプレートに `{cwd}` が現れなくなるので、末尾バックスラッシュで `CommandLineToArgvW` が壊れる問題
 （現行 `TerminalLauncher` のコメント付きの細工）を**既定の道では踏まなくなる**。
@@ -186,11 +192,14 @@ public sealed record OwnedSession(int ProcessId, DateTime StartedAt);
 ### 5.4 起動コマンド
 
 ```
-cmd.exe /c <claude> --settings <ジョブフォルダ>/hooks.json --session-id <SessionId>
-                    --permission-mode <設定値> --add-dir <ジョブフォルダ>
-                    --mcp-config <ジョブフォルダ>/mcp.json
-                    -- "<ジョブフォルダ>/instruction.md を読んで作業を始めてください。"
+cmd.exe /s /c "<claude> --settings <ジョブフォルダ>/hooks.json --session-id <SessionId>
+               --permission-mode <設定値> --add-dir <ジョブフォルダ>
+               --mcp-config <ジョブフォルダ>/mcp.json
+               -- <ジョブフォルダ>/instruction.md を読んで作業を始めてください。"
 ```
+
+実際には引数は 1 つずつ引用符で囲まれ、その全体をさらに 1 組の引用符で包む（§5.2）。
+`/s` と外側の引用符が無いと cmd が先頭と末尾の引用符を剥がしてパスを壊す。
 
 `--mcp-config` が新しい。`MoTask.Mcp.exe` の絶対パスを書いた `mcp.json` をジョブフォルダに生成して渡す。
 これで朝の実行は利用者の手動 MCP 登録に依存しなくなる。
@@ -381,7 +390,19 @@ MoTask が書く後半（`MorningInstructionContractFormat`）だけ差し替え
 | Core・重複 | 過去に却下・登録済みの `externalId` が弾かれ理由が返る／同じ実行で 2 度目が弾かれる |
 | Core・再掛け直し | `TryReattach` が成功すれば閉じられる／失敗しても追従は続く |
 | App・`MorningToolHost` | ツール 4 本を「引数 JSON → `McpToolResult`」で。`runId` 不一致がツールエラーになる。`BoardToolHost` のテストと同じ構え |
-| App・`TerminalLauncher` | 朝用コマンドの組み立て（`cmd.exe /c` になる／`--mcp-config` が入る／出力先の案内が消える）／AI 遂行は `cmd.exe /k`／先頭が `wt.exe` の利用者テンプレートは朝の実行で既定に落ちる／`wt` 分岐が消えても既存のテンプレート置換テストが通る |
+| App・`TerminalLauncher` | 朝用コマンドの組み立て（`cmd.exe /s /c` になる／`--mcp-config` が入る／出力先の案内が消える）／AI 遂行は `cmd.exe /s /k`／先頭が `wt.exe` の利用者テンプレートは朝の実行で既定に落ちる／`wt` 分岐が消えても既存のテンプレート置換テストが通る |
+
+**組み立てた文字列を見るだけのテストでは足りない。** 実際に `cmd.exe` へ食わせて、狙った実行ファイルが
+起動したことを確かめる 1 本を置く（無害な偽 claude を指し、目印の出力と終了コードで肯定形に見る）。
+2026-09-15 に踏んだ引用符のバグは、文字列アサーションを全件緑にしたままアプリを完全に壊していた。
+窓は開かず、何も kill せず、200ms 未満で終わるので、この 1 本だけは自動テストに置く。
+
+### 既知の制約: シェルのメタ文字
+
+ジョブフォルダ名は AI 遂行ではタスク名から作られる（`JobFolderPaths.Slug`）。`Slug` はファイル名に
+使えない文字だけを潰すので、`%` や `$` は残る。そのパスはコマンドラインに載るので、`cmd` は `%…%` を、
+PowerShell テンプレートを使う人は `$…` を展開してしまう。シェルを挟む限り付いて回る問題で、
+今のところ手当てしていない。直すなら `Slug` 側でメタ文字も潰すのが素直である。
 
 `FakeSessionLauncher` に `LaunchOwned` / `CloseOwned` / `TryReattach` の記録と
 `OwnedSessionExited` の発火を足す。実プロセスの起動と終了そのものは §11 の手動確認に回す。
