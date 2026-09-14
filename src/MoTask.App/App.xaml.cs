@@ -91,6 +91,8 @@ public partial class App : Application
         // MCP の board ツール。BoardToolHost 自身が外部変更の通知元なので、同じインスタンスを両方に配る。
         builder.Services.AddSingleton<Ai.BoardTools.BoardToolHost>();
         builder.Services.AddSingleton<IBoardChangeSource>(sp => sp.GetRequiredService<Ai.BoardTools.BoardToolHost>());
+        // 朝の実行の受け口。IMorningService だけを見るので BoardToolHost とは独立している。
+        builder.Services.AddSingleton<Ai.MorningTools.MorningToolHost>();
         builder.Services.AddSingleton<MoTaskMcpServer>();
         builder.Services.AddSingleton<IAiJobService, AiJobService>();
         builder.Services.AddSingleton<IMorningService, MorningService>();
