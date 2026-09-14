@@ -3,6 +3,7 @@ using FluentAssertions;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
 using Xunit;
@@ -95,7 +96,45 @@ public class MorningServiceStartTests
         text.Should().NotBeNull("DB が壊れてもフォルダだけで何の実行か分かるようにする（仕様 §6）");
         var root = JsonDocument.Parse(text!).RootElement;
         root.GetProperty("runId").GetInt32().Should().Be(run.Id);
-        root.GetProperty("launchCommand").GetString().Should().StartWith("wt.exe ");
+        root.GetProperty("launchCommand").GetString().Should().StartWith("cmd.exe /c ");
+    }
+
+    /// <summary>朝の実行は claude が終われば窓も畳む形で頼む（仕様 §5.2）。</summary>
+    [Fact]
+    public async Task Start_AsksForATerminalThatClosesWhenClaudeExits()
+    {
+        await _service.StartAsync();
+
+        _launcher.Requests.Should().ContainSingle().Which.CloseOnExit.Should().BeTrue();
+    }
+
+    /// <summary>完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。</summary>
+    [Fact]
+    public async Task Start_OwnsTheTerminalItOpened()
+    {
+        var run = (await _service.StartAsync()).Value!;
+
+        var owned = _launcher.LaunchedOwned.Should().ContainSingle().Subject;
+        owned.OwnerId.Should().Be(run.Id, "ownerId は runId（宛先を取り違えない）");
+        owned.Command.FileName.Should().Be("cmd.exe");
+    }
+
+    /// <summary>再起動した MoTask はここから掛け直す（仕様 §7）。</summary>
+    [Fact]
+    public async Task Start_WritesTheProcessIdAndStartTimeIntoRunJson()
+    {
+        // Process.StartTime は 100ns tick の精度を持ち、TryReattach はこの値を完全一致で照合する
+        // （仕様 §7）。秒丸めの値だと run.json 経由で精度が落ちても気づけない。
+        var processStartedAt = new DateTime(2026, 9, 13, 6, 0, 1, DateTimeKind.Utc).AddTicks(1234567);
+        _launcher.Session = new OwnedSession(31337, processStartedAt);
+
+        var run = (await _service.StartAsync()).Value!;
+
+        var text = _folder.ReadText(run.JobFolder, JobFolderPaths.RunJsonName);
+        var descriptor = MorningRunDescriptor.TryParse(text);
+        descriptor.Should().NotBeNull();
+        descriptor!.ProcessId.Should().Be(31337);
+        descriptor.ProcessStartedAt.Should().Be(processStartedAt);
     }
 
     [Fact]
@@ -171,6 +210,25 @@ public class MorningServiceStartTests
         run.ErrorMessage.Should().Be("端末を起動できませんでした");
         run.JobFolder.Should().NotBeEmpty("失敗した実行でもフォルダは開ける");
         _events.IsFollowing(run.Id).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// 端末はもう走っているので、run.json が書けなくても実行は続ける。ただし再起動後に
+    /// 掛け直せなくなる（仕様 §7）ので、理由を警告として人に見せる。
+    /// </summary>
+    [Fact]
+    public async Task Start_ContinuesWithAWarning_WhenRunJsonCannotBeWritten()
+    {
+        _folder.WriteFailure = Result.Fail("run.json を書けませんでした");
+        _folder.FailWritesTo = JobFolderPaths.RunJsonName;
+
+        var started = await _service.StartAsync();
+
+        started.IsSuccess.Should().BeTrue("端末はもう走っている。JSON 1 本の書き損じで朝の仕事を潰さない");
+        var run = started.Value!;
+        _events.IsFollowing(run.Id).Should().BeTrue();
+        _changes.Should().ContainSingle();
+        _changes[0].Warning.Should().Be("run.json を書けませんでした");
     }
 
     [Fact]

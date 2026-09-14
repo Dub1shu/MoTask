@@ -55,6 +55,10 @@ public sealed class MorningService : IMorningService
         _events = events;
         _settings = settings;
         _boardService = boardService;
+
+        // 所有した端末が先に死んだら気づけるようにする(仕様 §7)。MorningService も
+        // ISessionLauncher もアプリに 1 つずつの singleton なので、外すことはしない。
+        _launcher.OwnedSessionExited += OnOwnedSessionExited;
     }
 
     // ---------- 照会 ----------
@@ -139,7 +143,8 @@ public sealed class MorningService : IMorningService
             // 成果物の出力先は result/(AI 遂行の既定 artifacts/ とは違う)。起動プロンプトを
             // instruction.md の指示と一致させる。
             var command = _launcher.BuildCommand(new SessionLaunchRequest(
-                sessionId, root, root, Resume: false, OutputDirectoryName: JobFolderPaths.ResultDirectoryName));
+                sessionId, root, root, Resume: false,
+                OutputDirectoryName: JobFolderPaths.ResultDirectoryName, CloseOnExit: true));
             if (!command.IsSuccess) return Result.Fail<MorningRun>(command.Error!);
 
             // フォルダとコマンドが確定してから DB に書く。
@@ -165,15 +170,25 @@ public sealed class MorningService : IMorningService
             }, ct).ConfigureAwait(false);
             if (!saved.IsSuccess) return Result.Fail<MorningRun>(saved.Error!);
 
-            _folder.WriteText(root, JobFolderPaths.RunJsonName, MorningRunDescriptor.Serialize(
-                new MorningRunDescriptor(run.Id, date, sessionId, root, command.Value!.Display, now)));
-
-            var launched = _launcher.Launch(command.Value!);
-            if (!launched.IsSuccess) return await FailAsync(run, launched.Error!).ConfigureAwait(false);
-
+            // 追従は起動より先に掛ける。起こした端末が即死すると OwnedSessionExited は
+            // LaunchOwned が戻る前にも届きうるので、後から掛けると「終わった実行に追従を
+            // 掛け直す」ことになり、誰も止めないポーラーが残る（仕様 §7）。
+            // 起動に失敗した場合は FailAsync → FinishAsync が StopFollowing まで面倒を見る。
             _turns[run.Id] = 0;
             Follow(run.Id, root, skipLines: 0);
-            Raise(run, null, candidatesChanged: false);
+
+            // 朝の実行は MoTask が所有する。完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。
+            var owned = _launcher.LaunchOwned(run.Id, command.Value!);
+            if (!owned.IsSuccess) return await FailAsync(run, owned.Error!).ConfigureAwait(false);
+
+            // 掛け直しの材料（pid と開始時刻）は起動できてからでないと書けないので、run.json は
+            // 起動の後に書く。書けなくても実行そのものは続ける（端末はもう走っている）が、
+            // 再起動後に掛け直せなくなるので警告として人に見せる（仕様 §7）。
+            var wroteRun = _folder.WriteText(root, JobFolderPaths.RunJsonName, MorningRunDescriptor.Serialize(
+                new MorningRunDescriptor(run.Id, date, sessionId, root, command.Value!.Display, now,
+                    owned.Value!.ProcessId, owned.Value!.StartedAt)));
+
+            Raise(run, wroteRun.IsSuccess ? null : wroteRun.Error, candidatesChanged: false);
             return Result.Ok(run);
         }
         finally
@@ -284,6 +299,8 @@ public sealed class MorningService : IMorningService
             {
                 _events.StopFollowing(run.Id);
                 _turns.TryRemove(run.Id, out _);
+                // 読めないまま終わった実行でも窓は畳む(仕様 §7)
+                _launcher.CloseOwned(run.Id);
             }
             return new IngestOutcome(false, finished ? Messages.MorningResultUnreadable : null);
         }
@@ -329,6 +346,9 @@ public sealed class MorningService : IMorningService
 
         _events.StopFollowing(run.Id);
         _turns.TryRemove(run.Id, out _);
+        // 取り込みが終わったら窓を畳む。知らない ownerId は launcher が黙って無視するので、
+        // 2 度目の Stop で重ねて呼ばれても実害は無い(仕様 §5.3)。
+        _launcher.CloseOwned(run.Id);
 
         // 保存失敗のほうが重い。バナーは 1 本なのでそちらを優先する。
         warning ??= result.DiscardedLines > 0
@@ -386,7 +406,79 @@ public sealed class MorningService : IMorningService
     {
         var run = await _gate.RunAsync(() => _runs.GetUnfinishedRunAsync(ct), ct).ConfigureAwait(false);
         if (run is null || run.JobFolder.Length == 0) return;
+
+        // 追従は掛け直しより先に。掛け直した先が既に死んでいれば OwnedSessionExited は
+        // TryReattach が戻る前にも届きうるので、後から掛けると終わった実行にポーラーが残る
+        // (StartAsync と同じ理由・仕様 §7)。
         Follow(run.Id, run.JobFolder, run.ProcessedLines);
+
+        // 掛け直せなければ「閉じる能力」だけを諦め、追従(events.jsonl)は続ける(仕様 §7)。
+        // 開始時刻を照合するのは launcher 側の仕事で、ここは材料を渡すだけ。
+        var descriptor = MorningRunDescriptor.TryParse(
+            _folder.ReadText(run.JobFolder, JobFolderPaths.RunJsonName));
+        if (descriptor is { ProcessId: > 0 })
+        {
+            _launcher.TryReattach(run.Id, descriptor.ProcessId, descriptor.ProcessStartedAt);
+        }
+    }
+
+    /// <summary>
+    /// 端末の終了を受けた後始末。イベントは void で来るので、直近の 1 本をここに残して
+    /// テストが待てるようにする(MorningPlanViewModel.PendingLoad と同じ手)。
+    /// </summary>
+    public Task PendingTerminalExit { get; private set; } = Task.CompletedTask;
+
+    private void OnOwnedSessionExited(object? sender, int runId)
+        => PendingTerminalExit = OnOwnedSessionExitedAsync(runId);
+
+    /// <summary>
+    /// 端末が先に死んだ(人が × で閉じた・claude が落ちた)。まず result/ を見に行き、
+    /// 取り込めるなら取り込む。取り込めないときだけ Failed にして降りる。
+    /// 終端の実行はそのまま(閉じたのがこちらの CloseOwned なら、そもそもここへ来ない)。
+    /// </summary>
+    private async Task OnOwnedSessionExitedAsync(int runId)
+    {
+        // cmd.exe /c にしたので「claude が終わる」＝「プロセスが死ぬ」であり、フックが
+        // SessionEnd を書いてから数ミリ秒で終端が来る。events.jsonl の追従は 500ms 間隔の
+        // ポーリングなので、この終了イベントのほうがほぼ必ず先に届く。ここで result/ を
+        // 見ずに Failed にすると、ディスクには揃っている成果をそのまま捨ててしまい、
+        // 終端になった実行は CompleteAsync も受け付けない(仕様 §7)。
+        MorningRun? active = null;
+        await _gate.RunAsync(async () =>
+        {
+            var current = await _runs.GetRunAsync(runId).ConfigureAwait(false);
+            // 知らない runId は黙って降りる。終わった実行も蘇らせない。
+            if (current is not null && !current.Status.IsTerminal()) active = current;
+        }).ConfigureAwait(false);
+        if (active is null) return;
+
+        // lastChance は渡さない。揃っていなかったときに付けるべき理由は「取り込めなかった」
+        // ではなく「端末が閉じられた」なので、Failed は下で自分で付ける。
+        // IngestAsync はゲートを自分で取るので、ゲートの外から呼ぶこと。
+        var ingest = await IngestAsync(active, lastChance: false).ConfigureAwait(false);
+        if (active.Status == MorningRunStatus.Ingested)
+        {
+            // 追従解除・_turns の掃除・CloseOwned は IngestAsync が済ませている。重ねない。
+            Raise(active, ingest.Warning, ingest.CandidatesChanged);
+            return;
+        }
+
+        MorningRun? run = null;
+        var warning = await _gate.RunAsync(async () =>
+        {
+            var current = await _runs.GetRunAsync(runId).ConfigureAwait(false);
+            if (current is null || current.Status.IsTerminal()) return (string?)null;
+            run = current;
+            current.Status = MorningRunStatus.Failed;
+            current.ErrorMessage = Messages.MorningTerminalClosed;
+            current.EndedAt = _clock.UtcNow;
+            return await SaveQuietlyAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
+
+        if (run is null) return;
+        _events.StopFollowing(run.Id);
+        _turns.TryRemove(run.Id, out _);
+        Raise(run, warning, candidatesChanged: false);
     }
 
     private Task<Result<MorningRun>> FindActiveRunAsync(int runId, CancellationToken ct)

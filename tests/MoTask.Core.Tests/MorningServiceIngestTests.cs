@@ -2,6 +2,7 @@ using FluentAssertions;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 using MoTask.Core.Tests.Fakes;
 using Xunit;
@@ -54,6 +55,84 @@ public class MorningServiceIngestTests
     {
         if (candidates is not null) _folder.Put(run.JobFolder, JobFolderPaths.CandidatesRelativePath, candidates);
         if (plan is not null) _folder.Put(run.JobFolder, JobFolderPaths.PlanRelativePath, plan);
+    }
+
+    private void PutRunJson(MorningRun run, int processId)
+        => _folder.Put(run.JobFolder, JobFolderPaths.RunJsonName, MorningRunDescriptor.Serialize(
+            new MorningRunDescriptor(
+                run.Id, run.Date, run.SessionId, run.JobFolder, "cmd.exe /c claude",
+                new DateTime(2026, 9, 7, 6, 0, 0, DateTimeKind.Utc),
+                ProcessId: processId,
+                ProcessStartedAt: new DateTime(2026, 9, 7, 6, 0, 1, DateTimeKind.Utc))));
+
+    [Fact]
+    public async Task Recover_ReattachesToTheTerminalUsingRunJson()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, 31337);
+
+        await _service.RecoverOnStartupAsync();
+
+        _launcher.Reattached.Should().ContainSingle().Which.Should()
+            .Be((run.Id, 31337, new DateTime(2026, 9, 7, 6, 0, 1, DateTimeKind.Utc)));
+        _events.IsFollowing(run.Id).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// 掛け直しを挟んでも、通常の取り込み→クローズの順序が壊れない(二重登録も、終端にならず
+    /// 残る実行も起きない)。閉じること自体は取り込み成功時に無条件なので、掛け直しの成否には
+    /// 依らない — このテストはその因果までは主張していない。
+    /// </summary>
+    [Fact]
+    public async Task Recover_ThenIngest_DoesNotDisruptTheNormalCloseSequence()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, 31337);
+        await _service.RecoverOnStartupAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>掛け直せなくても追従は続ける。諦めるのは「閉じる能力」だけ(仕様 §7)。</summary>
+    [Fact]
+    public async Task Recover_KeepsFollowingEvenWhenItCannotReattach()
+    {
+        _launcher.ReattachSucceeds = false;
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, 31337);
+
+        await _service.RecoverOnStartupAsync();
+
+        _events.IsFollowing(run.Id).Should().BeTrue();
+    }
+
+    /// <summary>pid の無い(この実装より前に作られた)run.json では掛け直しを試みない。</summary>
+    [Fact]
+    public async Task Recover_DoesNotTryToReattachWithoutAProcessId()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+        PutRunJson(run, processId: 0);
+
+        await _service.RecoverOnStartupAsync();
+
+        _launcher.Reattached.Should().BeEmpty();
+        _events.IsFollowing(run.Id).Should().BeTrue();
+    }
+
+    /// <summary>run.json そのものが無くても、追従だけは今までどおり再開する。</summary>
+    [Fact]
+    public async Task Recover_DoesNotTryToReattachWhenThereIsNoRunJson()
+    {
+        var run = _store.SeedRun(new DateOnly(2026, 9, 7), MorningRunStatus.Running);
+
+        await _service.RecoverOnStartupAsync();
+
+        _launcher.Reattached.Should().BeEmpty();
+        _events.IsFollowing(run.Id).Should().BeTrue();
     }
 
     [Fact]
@@ -336,5 +415,148 @@ public class MorningServiceIngestTests
         var tail = await _service.GetLogTailAsync(run.Id, 3);
 
         tail.Should().Equal("2", "3", "4");
+    }
+
+    /// <summary>仕事が終わったら窓も畳む(仕様 §7)。</summary>
+    [Fact]
+    public async Task Stop_ClosesTheTerminalOnceTheResultIsIngested()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    [Fact]
+    public async Task Stop_LeavesTheTerminalOpen_WhileTheResultIsNotThereYet()
+    {
+        var run = await StartAsync();
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        _launcher.Closed.Should().BeEmpty("Stop は何度でも来る。揃うまでは閉じない");
+    }
+
+    /// <summary>読めないまま終わった実行も後始末する。窓だけ残しても人は困る(仕様 §7)。</summary>
+    [Fact]
+    public async Task SessionEnd_WithoutAPlan_ClosesTheTerminalToo()
+    {
+        var run = await StartAsync();
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.SessionEnd());
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>人の「完了にする」はその場で閉じる。待つべき Stop が来る保証が無い(仕様 §7)。</summary>
+    [Fact]
+    public async Task Complete_ClosesTheTerminal()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        await _service.CompleteAsync(run.Id);
+
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>「追跡をやめる」は端末を殺さない。既存の約束をここでは守る(仕様 §7)。</summary>
+    [Fact]
+    public async Task StopTracking_DoesNotCloseTheTerminal()
+    {
+        var run = await StartAsync();
+
+        await _service.StopTrackingAsync(run.Id);
+
+        run.Status.Should().Be(MorningRunStatus.Cancelled);
+        _launcher.Closed.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// 人が × で閉じた・claude が落ちた。所有しているからこそ気づける(仕様 §7)。
+    /// 気づかないと events.jsonl を延々ポーリングし続けて実行が宙に浮く。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingFirst_FailsTheRunAndStopsFollowing()
+    {
+        var run = await StartAsync();
+        await _events.EmitAsync(run.Id, FakeJobEventSource.SessionStart());
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        run.ErrorMessage.Should().Be(Messages.MorningTerminalClosed);
+        run.EndedAt.Should().Be(_clock.UtcNow);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+        _changes.Last().Run.Status.Should().Be(MorningRunStatus.Failed);
+    }
+
+    /// <summary>
+    /// 端末が死ぬのは SessionEnd の行を追従が拾うより先(こちらは 500ms ごとのポーリング)。
+    /// それでも result/ が揃っていれば取り込む。捨ててしまうと実行は終端になり、
+    /// 「完了にする」も受け付けないのでその朝の候補は取り返せない(仕様 §7)。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingWithAUsableResult_IngestsInsteadOfFailing()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.ErrorMessage.Should().BeNull();
+        _store.Candidates.Should().HaveCount(2);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+        _changes.Last().CandidatesChanged.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// 起こした端末が LaunchOwned の戻り値より先に死んでも、追従は残さない。
+    /// 追従を起動より後に掛けると、終わった実行に誰も止めないポーラーが付く(仕様 §7)。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingDuringTheLaunch_LeavesNoPollerBehind()
+    {
+        _launcher.ExitsDuringLaunch = true;
+
+        var run = await StartAsync();
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        run.ErrorMessage.Should().Be(Messages.MorningTerminalClosed);
+        _events.IsFollowing(run.Id).Should().BeFalse("起動より先に追従を掛けていれば止められる");
+    }
+
+    /// <summary>閉じたのはこちらなので、取り込み済みの実行を Failed で上書きしない。</summary>
+    [Fact]
+    public async Task TheTerminalDyingAfterIngesting_ChangesNothing()
+    {
+        var run = await StartAsync();
+        PutResult(run, TwoCandidates, Plan);
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.ErrorMessage.Should().BeNull();
+    }
+
+    /// <summary>知らない runId のイベントで落ちない。</summary>
+    [Fact]
+    public async Task AnExitForARunWeDoNotKnow_IsIgnored()
+    {
+        _launcher.RaiseExited(9999);
+
+        await _service.PendingTerminalExit;
+
+        _store.Runs.Should().BeEmpty();
     }
 }

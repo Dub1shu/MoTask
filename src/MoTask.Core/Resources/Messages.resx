@@ -93,6 +93,7 @@
   <data name="MorningRunAlreadyFinished" xml:space="preserve"><value>この朝の実行はもう終わっています</value></data>
   <data name="MorningResultUnreadable" xml:space="preserve"><value>Claude の出力を読み取れませんでした（result\plan.json が無いか壊れています）</value></data>
   <data name="MorningCandidatesDiscardedFormat" xml:space="preserve"><value>{0} 件のうち {1} 件は読み取れませんでした</value></data>
+  <data name="MorningTerminalClosed" xml:space="preserve"><value>端末が閉じられました</value></data>
   <data name="CandidateNotFound" xml:space="preserve"><value>候補が見つかりません</value></data>
   <data name="CandidateAlreadyDecided" xml:space="preserve"><value>この候補はもう片づいています</value></data>
   <data name="CandidateNoteHeaderFormat" xml:space="preserve"><value>【{0} から取り込み】</value></data>

@@ -4,7 +4,9 @@ using System.Text.Json;
 namespace MoTask.Core.Morning;
 
 /// <summary>
-/// run.json の中身（仕様 §6）。job.json 相当で、DB が壊れてもフォルダだけで何の実行か分かるように残す。
+/// run.json の中身（親仕様 §6）。job.json 相当で、DB が壊れてもフォルダだけで何の実行か分かるように残す。
+/// ProcessId / ProcessStartedAt は再起動後に端末へ掛け直すための材料（MCP 受け渡し仕様 §7）。
+/// ProcessStartedAt は UTC。0 / default は「掛け直せる材料が無い」を意味する。
 /// </summary>
 public sealed record MorningRunDescriptor(
     int RunId,
@@ -12,7 +14,9 @@ public sealed record MorningRunDescriptor(
     Guid SessionId,
     string JobFolder,
     string LaunchCommand,
-    DateTime StartedAt)
+    DateTime StartedAt,
+    int ProcessId = 0,
+    DateTime ProcessStartedAt = default)
 {
     private static readonly JsonSerializerOptions Options = new()
     {
@@ -23,4 +27,18 @@ public sealed record MorningRunDescriptor(
 
     public static string Serialize(MorningRunDescriptor descriptor)
         => JsonSerializer.Serialize(descriptor, Options);
+
+    /// <summary>読めない・壊れている・オブジェクトでないときは null（呼び手は掛け直しを諦める）。</summary>
+    public static MorningRunDescriptor? TryParse(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            return JsonSerializer.Deserialize<MorningRunDescriptor>(json, Options);
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            return null;
+        }
+    }
 }

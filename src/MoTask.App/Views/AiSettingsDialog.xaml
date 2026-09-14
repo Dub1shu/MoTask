@@ -45,6 +45,9 @@
 
         <TextBlock Text="{x:Static res:Strings.SettingsTerminalTemplate}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
         <TextBox Text="{Binding TerminalCommandTemplate, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBlock Text="{Binding TemplateNotice}" Foreground="{StaticResource Brush.TextMuted}" TextWrapping="Wrap"
+                   Margin="{StaticResource Gap.Top.1}"
+                   Visibility="{Binding TemplateNotice, Converter={StaticResource NullToVisibility}}" />
 
         <TextBlock Text="{x:Static res:Strings.SettingsMorningInstruction}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
         <TextBox Text="{Binding MorningInstruction, UpdateSourceTrigger=PropertyChanged}"

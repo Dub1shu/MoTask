@@ -114,6 +114,17 @@ public class AiRepositoryTests : IDisposable
             => Result.Ok(new TerminalCommand("wt.exe", "cmd /k claude", request.WorkingDirectory));
 
         public Result Launch(TerminalCommand command) => Result.Ok();
+
+        public Result<OwnedSession> LaunchOwned(int ownerId, TerminalCommand command)
+            => Result.Ok(new OwnedSession(0, DateTime.UtcNow));
+
+        public void CloseOwned(int ownerId) { }
+
+        public bool TryReattach(int ownerId, int processId, DateTime startedAt) => false;
+
+#pragma warning disable CS0067 // このテストは端末を持たないので所有プロセスが終了することもない
+        public event EventHandler<int>? OwnedSessionExited;
+#pragma warning restore CS0067
     }
 
     /// <summary>ファイルは作らない。決め打ちのパスを返すだけ。</summary>

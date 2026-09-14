@@ -121,12 +121,18 @@ MoTask.exe (MoTask.App)
 ### 5.2 テンプレートの統一
 
 ```
-DefaultTemplate  = "cmd.exe /k {command}"   AI 遂行（対話を続ける）
-MorningTemplate  = "cmd.exe /c {command}"   朝の実行（claude が終われば窓も畳む）
+DefaultTemplate  = "cmd.exe /s /k \"{command}\""   AI 遂行（対話を続ける）
+MorningTemplate  = "cmd.exe /s /c \"{command}\""   朝の実行（claude が終われば窓も畳む）
 ```
 
 `WindowsTerminalTemplate` と `FindWindowsTerminal()` と `_hasWindowsTerminal` を落とす。
 `TerminalLauncher` の内部テスト用構築子から `Func<bool> hasWindowsTerminal` 引数も消える。
+
+`{command}` を引用符で包み `/s` を付けるのは省略できない。`cmd /?` の規則により、`/c` や `/k` の
+後ろに引用符が 3 個以上あると cmd は**先頭の 1 個と末尾の 1 個を剥がして**残りを解釈し直す。
+MoTask は引数を 1 つずつ引用符で囲むので十数個になり、包まないと実行ファイルのパスが壊れて
+claude が一度も起動しない（2026-09-15 の手動確認で実際に踏んだ）。`/s` はこの剥がす規則を
+無条件にして、引用符の個数に依存させないための指定である。
 
 既定テンプレートに `{cwd}` が現れなくなるので、末尾バックスラッシュで `CommandLineToArgvW` が壊れる問題
 （現行 `TerminalLauncher` のコメント付きの細工）を**既定の道では踏まなくなる**。
@@ -186,11 +192,14 @@ public sealed record OwnedSession(int ProcessId, DateTime StartedAt);
 ### 5.4 起動コマンド
 
 ```
-cmd.exe /c <claude> --settings <ジョブフォルダ>/hooks.json --session-id <SessionId>
-                    --permission-mode <設定値> --add-dir <ジョブフォルダ>
-                    --mcp-config <ジョブフォルダ>/mcp.json
-                    -- "<ジョブフォルダ>/instruction.md を読んで作業を始めてください。"
+cmd.exe /s /c "<claude> --settings <ジョブフォルダ>/hooks.json --session-id <SessionId>
+               --permission-mode <設定値> --add-dir <ジョブフォルダ>
+               --mcp-config <ジョブフォルダ>/mcp.json
+               -- <ジョブフォルダ>/instruction.md を読んで作業を始めてください。"
 ```
+
+実際には引数は 1 つずつ引用符で囲まれ、その全体をさらに 1 組の引用符で包む（§5.2）。
+`/s` と外側の引用符が無いと cmd が先頭と末尾の引用符を剥がしてパスを壊す。
 
 `--mcp-config` が新しい。`MoTask.Mcp.exe` の絶対パスを書いた `mcp.json` をジョブフォルダに生成して渡す。
 これで朝の実行は利用者の手動 MCP 登録に依存しなくなる。
@@ -319,6 +328,9 @@ morning_complete 受信 → Ingested にして画面更新 → 「閉じる」�
 `OnExit` ではハンドルを解放するだけで端末は殺さない。朝の実行は走り続け、
 MCP 呼び出しはブリッジが MoTask を起動し直して届く（`EndpointResolver` が既にやっている）。
 
+`run.json` は pid と開始時刻が決まってからでないと書けないので**起動に成功した後に書く**。
+そのため起動に失敗した実行のジョブフォルダには `run.json` が無い（掛け直す相手も無いので困らない）。
+
 再起動後の MoTask は掛けどころを失っているので、`run.json` に書いた `processId` と `processStartedAt` を
 `RecoverOnStartupAsync` が読み、`TryReattach` で掛け直す。
 `Process.GetProcessById` が引けて `StartTime` が一致すれば成功。
@@ -378,7 +390,19 @@ MoTask が書く後半（`MorningInstructionContractFormat`）だけ差し替え
 | Core・重複 | 過去に却下・登録済みの `externalId` が弾かれ理由が返る／同じ実行で 2 度目が弾かれる |
 | Core・再掛け直し | `TryReattach` が成功すれば閉じられる／失敗しても追従は続く |
 | App・`MorningToolHost` | ツール 4 本を「引数 JSON → `McpToolResult`」で。`runId` 不一致がツールエラーになる。`BoardToolHost` のテストと同じ構え |
-| App・`TerminalLauncher` | 朝用コマンドの組み立て（`cmd.exe /c` になる／`--mcp-config` が入る／出力先の案内が消える）／AI 遂行は `cmd.exe /k`／先頭が `wt.exe` の利用者テンプレートは朝の実行で既定に落ちる／`wt` 分岐が消えても既存のテンプレート置換テストが通る |
+| App・`TerminalLauncher` | 朝用コマンドの組み立て（`cmd.exe /s /c` になる／`--mcp-config` が入る／出力先の案内が消える）／AI 遂行は `cmd.exe /s /k`／先頭が `wt.exe` の利用者テンプレートは朝の実行で既定に落ちる／`wt` 分岐が消えても既存のテンプレート置換テストが通る |
+
+**組み立てた文字列を見るだけのテストでは足りない。** 実際に `cmd.exe` へ食わせて、狙った実行ファイルが
+起動したことを確かめる 1 本を置く（無害な偽 claude を指し、目印の出力と終了コードで肯定形に見る）。
+2026-09-15 に踏んだ引用符のバグは、文字列アサーションを全件緑にしたままアプリを完全に壊していた。
+窓は開かず、何も kill せず、200ms 未満で終わるので、この 1 本だけは自動テストに置く。
+
+### 既知の制約: シェルのメタ文字
+
+ジョブフォルダ名は AI 遂行ではタスク名から作られる（`JobFolderPaths.Slug`）。`Slug` はファイル名に
+使えない文字だけを潰すので、`%` や `$` は残る。そのパスはコマンドラインに載るので、`cmd` は `%…%` を、
+PowerShell テンプレートを使う人は `$…` を展開してしまう。シェルを挟む限り付いて回る問題で、
+今のところ手当てしていない。直すなら `Slug` 側でメタ文字も潰すのが素直である。
 
 `FakeSessionLauncher` に `LaunchOwned` / `CloseOwned` / `TryReattach` の記録と
 `OwnedSessionExited` の発火を足す。実プロセスの起動と終了そのものは §11 の手動確認に回す。
@@ -388,19 +412,22 @@ MoTask が書く後半（`MorningInstructionContractFormat`）だけ差し替え
 ## 11. 手動確認が要る項目
 
 README には足さない。実施したらここにチェックを入れてコミットする。
+1 本目（起動の統一と端末の所有）で確認できるのは、端末が Windows Terminal の中に開くこと・× で閉じたときに `Failed` になること・MoTask を閉じても端末が残り開き直すと追跡が続くこと・「追跡をやめる」では閉じないこと・AI 遂行の端末が従来どおり開いたままであること、および `wt.exe` テンプレートの落とし込みである。
+1 本目の時点では `morning_complete` がまだ無いので、`result/` が揃った実行では取り込みと同時に端末が閉じるのがこの時点の挙動として見られる。
+残りは `morning_complete` と候補の逐次到着を要するので 2 本目（MCP への移行）で確認する。
 
-- [ ] 朝の実行を起動すると端末が開き、Windows Terminal の中に出る（conhost の古い窓ではない）
+- [x] 朝の実行を起動すると端末が開き、Windows Terminal の中に出る（conhost の古い窓ではない）
 - [ ] 候補が届くたびに、朝の画面の候補キューが 1 件ずつ増える
 - [ ] Claude が `morning_complete` を呼ぶと、最後の一言を言い終えてから端末が閉じる
 - [ ] 閉じた後、朝の画面にプランと候補が揃っている
 - [ ] 候補 0 件の朝でも `complete` が通り、端末が閉じ、画面が「候補なし」になる
 - [ ] `evidence` を空にした候補を Claude に投げさせると、理由が返って Claude が次へ進む
-- [ ] 実行中に端末を × で閉じると、朝の画面が `Failed`（端末が閉じられました）になる
-- [ ] 実行中に MoTask を閉じても端末は残り、MoTask を開き直すと追跡が続く
+- [x] 実行中に端末を × で閉じると、朝の画面が `Failed`（端末が閉じられました）になる
+- [x] 実行中に MoTask を閉じても端末は残り、MoTask を開き直すと追跡が続く
 - [ ] その状態から `morning_complete` まで進めると、掛け直した MoTask が端末を閉じる
-- [ ] 「追跡をやめる」では端末が閉じない
-- [ ] AI 遂行の端末は従来どおり開いたままで、閉じない
-- [ ] AI 設定で `TerminalCommandTemplate` に `wt.exe …` を入れると、朝の実行で注意が出て既定の起動になる
+- [x] 「追跡をやめる」では端末が閉じない
+- [x] AI 遂行の端末は従来どおり開いたままで、閉じない
+- [ ] AI 設定で `TerminalCommandTemplate` に `wt.exe …` を入れると、朝の実行で注意が出て既定の起動になる（2026-09-15 時点で**未確認**。1 本目で確認できる 6 項目のうち、これだけが残っている）
 - [ ] 利用者の MCP 登録を外しても、朝の実行は `--mcp-config` のおかげで MoTask のツールを使える
 
 ## 12. 移行

@@ -128,4 +128,29 @@ public class AiSettingsViewModelTests
         _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null, null));
     }
+
+    [Fact]
+    public void TemplateNotice_IsNullForAnOrdinaryTemplate()
+    {
+        var vm = new AiSettingsViewModel(new FakeAiSettingsStore());
+
+        vm.TemplateNotice.Should().BeNull();
+
+        vm.TerminalCommandTemplate = "powershell.exe -NoExit -Command {command}";
+        vm.TemplateNotice.Should().BeNull();
+    }
+
+    /// <summary>朝の実行では使えないテンプレートなので、保存前から画面で知らせる（仕様 §5.2）。</summary>
+    [Fact]
+    public void TemplateNotice_AppearsWhileTypingAWindowsTerminalTemplate()
+    {
+        var vm = new AiSettingsViewModel(new FakeAiSettingsStore());
+        var raised = new List<string?>();
+        vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
+
+        vm.TerminalCommandTemplate = "wt.exe -d \"{cwd}\" cmd /k {command}";
+
+        vm.TemplateNotice.Should().Be(Strings.MorningTemplateFallsBackToDefault);
+        raised.Should().Contain(nameof(AiSettingsViewModel.TemplateNotice));
+    }
 }

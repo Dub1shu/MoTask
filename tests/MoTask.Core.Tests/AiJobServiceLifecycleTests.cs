@@ -73,8 +73,9 @@ public class AiJobServiceLifecycleTests : IDisposable
         var job = await StartAsync();
 
         _folder.Descriptors.Should().ContainSingle()
-            .Which.LaunchCommand.Should().StartWith("wt.exe ");
+            .Which.LaunchCommand.Should().StartWith("cmd.exe ");
         _folder.Descriptors[0].SessionId.Should().Be(job.SessionId);
+        _launcher.LaunchedOwned.Should().BeEmpty("AI 遂行 は端末を所有しない（仕様 §3）");
     }
 
     [Fact]
