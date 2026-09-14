@@ -242,4 +242,168 @@ public class MorningServiceMcpTests
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(string.Format(Messages.MorningRunNotRunningFormat, 9999));
     }
+
+    // ---- morning_complete ----
+
+    [Fact]
+    public async Task Complete_RefusesUntilAPlanHasBeenSubmitted()
+    {
+        var run = await StartAsync();
+
+        var result = await _service.CompleteRunAsync(run.Id, closeNow: false);
+
+        result.IsSuccess.Should().BeTrue("ツールエラーではない");
+        result.Value!.Accepted.Should().BeFalse();
+        result.Value.Reason.Should().Be(Messages.MorningPlanNotSubmitted);
+        run.Status.Should().Be(MorningRunStatus.Pending, "受理しなかっただけ。実行は動いたまま");
+        _launcher.Closed.Should().BeEmpty();
+    }
+
+    /// <summary>候補 0 件の朝は失敗ではない(親仕様 §8 の約束を引き継ぐ)。</summary>
+    [Fact]
+    public async Task Complete_AcceptsARunWithNoCandidates()
+    {
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+
+        var result = await _service.CompleteRunAsync(run.Id, closeNow: false);
+
+        result.Value!.Accepted.Should().BeTrue();
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.EndedAt.Should().Be(_clock.UtcNow);
+        _store.Candidates.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// ツール結果を返した直後に殺すと Claude の最後の一言が切れる。Stop はそのターンが
+    /// 終わった合図なので、言い終えてから消す(仕様 §7)。
+    /// </summary>
+    [Fact]
+    public async Task Complete_DoesNotCloseUntilTheNextStop()
+    {
+        _service.CloseGrace = TimeSpan.FromMinutes(10); // 保険は今回は効かせない
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+
+        await _service.CompleteRunAsync(run.Id, closeNow: false);
+        _launcher.Closed.Should().BeEmpty("まだ喋っている最中");
+        _events.IsFollowing(run.Id).Should().BeTrue("Stop を受け取る必要があるので追従は続ける");
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        _launcher.Closed.Should().Equal(run.Id);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Complete_ClosesOnlyOnce_EvenIfMoreStopsArrive()
+    {
+        _service.CloseGrace = TimeSpan.FromMinutes(10);
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+        await _service.CompleteRunAsync(run.Id, closeNow: false);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>Stop が来ないまま座り込んだときの保険(仕様 §7)。</summary>
+    [Fact]
+    public async Task Complete_ClosesAfterTheGraceEvenWithoutAStop()
+    {
+        _service.CloseGrace = TimeSpan.FromMilliseconds(10);
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+
+        await _service.CompleteRunAsync(run.Id, closeNow: false);
+        await _service.PendingClose;
+
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>人の「完了にする」は待つべき Stop が来る保証が無いのでその場で閉じる(仕様 §7)。</summary>
+    [Fact]
+    public async Task CompleteByHand_ClosesRightAway()
+    {
+        _service.CloseGrace = TimeSpan.FromMinutes(10);
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+
+        var done = await _service.CompleteAsync(run.Id);
+
+        done.IsSuccess.Should().BeTrue(done.Error);
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        _launcher.Closed.Should().Equal(run.Id);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CompleteByHand_ReportsWhyItRefusedWithoutAPlan()
+    {
+        var run = await StartAsync();
+
+        var done = await _service.CompleteAsync(run.Id);
+
+        done.IsSuccess.Should().BeFalse();
+        done.Error.Should().Be(Messages.MorningPlanNotSubmitted);
+        run.Status.Should().Be(MorningRunStatus.Pending);
+    }
+
+    /// <summary>候補もプランも MCP から来たものがそのまま画面へ回る。</summary>
+    [Fact]
+    public async Task AFullMorning_EndsWithThePlanAndTheCandidatesInPlace()
+    {
+        _service.CloseGrace = TimeSpan.FromMinutes(10);
+        var run = await StartAsync();
+        await _service.AddCandidateAsync(run.Id, Candidate("outlook:001"));
+        await _service.SubmitPlanAsync(run.Id, Plan);
+        await _service.CompleteRunAsync(run.Id, closeNow: false);
+        await _events.EmitAsync(run.Id, FakeJobEventSource.Stop());
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.PlanJson.Should().Be(Plan);
+        (await _service.GetQueueAsync(run.Id)).Select(c => c.ExternalId).Should().Equal("outlook:001");
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>complete が来ないままセッションが終わった(仕様 §7)。</summary>
+    [Fact]
+    public async Task SessionEnd_WithoutComplete_FailsTheRunAndClosesTheTerminal()
+    {
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.SessionEnd());
+
+        run.Status.Should().Be(MorningRunStatus.Failed);
+        run.ErrorMessage.Should().Be(Messages.MorningCompleteMissing);
+        _events.IsFollowing(run.Id).Should().BeFalse();
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    /// <summary>complete の後に来た SessionEnd は、予約が残っていればそれを果たすだけ。</summary>
+    [Fact]
+    public async Task SessionEnd_AfterComplete_ClosesWithoutFailingTheRun()
+    {
+        _service.CloseGrace = TimeSpan.FromMinutes(10);
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+        await _service.CompleteRunAsync(run.Id, closeNow: false);
+
+        await _events.EmitAsync(run.Id, FakeJobEventSource.SessionEnd());
+
+        run.Status.Should().Be(MorningRunStatus.Ingested, "終わった実行を蘇らせない");
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    [Fact]
+    public async Task Complete_FailsForARunIdThatIsNotRunning()
+    {
+        var result = await _service.CompleteRunAsync(9999, closeNow: false);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(string.Format(Messages.MorningRunNotRunningFormat, 9999));
+    }
 }

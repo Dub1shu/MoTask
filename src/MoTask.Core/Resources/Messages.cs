@@ -63,8 +63,8 @@ public static class Messages
     public static string MorningRunAlreadyRunning => Get(nameof(MorningRunAlreadyRunning));
     public static string MorningRunNotFound => Get(nameof(MorningRunNotFound));
     public static string MorningRunAlreadyFinished => Get(nameof(MorningRunAlreadyFinished));
-    public static string MorningResultUnreadable => Get(nameof(MorningResultUnreadable));
-    public static string MorningCandidatesDiscardedFormat => Get(nameof(MorningCandidatesDiscardedFormat));
+    public static string MorningPlanNotSubmitted => Get(nameof(MorningPlanNotSubmitted));
+    public static string MorningCompleteMissing => Get(nameof(MorningCompleteMissing));
     public static string CandidateFieldRequiredFormat => Get(nameof(CandidateFieldRequiredFormat));
     public static string CandidateEvidenceRequired => Get(nameof(CandidateEvidenceRequired));
     public static string CandidateActionInvalid => Get(nameof(CandidateActionInvalid));

@@ -29,7 +29,10 @@ public interface IMorningService
 
     // 実行
     Task<Result<MorningRun>> StartAsync(CancellationToken ct = default);
-    /// <summary>端末を × で閉じられた後の「完了にする」。取り込みを走らせる。</summary>
+    /// <summary>
+    /// 人の「完了にする」。morning_complete と同じ状態遷移を共有し、閉じ方だけが違う(その場で閉じる)。
+    /// プランが未提出なら受理せず理由を返す。
+    /// </summary>
     Task<Result> CompleteAsync(int runId, CancellationToken ct = default);
     /// <summary>追跡をやめる。端末は殺さない。</summary>
     Task<Result> StopTrackingAsync(int runId, CancellationToken ct = default);
@@ -46,6 +49,13 @@ public interface IMorningService
 
     /// <summary>プランを出す。何度でも呼べて、最後に受理されたものが残る。</summary>
     Task<Result<MorningOutcome>> SubmitPlanAsync(int runId, string planJson, CancellationToken ct = default);
+
+    /// <summary>
+    /// この朝の実行を終える。closeNow が false なら閉じるのを予約し、次の Stop(か 60 秒の保険)で
+    /// 端末を閉じる。true ならその場で閉じる(仕様 §7)。
+    /// </summary>
+    Task<Result<MorningOutcome>> CompleteRunAsync(
+        int runId, bool closeNow, CancellationToken ct = default);
 
     // 仕分け
     Task<Result<TaskItem>> RegisterAsync(CandidateDecision decision, CancellationToken ct = default);
