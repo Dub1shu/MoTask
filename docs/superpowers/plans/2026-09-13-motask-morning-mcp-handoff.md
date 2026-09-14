@@ -6,7 +6,7 @@
 
 **Architecture:** `MorningResultReader` を `CandidateValidator`（1 件分）と `MorningPlanValidator`（プラン 1 本）の純関数 2 つに解体し、`MorningService` に受け口 4 本（`GetContextAsync` / `AddCandidateAsync` / `SubmitPlanAsync` / `CompleteRunAsync`）を足す。App 側に `BoardToolHost` と同じ構えの `MorningToolHost` を新設して `MoTaskMcpServer` に載せ、朝の実行の起動には `--mcp-config` でジョブフォルダの `mcp.json` を渡す。経路は 2 本に分かれたままで、**成果は MCP・営み（フック）はそのまま**である。
 
-**Tech Stack:** .NET 10 / WPF / SQLite / EF Core / CommunityToolkit.Mvvm / xunit + FluentAssertions + NSubstitute
+**Tech Stack:** .NET 10 / WPF / SQLite / EF Core / CommunityToolkit.Mvvm / xunit + FluentAssertions（テストダブルは `tests/MoTask.App.Tests/Fakes/` の手書きの偽物。モックフレームワークは無い）
 
 **Spec:** `docs/superpowers/specs/2026-09-13-motask-morning-mcp-handoff-design.md`（この計画は §6・§8・§9 と §13「2 本目」を実装する）
 
@@ -30,7 +30,7 @@
 - **`MorningToolHost` は `IMorningService` だけを呼ぶ**（仕様 §9）。検証は Core の純関数が持ち、ホストは「JSON を読んで渡し、結果を JSON にする」だけにする。HTTP も JSON-RPC も知らない
 - **ツールの説明文は resx に置かずコードに直書きする**（`2026-09-05-motask-mcp-interface-design.md` §3 の決定）。一方で**利用者と Claude に返す理由（reason）は resx に置く**。Core は `src/MoTask.Core/Resources/Messages.resx`（アクセサ `Messages.cs`）、App は `src/MoTask.App/Resources/Strings.resx`（アクセサ `Strings.cs`）。**resx に値を足したら同じ名前のプロパティを .cs に足す**
 - パッケージのバージョンは `Directory.Packages.props` にあるので `PackageReference` に `Version` を書かない
-- テストは xunit + FluentAssertions（App 側のモックは NSubstitute）。ビルドは `-p:TreatWarningsAsErrors=true` で警告ゼロ
+- テストは xunit + FluentAssertions。**モックフレームワークは使えない**（NSubstitute は 2026-09-15 に master から意図的に取り除かれた）。App 側のテストダブルは `tests/MoTask.App.Tests/Fakes/` の手書きの偽物（`FakeBoardService` / `FakeMorningService` / `FakeAiJobService` / `FakeAiSettingsStore` / `FakeBoardChangeSource`）を使い、足りない口は**その偽物に足す**。ビルドは `-p:TreatWarningsAsErrors=true` で警告ゼロ
 - **git の扱い:** `git rebase` / `git reset --hard` / 素の `git stash` は使わない。loose object の書き込みが `Permission denied` で落ちたら**同じコマンドをそのまま再実行する**
 - 各タスクの最後に 1 コミット。コミットメッセージの末尾に必ず次の行を付ける:
 
@@ -38,12 +38,13 @@
   Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>
   ```
 
-### 仕様からの意図的な補足（4 件）
+### 仕様からの意図的な補足（5 件）
 
 1. **`runId` は DB の採番なので、指示文は行を保存してから組み立てる。** 仕様 §8 は契約文に `runId` を書くと決めているが、現行の `StartAsync` はフォルダ（と `instruction.md`）を DB 保存より先に作る。Task 6 で「フォルダは先に作る（`instruction.md` は空）→ 行を保存して `Id` を得る → 指示文を組み立てて `instruction.md` を書き直し、`Instruction` 列も埋める」の順に変える。`SaveChangesAsync` が同じゲートの中で 2 回走るが、ゲートの取得は 1 回のままである
 2. **「不備」と「宛先違い」を `Result` の成否で分ける。** 仕様 §6 は「不備は通常の結果、`runId` 不一致はツールエラー」と決めている。`MorningService` はこれを `Result.Ok(outcome)`（outcome の中に `accepted:false` と理由）と `Result.Fail(理由)` の違いで表し、`MorningToolHost` はそれを `McpToolResult.Ok` / `McpToolResult.Error` へ機械的に写す
 3. **`--mcp-config` のための `MoTask.Mcp.exe` は、フックと同じやり方でアプリ出力へ運ぶ。** 仕様 §5.4 は「絶対パスを書いた `mcp.json`」と言うだけで在り処を決めていない。`MoTask.App.csproj` が `hooks\MoTask.Hooks.exe` を運んでいるのと同じ形で `mcp\MoTask.Mcp.exe` を運び、`JobFolder` が `HooksExecutable` と並べて `McpExecutable` を持つ
 4. **`SessionLaunchRequest.OutputDirectoryName` は `string?` にする。** 仕様 §5.4 は「AI 遂行の `artifacts` 固定に戻り、朝の実行から渡さなくなる」と言う。null を「成果物の案内を出さない」の意味にし、朝の実行だけが null を渡す
+5. **App 側のテストダブルは手書きの偽物で書く（この計画の 2026-09-15 改訂）。** この計画を書いた時点では App のテストは NSubstitute を使っていたが、1 本目（端末の所有）を実装している間に master がその依存を意図的に取り除き、`tests/MoTask.App.Tests/Fakes/` の手書きの偽物へ全面的に置き換えた（`FakeBoardService` / `FakeMorningService` / `FakeAiJobService` / `FakeAiSettingsStore` / `FakeBoardChangeSource`）。パッケージは `Directory.Packages.props` にも `tests/MoTask.App.Tests/MoTask.App.Tests.csproj` にも**もう無い**ので、`Substitute.For<…>` も `Arg.Any<…>` も `.Received(…)` も書けない。よってこの改訂で Task 4 のテストを `FakeMorningService` で書き直し、受け口 4 本ぶんの記録口をその偽物に足す手順を Task 2 Step 5（3 本）と Task 3 Step 4（`CompleteRunAsync`）に入れた。**戻り値は設定できるプロパティで差し替え、呼ばれ方は記録リストで確かめる**のがこの repo の決めごとであり、偽物を足すときもその書き方に揃える。Core 側（`MoTask.Core.Tests`）はもとから `tests/MoTask.Core.Tests/Fakes/` の手書きの偽物だけを使っていたので、この改訂の影響を受けない
 
 ---
 
@@ -680,6 +681,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Modify: `src/MoTask.Core/Services/IMorningService.cs`
 - Modify: `src/MoTask.Core/Services/MorningService.cs`
 - Modify: `src/MoTask.Core/Resources/Messages.resx`, `src/MoTask.Core/Resources/Messages.cs`
+- Modify: `tests/MoTask.App.Tests/Fakes/FakeMorningService.cs`（`IMorningService` の実装なので、受け口 3 本を足さないと App のテストがコンパイルできない）
 - Test: `tests/MoTask.Core.Tests/MorningServiceMcpTests.cs`（新規）
 
 **Interfaces:**
@@ -979,7 +981,7 @@ public sealed record CandidateOutcome(bool Accepted, string? Reason, int Candida
 public sealed record MorningOutcome(bool Accepted, string? Reason);
 ```
 
-- [ ] **Step 5: `IMorningService` に 3 本を足す**
+- [ ] **Step 5: `IMorningService` に 3 本を足し、`FakeMorningService` を追随させる**
 
 `src/MoTask.Core/Services/IMorningService.cs` の `using` に `using MoTask.Core.Morning;` を足し、`// 実行` の節（`RecoverOnStartupAsync` の直後）に足す:
 
@@ -995,6 +997,65 @@ public sealed record MorningOutcome(bool Accepted, string? Reason);
 
     /// <summary>プランを出す。何度でも呼べて、最後に受理されたものが残る。</summary>
     Task<Result<MorningOutcome>> SubmitPlanAsync(int runId, string planJson, CancellationToken ct = default);
+```
+
+**`IMorningService` を実装しているのは `MorningService` だけではない。** App のテストが使う手書きの偽物 `tests/MoTask.App.Tests/Fakes/FakeMorningService.cs` も実装なので、**同じ Step で足さないとソリューションがコンパイルできない**（この repo にモックフレームワークは無い。Global Constraints と「仕様からの意図的な補足」5 を参照）。既にある書き方（`Calls` に操作名・`〜Calls` に引数・`〜Result` で返り値を差し替え）にそのまま揃える。
+
+`using` に `using MoTask.Core.Morning;` を足し、ファイル冒頭の `MergeCall` の隣に足す:
+
+```csharp
+/// <summary>AddCandidateAsync に渡された引数の記録。</summary>
+public sealed record AddCandidateCall(int RunId, CandidateInput Input);
+
+/// <summary>SubmitPlanAsync に渡された引数の記録。</summary>
+public sealed record SubmitPlanCall(int RunId, string PlanJson);
+```
+
+クラスの中（`PostponeAllAsync` の直前）に足す:
+
+```csharp
+    // ---- MCP 経由の受け口（仕様 §6）----
+
+    /// <summary>GetContextAsync が返す盤面。宛先違いを試すテストは Result.Fail に差し替える。</summary>
+    public Result<string> ContextResult { get; set; } = Result.Ok("{}");
+
+    /// <summary>AddCandidateAsync が返す結果。</summary>
+    public Result<CandidateOutcome> AddCandidateResult { get; set; } = Result.Ok(new CandidateOutcome(true, null, 1, 1));
+
+    /// <summary>SubmitPlanAsync が返す結果。</summary>
+    public Result<MorningOutcome> SubmitPlanResult { get; set; } = Result.Ok(new MorningOutcome(true, null));
+
+    /// <summary>GetContextAsync に渡された runId を呼ばれた順に。</summary>
+    public List<int> GetContextCalls { get; } = new();
+
+    /// <summary>AddCandidateAsync に渡された引数を呼ばれた順に。</summary>
+    public List<AddCandidateCall> AddCandidateCalls { get; } = new();
+
+    /// <summary>SubmitPlanAsync に渡された引数を呼ばれた順に。</summary>
+    public List<SubmitPlanCall> SubmitPlanCalls { get; } = new();
+
+    public Task<Result<string>> GetContextAsync(int runId, CancellationToken ct = default)
+    {
+        Calls.Add("GetContext");
+        GetContextCalls.Add(runId);
+        return Task.FromResult(ContextResult);
+    }
+
+    public Task<Result<CandidateOutcome>> AddCandidateAsync(
+        int runId, CandidateInput input, CancellationToken ct = default)
+    {
+        Calls.Add("AddCandidate");
+        AddCandidateCalls.Add(new AddCandidateCall(runId, input));
+        return Task.FromResult(AddCandidateResult);
+    }
+
+    public Task<Result<MorningOutcome>> SubmitPlanAsync(
+        int runId, string planJson, CancellationToken ct = default)
+    {
+        Calls.Add("SubmitPlan");
+        SubmitPlanCalls.Add(new SubmitPlanCall(runId, planJson));
+        return Task.FromResult(SubmitPlanResult);
+    }
 ```
 
 - [ ] **Step 6: `MorningService` に盤面づくりの共通部を切り出す**
@@ -1161,7 +1222,7 @@ Expected: 全件 PASS（`result/` 経路はまだ生きているので既存の�
 - [ ] **Step 9: コミット**
 
 ```bash
-git add src/MoTask.Core/Morning/MorningOutcomes.cs src/MoTask.Core/Services/IMorningService.cs src/MoTask.Core/Services/MorningService.cs src/MoTask.Core/Resources/Messages.resx src/MoTask.Core/Resources/Messages.cs tests/MoTask.Core.Tests/MorningServiceMcpTests.cs
+git add src/MoTask.Core/Morning/MorningOutcomes.cs src/MoTask.Core/Services/IMorningService.cs src/MoTask.Core/Services/MorningService.cs src/MoTask.Core/Resources/Messages.resx src/MoTask.Core/Resources/Messages.cs tests/MoTask.Core.Tests/MorningServiceMcpTests.cs tests/MoTask.App.Tests/Fakes/FakeMorningService.cs
 git commit -m "feat(core): 朝の実行が盤面・候補・プランを MCP から受け取れるようにする
 
 Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
@@ -1181,6 +1242,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Delete: `src/MoTask.Core/Morning/MorningResultReader.cs`, `src/MoTask.Core/Morning/MorningResult.cs`
 - Delete: `tests/MoTask.Core.Tests/MorningResultReaderTests.cs`, `tests/MoTask.Core.Tests/Fixtures/morning-candidates.jsonl`, `tests/MoTask.Core.Tests/Fixtures/morning-candidates-broken.jsonl`, `tests/MoTask.Core.Tests/Fixtures/morning-plan-broken.json`
 - Modify: `tests/MoTask.Core.Tests/MorningServiceIngestTests.cs`
+- Modify: `tests/MoTask.App.Tests/Fakes/FakeMorningService.cs`（`IMorningService` の実装なので、`CompleteRunAsync` を足さないと App のテストがコンパイルできない）
 - Test: `tests/MoTask.Core.Tests/MorningServiceMcpTests.cs`
 
 **Interfaces:**
@@ -1393,7 +1455,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 Run: `dotnet test tests/MoTask.Core.Tests --filter "FullyQualifiedName~MorningServiceMcpTests" -nologo -v q`
 Expected: コンパイルエラー（`CompleteRunAsync` / `CloseGrace` / `PendingClose` が無い）で FAIL
 
-- [ ] **Step 4: `IMorningService` を更新する**
+- [ ] **Step 4: `IMorningService` を更新し、`FakeMorningService` を追随させる**
 
 `src/MoTask.Core/Services/IMorningService.cs` の `CompleteAsync` の宣言を次で置き換える:
 
@@ -1414,6 +1476,31 @@ Task 2 で足した MCP の節に足す:
     /// </summary>
     Task<Result<MorningOutcome>> CompleteRunAsync(
         int runId, bool closeNow, CancellationToken ct = default);
+```
+
+Task 2 Step 5 と同じ理由で、手書きの偽物 `tests/MoTask.App.Tests/Fakes/FakeMorningService.cs` にも**同じ Step で** `CompleteRunAsync` を足す（足さないとソリューションがコンパイルできない）。ファイル冒頭の記録用 record の隣に足す:
+
+```csharp
+/// <summary>CompleteRunAsync に渡された引数の記録。closeNow がそのまま渡るかを見るのに使う。</summary>
+public sealed record CompleteRunCall(int RunId, bool CloseNow);
+```
+
+Task 2 Step 5 で作った「MCP 経由の受け口」の塊の末尾に足す:
+
+```csharp
+    /// <summary>CompleteRunAsync が返す結果。</summary>
+    public Result<MorningOutcome> CompleteRunResult { get; set; } = Result.Ok(new MorningOutcome(true, null));
+
+    /// <summary>CompleteRunAsync に渡された引数を呼ばれた順に。</summary>
+    public List<CompleteRunCall> CompleteRunCalls { get; } = new();
+
+    public Task<Result<MorningOutcome>> CompleteRunAsync(
+        int runId, bool closeNow, CancellationToken ct = default)
+    {
+        Calls.Add("CompleteRun");
+        CompleteRunCalls.Add(new CompleteRunCall(runId, closeNow));
+        return Task.FromResult(CompleteRunResult);
+    }
 ```
 
 - [ ] **Step 5: `MorningService` の追従を書き換える**
@@ -1740,7 +1827,7 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 - Modify: `src/MoTask.App/Ai/MoTaskMcpServer.cs`
 - Modify: `src/MoTask.App/App.xaml.cs`
 - Modify: `src/MoTask.App/Resources/Strings.resx`, `src/MoTask.App/Resources/Strings.cs`
-- Modify: `tests/MoTask.App.Tests/MoTaskMcpServerTests.cs:34,134`
+- Modify: `tests/MoTask.App.Tests/MoTaskMcpServerTests.cs:29,129`
 - Test: `tests/MoTask.App.Tests/MorningToolHostTests.cs`（新規）
 
 **Interfaces:**
@@ -1776,10 +1863,9 @@ using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.App.Ai.MorningTools;
 using MoTask.App.Resources;
+using MoTask.App.Tests.Fakes;
 using MoTask.Core;
 using MoTask.Core.Morning;
-using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -1790,7 +1876,7 @@ namespace MoTask.App.Tests;
 /// </summary>
 public class MorningToolHostTests
 {
-    private readonly IMorningService _service = Substitute.For<IMorningService>();
+    private readonly FakeMorningService _service = new();
     private readonly MorningToolHost _host;
 
     public MorningToolHostTests()
@@ -1824,26 +1910,26 @@ public class MorningToolHostTests
     [Fact]
     public async Task GetContext_ReturnsTheSnapshotVerbatim()
     {
-        _service.GetContextAsync(7, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok("""{"date":"2026-09-13","tasks":[]}""")));
+        _service.ContextResult = Result.Ok("""{"date":"2026-09-13","tasks":[]}""");
 
         var (json, isError, _) = await CallAsync(MorningToolHost.GetContext, """{"runId":7}""");
 
         isError.Should().BeFalse();
         json.GetProperty("date").GetString().Should().Be("2026-09-13");
+        _service.GetContextCalls.Should().Equal(7);
     }
 
     /// <summary>宛先違いはツールエラー。普段使いの Claude Code の誤爆を防ぐ（仕様 §6）。</summary>
     [Fact]
     public async Task GetContext_ReturnsAToolError_WhenTheRunIsNotRunning()
     {
-        _service.GetContextAsync(9999, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail<string>("runId 9999 の朝の実行は動いていません")));
+        _service.ContextResult = Result.Fail<string>("runId 9999 の朝の実行は動いていません");
 
         var (_, isError, text) = await CallAsync(MorningToolHost.GetContext, """{"runId":9999}""");
 
         isError.Should().BeTrue();
         text.Should().Be("runId 9999 の朝の実行は動いていません");
+        _service.GetContextCalls.Should().Equal(9999);
     }
 
     [Theory]
@@ -1863,8 +1949,7 @@ public class MorningToolHostTests
     [Fact]
     public async Task AddCandidate_PassesEveryFieldToTheService()
     {
-        _service.AddCandidateAsync(7, Arg.Any<CandidateInput>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new CandidateOutcome(true, null, 12, 3))));
+        _service.AddCandidateResult = Result.Ok(new CandidateOutcome(true, null, 12, 3));
 
         var (json, isError, _) = await CallAsync(MorningToolHost.AddCandidate, """
             {"runId":7,"externalId":"outlook:001","source":"Outlook","title":"請求先情報を更新する",
@@ -1879,9 +1964,9 @@ public class MorningToolHostTests
         json.GetProperty("candidateId").GetInt32().Should().Be(12);
         json.GetProperty("total").GetInt32().Should().Be(3);
 
-        var input = (CandidateInput)_service.ReceivedCalls()
-            .Single(c => c.GetMethodInfo().Name == nameof(IMorningService.AddCandidateAsync))
-            .GetArguments()[1]!;
+        var call = _service.AddCandidateCalls[^1];
+        call.RunId.Should().Be(7);
+        var input = call.Input;
         input.ExternalId.Should().Be("outlook:001");
         input.Source.Should().Be("Outlook");
         input.Evidence.Should().Be("「9月8日までに」");
@@ -1898,15 +1983,12 @@ public class MorningToolHostTests
     [Fact]
     public async Task AddCandidate_TurnsMissingOptionalFieldsIntoEmptyStrings()
     {
-        _service.AddCandidateAsync(7, Arg.Any<CandidateInput>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new CandidateOutcome(true, null, 1, 1))));
+        _service.AddCandidateResult = Result.Ok(new CandidateOutcome(true, null, 1, 1));
 
         await CallAsync(MorningToolHost.AddCandidate,
             """{"runId":7,"externalId":"x","source":"S","title":"T","evidence":"E","suggestedAction":"register"}""");
 
-        var input = (CandidateInput)_service.ReceivedCalls()
-            .Single(c => c.GetMethodInfo().Name == nameof(IMorningService.AddCandidateAsync))
-            .GetArguments()[1]!;
+        var input = _service.AddCandidateCalls[^1].Input;
         input.From.Should().BeEmpty();
         input.Link.Should().BeEmpty();
         input.Reasoning.Should().BeEmpty();
@@ -1920,9 +2002,8 @@ public class MorningToolHostTests
     [Fact]
     public async Task AddCandidate_ReportsARefusalAsAnOrdinaryResult()
     {
-        _service.AddCandidateAsync(7, Arg.Any<CandidateInput>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(
-                new CandidateOutcome(false, "evidence が空です。元の文面から引用してください", 0, 2))));
+        _service.AddCandidateResult = Result.Ok(
+            new CandidateOutcome(false, "evidence が空です。元の文面から引用してください", 0, 2));
 
         var (json, isError, _) = await CallAsync(MorningToolHost.AddCandidate,
             """{"runId":7,"externalId":"x","source":"S","title":"T","evidence":"","suggestedAction":"register"}""");
@@ -1935,18 +2016,17 @@ public class MorningToolHostTests
     [Fact]
     public async Task SubmitPlan_PassesTheRawPlanObject()
     {
-        _service.SubmitPlanAsync(7, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new MorningOutcome(true, null))));
+        _service.SubmitPlanResult = Result.Ok(new MorningOutcome(true, null));
 
         var (json, isError, _) = await CallAsync(MorningToolHost.SubmitPlan,
             """{"runId":7,"plan":{"groups":[{"key":"today","items":[{"taskId":45}]}]}}""");
 
         isError.Should().BeFalse();
         json.GetProperty("accepted").GetBoolean().Should().BeTrue();
-        await _service.Received(1).SubmitPlanAsync(
-            7,
-            Arg.Is<string>(p => p.Contains("\"key\":\"today\"") && p.Contains("\"taskId\":45")),
-            Arg.Any<CancellationToken>());
+        _service.SubmitPlanCalls.Should().ContainSingle();
+        _service.SubmitPlanCalls[0].RunId.Should().Be(7);
+        _service.SubmitPlanCalls[0].PlanJson.Should()
+            .Contain("\"key\":\"today\"").And.Contain("\"taskId\":45");
     }
 
     [Fact]
@@ -1961,8 +2041,7 @@ public class MorningToolHostTests
     [Fact]
     public async Task SubmitPlan_ReportsARefusalAsAnOrdinaryResult()
     {
-        _service.SubmitPlanAsync(7, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new MorningOutcome(false, "groups が配列ではありません"))));
+        _service.SubmitPlanResult = Result.Ok(new MorningOutcome(false, "groups が配列ではありません"));
 
         var (json, isError, _) = await CallAsync(MorningToolHost.SubmitPlan, """{"runId":7,"plan":{}}""");
 
@@ -1975,22 +2054,22 @@ public class MorningToolHostTests
     [Fact]
     public async Task Complete_AsksTheServiceToReserveTheClose()
     {
-        _service.CompleteRunAsync(7, false, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new MorningOutcome(true, null))));
+        _service.CompleteRunResult = Result.Ok(new MorningOutcome(true, null));
 
         var (json, isError, _) = await CallAsync(MorningToolHost.Complete, """{"runId":7}""");
 
         isError.Should().BeFalse();
         json.GetProperty("accepted").GetBoolean().Should().BeTrue();
-        await _service.Received(1).CompleteRunAsync(7, false, Arg.Any<CancellationToken>());
+        _service.CompleteRunCalls.Should().ContainSingle();
+        _service.CompleteRunCalls[0].RunId.Should().Be(7);
+        _service.CompleteRunCalls[0].CloseNow.Should().BeFalse("ツールの直後には閉じない（仕様 §7）");
     }
 
     [Fact]
     public async Task Complete_ReportsAMissingPlanAsAnOrdinaryResult()
     {
-        _service.CompleteRunAsync(7, false, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(
-                new MorningOutcome(false, "先に morning_submit_plan を呼んでください"))));
+        _service.CompleteRunResult = Result.Ok(
+            new MorningOutcome(false, "先に morning_submit_plan を呼んでください"));
 
         var (json, isError, _) = await CallAsync(MorningToolHost.Complete, """{"runId":7}""");
 
@@ -2291,13 +2370,27 @@ public sealed class MorningToolHost
 
 - [ ] **Step 8: 既存のサーバテストを追随させる**
 
-`tests/MoTask.App.Tests/MoTaskMcpServerTests.cs` の 34 行目と 134 行目の `new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()))` を次で置き換える（`using MoTask.App.Ai.MorningTools;` と `using MoTask.Core.Services;`、`using NSubstitute;` を追加する）:
+`tests/MoTask.App.Tests/MoTaskMcpServerTests.cs` は今 2 箇所でサーバを組み立てている。29 行目が
+
+```csharp
+        _server = new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()));
+```
+
+129 行目が
+
+```csharp
+        using var notStarted = new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()));
+```
+
+で、どちらも `new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()))` の部分を次で置き換える:
 
 ```csharp
         new MoTaskMcpServer(
             new BoardToolHost(_board, new TestClock()),
-            new MorningToolHost(Substitute.For<IMorningService>()))
+            new MorningToolHost(new FakeMorningService()))
 ```
+
+追加する `using` は `using MoTask.App.Ai.MorningTools;` の 1 本だけでよい。`using MoTask.App.Tests.Fakes;`（`FakeBoardService` / `FakeMorningService` の在り処）は**このファイルに既にある**ので足さないこと。
 
 - [ ] **Step 9: 走らせて通ることを確かめる**
 
@@ -3306,4 +3399,4 @@ Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
 
 **タスク間で使い回す名前（整合の確認）**
 
-`CandidateInput`（Task 1 で定義 → Task 2・Task 4 が使う）、`CandidateOutcome` / `MorningOutcome`（Task 2 で定義 → Task 3・Task 4 が使う）、`NotRunning<T>`（Task 2 で定義 → Task 3 が使う）、`BuildSnapshotAsync`（Task 2 で定義 → Task 7 で `StartAsync` 側の呼び出しだけが消え、`GetContextAsync` が使い続ける）、`MorningPlanValidator.PlanGroupKeys`（Task 1 で定義 → Task 6 のテストが使う）、`JobFolderPaths.McpJson`（Task 5 で定義 → Task 7 のテストが使う）、`CloseGrace` / `PendingClose`（Task 3 で定義 → Task 3 のテストだけが使う）。
+`CandidateInput`（Task 1 で定義 → Task 2・Task 4 が使う）、`CandidateOutcome` / `MorningOutcome`（Task 2 で定義 → Task 3・Task 4 が使う）、`NotRunning<T>`（Task 2 で定義 → Task 3 が使う）、`BuildSnapshotAsync`（Task 2 で定義 → Task 7 で `StartAsync` 側の呼び出しだけが消え、`GetContextAsync` が使い続ける）、`MorningPlanValidator.PlanGroupKeys`（Task 1 で定義 → Task 6 のテストが使う）、`JobFolderPaths.McpJson`（Task 5 で定義 → Task 7 のテストが使う）、`CloseGrace` / `PendingClose`（Task 3 で定義 → Task 3 のテストだけが使う）、`FakeMorningService` の受け口 4 本（Task 2 Step 5 で 3 本・Task 3 Step 4 で `CompleteRunAsync` を足す → Task 4 のテストが使う）。
