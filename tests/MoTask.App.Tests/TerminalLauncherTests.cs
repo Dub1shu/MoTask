@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.IO;
+using System.Threading.Tasks;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.Core;
@@ -8,7 +9,11 @@ using Xunit;
 
 namespace MoTask.App.Tests;
 
-/// <summary>実起動はしない（仕様 §13）。組み立てたコマンドを文字列として見る。</summary>
+/// <summary>
+/// 組み立てたコマンドを文字列として見る。claude も端末も起こさない（仕様 §13）。
+/// 唯一の例外が BuildCommand_ProducesACommandLineCmdCanActuallyParse で、そこだけは
+/// cmd.exe を窓無しで走らせる（理由はそのテストのコメント）。
+/// </summary>
 public class TerminalLauncherTests : IDisposable
 {
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "MoTaskTests", Guid.NewGuid().ToString("N"));
@@ -53,28 +58,102 @@ public class TerminalLauncherTests : IDisposable
         Launcher().CheckAvailable().IsSuccess.Should().BeTrue();
     }
 
-    /// <summary>AI 遂行は cmd.exe /k。claude が終わってもシェルが残る（続けて打てる）。</summary>
+    /// <summary>
+    /// AI 遂行は cmd.exe /s /k。claude が終わってもシェルが残る（続けて打てる）。
+    /// {command} 全体をもう 1 組の " で囲むのは cmd の引用符規則のため（TerminalLauncher の
+    /// DefaultTemplate のコメント参照）。囲みが無いと cmd 自身の解析で落ちて何も起動しない。
+    /// </summary>
     [Fact]
     public void BuildCommand_UsesCmdWithSlashK_ForAnAiJob()
     {
         var command = Launcher().BuildCommand(_request).Value!;
 
         command.FileName.Should().Be("cmd.exe");
-        command.Arguments.Should().StartWith("/k ");
+        command.Arguments.Should().StartWith("/s /k \"");
+        command.Arguments.Should().EndWith("\"", "{command} は閉じ \" で括り終える");
         // 既定テンプレートに {cwd} は現れない。cwd は ProcessStartInfo 側で渡す
         command.Arguments.Should().NotContain(@"-d ""D:\repo\sample""");
         command.WorkingDirectory.Should().Be(@"D:\repo\sample");
     }
 
-    /// <summary>朝の実行は cmd.exe /c。claude が終われば窓も畳む（仕様 §5.2）。</summary>
+    /// <summary>朝の実行は cmd.exe /s /c。claude が終われば窓も畳む（仕様 §5.2）。</summary>
     [Fact]
     public void BuildCommand_UsesCmdWithSlashC_ForAMorningRun()
     {
         var command = Launcher().BuildCommand(_request with { CloseOnExit = true }).Value!;
 
         command.FileName.Should().Be("cmd.exe");
-        command.Arguments.Should().StartWith("/c ");
+        command.Arguments.Should().StartWith("/s /c \"");
+        command.Arguments.Should().EndWith("\"", "{command} は閉じ \" で括り終える");
         command.Arguments.Should().Contain("--session-id");
+    }
+
+    /// <summary>
+    /// ★ これがこの回帰を捕まえられる唯一のテスト。
+    ///
+    /// 「/k で始まる」式の文字列アサーションは前回すべて通ったまま、アプリは完全に壊れていた。
+    /// cmd /? の規則では /c・/k の後ろの文字列に引用符が 3 つ以上あると、cmd は先頭の " と
+    /// 最後の " を剥がして残りを解析し直す。BuildCommand の出力は argv を 1 個ずつ引用するので
+    /// 引用符が十数個あり、剥がされた結果 実行ファイルのパスが壊れて cmd 自身が
+    /// 「ファイル名、ディレクトリ名、またはボリューム ラベルの構文が間違っています。」で落ちる。
+    /// claude は起動せず events.jsonl も生まれない。文字列では見えないので、実際に cmd に
+    /// 食わせて「狙った実行ファイルが本当に起動したか」を見る。
+    ///
+    /// claude の代わりに、この場で書いた小さな .cmd を指す。中身は目印を 1 行出して
+    /// exit 7 で（/k でも）cmd ごと終わるだけ。ロケール非依存の 2 つの証拠になる:
+    ///   * 標準出力に目印がある = cmd が実行ファイルを解決して起動した
+    ///   * 終了コードが 7 = 起動したのはまさにこの .cmd である
+    /// 端末の窓は開かない（CreateNoWindow）。claude には触れない。1 秒もかからない。
+    /// </summary>
+    [Theory]
+    [InlineData(false)] // AI 遂行（/s /k）
+    [InlineData(true)]  // 朝の実行（/s /c）
+    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit)
+    {
+        var fakeClaude = Path.Combine(_dir, "fake-claude.cmd");
+        File.WriteAllText(fakeClaude, "@echo off\r\necho " + LaunchMarker + "\r\nexit " + LaunchExitCode + "\r\n");
+        _store.Save(_store.Load() with { ClaudeExecutablePath = fakeClaude });
+
+        var command = Launcher().BuildCommand(_request with { CloseOnExit = closeOnExit }).Value!;
+        command.FileName.Should().Be("cmd.exe");
+
+        var (exitCode, stdout, stderr) = RunCmd(command.Arguments);
+
+        stdout.Should().Contain(
+            LaunchMarker,
+            "cmd が実行ファイルを解決して起動できたはず。stderr: {0}",
+            stderr);
+        exitCode.Should().Be(
+            LaunchExitCode,
+            "起動したのは組み立てた先頭トークンそのもののはず。stderr: {0}",
+            stderr);
+    }
+
+    private const string LaunchMarker = "MOTASK_LAUNCHED_THE_TARGET";
+    private const int LaunchExitCode = 7;
+
+    /// <summary>cmd.exe を窓無し・全リダイレクトで走らせる。標準入力はすぐ閉じる（/k を待たせない）。</summary>
+    private static (int ExitCode, string Stdout, string Stderr) RunCmd(string arguments)
+    {
+        using var process = Process.Start(new ProcessStartInfo("cmd.exe", arguments)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = true,
+        })!;
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+        process.StandardInput.Close();
+        if (!process.WaitForExit(10_000))
+        {
+            // 保険。ここに来るのはテスト自身の取り回しが壊れたときだけ（本番の端末ではない）。
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException("cmd.exe が終わらなかった: " + arguments);
+        }
+        Task.WaitAll(new Task[] { stdout, stderr }, 10_000);
+        return (process.ExitCode, stdout.Result, stderr.Result);
     }
 
     [Fact]
@@ -219,7 +298,8 @@ public class TerminalLauncherTests : IDisposable
         var command = Launcher().BuildCommand(_request with { CloseOnExit = true }).Value!;
 
         command.FileName.Should().Be("cmd.exe");
-        command.Arguments.Should().StartWith("/c ");
+        command.Arguments.Should().StartWith("/s /c \"");
+        command.Arguments.Should().EndWith("\"");
     }
 
     /// <summary>AI 遂行では利用者のテンプレートをそのまま使う（閉じる必要が無い）。</summary>

@@ -14,11 +14,25 @@ namespace MoTask.App.Ai;
 /// </summary>
 public sealed class TerminalLauncher : ISessionLauncher, IDisposable
 {
+    // 既定テンプレートが {command} を丸ごと "..." で囲み、さらに /s を付けているのは cmd の
+    // 引用符規則のため（cmd /? の /c・/k の項）。cmd は /c・/k の後ろの文字列に引用符が
+    // 3 つ以上あると、先頭の " と最後の " を剥がして残りを解析し直す。{command} は argv を
+    // 1 個ずつ引用した文字列なので引用符が十数個あり、囲まずに渡すと実行ファイルのパスの
+    // 引用が壊れて、cmd 自身が「ファイル名、ディレクトリ名、またはボリューム ラベルの構文が
+    // 間違っています。」で落ちる。claude は起動せず events.jsonl すら生まれない（実測）。
+    //   * 外側の " 1 組 …… 剥がされるのはこの 1 組だけになり、中身が無傷で残る
+    //   * /s ……………… 「引用符を数える」条件分岐をやめて必ず外側 1 組を剥がす。引用符の数が
+    //                   指示文次第で変わっても挙動が揺れない
+    // 以前の既定は wt.exe を先頭に置いていた。wt が自分の引数を食って内側を組み直すので
+    // この規則に当たらず、cmd 直叩きに変えた時点で初めて表に出た。外し方に見えても外さないこと。
+    // なお利用者定義テンプレート（powershell.exe -Command {command} など）は cmd の解析を
+    // 通らないので、囲いを足すのはこの 2 つの既定だけにする。
+
     /// <summary>AI 遂行の既定。claude が終わってもシェルを残す（続けて打てる）。</summary>
-    internal const string DefaultTemplate = "cmd.exe /k {command}";
+    internal const string DefaultTemplate = "cmd.exe /s /k \"{command}\"";
 
     /// <summary>朝の実行の既定。claude が終われば窓も畳む（仕様 §5.2）。</summary>
-    internal const string MorningTemplate = "cmd.exe /c {command}";
+    internal const string MorningTemplate = "cmd.exe /s /c \"{command}\"";
 
     /// <summary>
     /// 起動テンプレートの先頭トークンのファイル名が wt.exe か（フルパスも同じ扱い・大文字小文字は無視）。
