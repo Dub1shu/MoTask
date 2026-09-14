@@ -8,8 +8,10 @@ namespace MoTask.Core.Ai;
 /// （既定を artifacts のままにして、AiJobService の呼び出しを変えずに済ませる）。
 /// CloseOnExit は「claude が終わったら窓も畳むか」。朝の実行だけが true で、既定テンプレートが
 /// cmd.exe /k ではなく cmd.exe /c になる（MCP 受け渡し仕様 §5.2）。
+/// McpConfigPath が入っていれば --mcp-config で渡す。朝の実行だけが使う（仕様 §5.4）。
 /// </summary>
 public sealed record SessionLaunchRequest(
     Guid SessionId, string JobFolder, string WorkingDirectory, bool Resume,
     string OutputDirectoryName = JobFolderPaths.ArtifactsDirectoryName,
-    bool CloseOnExit = false);
+    bool CloseOnExit = false,
+    string? McpConfigPath = null);

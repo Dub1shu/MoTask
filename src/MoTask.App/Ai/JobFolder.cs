@@ -34,6 +34,10 @@ public sealed class JobFolder : IJobFolder
     internal string HooksExecutable { get; set; } =
         Path.Combine(AppContext.BaseDirectory, "hooks", "MoTask.Hooks.exe");
 
+    /// <summary>MoTask.App のビルドが mcp\ へ運ぶ exe（仕様 §5.4）。テストは差し替える。</summary>
+    internal string McpExecutable { get; set; } =
+        Path.Combine(AppContext.BaseDirectory, "mcp", "MoTask.Mcp.exe");
+
     public string ResolveRoot(JobFolderRequest request)
         => Path.Combine(
             _settings.Load().DefaultWorkingDirectory,
@@ -45,6 +49,12 @@ public sealed class JobFolder : IJobFolder
         // フックが無いと端末は動くが盤面が一切追従しない。黙って走らせず、開始時に止める。
         if (!File.Exists(HooksExecutable)) return Result.Fail<string>(Messages.HooksExecutableNotFound);
 
+        // ブリッジが無いと朝の実行は成果を渡す先を失う。黙って走らせず、開始時に止める。
+        if (request.WithMcpConfig && !File.Exists(McpExecutable))
+        {
+            return Result.Fail<string>(Messages.McpExecutableNotFound);
+        }
+
         var root = ResolveRoot(request);
         var paths = JobFolderPaths.For(root);
         try
@@ -53,6 +63,10 @@ public sealed class JobFolder : IJobFolder
             Directory.CreateDirectory(Path.Combine(root, request.OutputDirectoryName));
             File.WriteAllText(paths.InstructionMarkdown, request.Instruction, Utf8);
             File.WriteAllText(paths.HooksJson, HooksJson.Build(HooksExecutable, paths.EventsJsonl), Utf8);
+            if (request.WithMcpConfig)
+            {
+                File.WriteAllText(paths.McpJson, McpConfigJson.Build(McpExecutable), Utf8);
+            }
             return Result.Ok(root);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)

@@ -254,6 +254,16 @@ public class MorningServiceStartTests
     }
 
     [Fact]
+    public async Task Start_AsksForTheMcpConfigSoTheToolsAreThereWithoutManualRegistration()
+    {
+        var run = (await _service.StartAsync()).Value!;
+
+        _folder.Created[0].WithMcpConfig.Should().BeTrue();
+        _launcher.Requests.Should().ContainSingle().Which.McpConfigPath
+            .Should().Be(JobFolderPaths.For(run.JobFolder).McpJson);
+    }
+
+    [Fact]
     public async Task GetCurrentRun_IsTheLatestOne()
     {
         (await _service.GetCurrentRunAsync()).Should().BeNull("まだ一度も走らせていない");

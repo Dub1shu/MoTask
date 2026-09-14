@@ -45,6 +45,7 @@ public static class Messages
     public static string AiJobFolderMissing => Get(nameof(AiJobFolderMissing));
     public static string NoReviewColumn => Get(nameof(NoReviewColumn));
     public static string HooksExecutableNotFound => Get(nameof(HooksExecutableNotFound));
+    public static string McpExecutableNotFound => Get(nameof(McpExecutableNotFound));
     public static string JobFolderFailedFormat => Get(nameof(JobFolderFailedFormat));
     public static string TerminalLaunchFailedFormat => Get(nameof(TerminalLaunchFailedFormat));
     public static string TerminalStartPromptFormat => Get(nameof(TerminalStartPromptFormat));

@@ -337,6 +337,17 @@ public class TerminalLauncherTests : IDisposable
     }
 
     [Fact]
+    public void BuildCommand_PassesTheMcpConfigWhenOneIsGiven()
+    {
+        var command = Launcher()
+            .BuildCommand(_request with { McpConfigPath = @"C:\work\jobs\0042-見積り\mcp.json" }).Value!;
+
+        command.Arguments.Should().Contain(@"--mcp-config"" ""C:\work\jobs\0042-見積り\mcp.json""");
+        command.Arguments.Should().NotContain("--strict-mcp-config",
+            "利用者のコネクタはそのまま生きる（仕様 §5.4）");
+    }
+
+    [Fact]
     public void BuildCommand_FailsWhenClaudeIsMissing()
     {
         _store.Save(_store.Load() with { ClaudeExecutablePath = Path.Combine(_dir, "no-such.exe") });

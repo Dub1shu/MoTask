@@ -11,4 +11,10 @@ public sealed record JobFolderRequest(int JobId, string TaskTitle, string Instru
 
     /// <summary>Create が併せて作る出力フォルダ（artifacts / result）。</summary>
     public string OutputDirectoryName { get; init; } = JobFolderPaths.ArtifactsDirectoryName;
+
+    /// <summary>
+    /// mcp.json を併せて書くか（仕様 §5.4）。朝の実行だけが true。
+    /// AI 遂行は利用者の手動登録に任せるので既定は false。
+    /// </summary>
+    public bool WithMcpConfig { get; init; }
 }

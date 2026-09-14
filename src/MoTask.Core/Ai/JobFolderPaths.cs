@@ -27,6 +27,9 @@ public sealed record JobFolderPaths(string Root)
     public const string BoardJsonName = "board.json";
     public const string RunJsonName = "run.json";
 
+    /// <summary>--mcp-config に渡す MCP サーバ登録（仕様 §5.4）。朝の実行だけが持つ。</summary>
+    public const string McpJsonName = "mcp.json";
+
     /// <summary>ルートからの相対パス。IJobFolder.WriteText / ReadText に渡す。</summary>
     public static readonly string CandidatesRelativePath = Path.Combine(ResultDirectoryName, "candidates.jsonl");
 
@@ -43,6 +46,7 @@ public sealed record JobFolderPaths(string Root)
     public string ResultDirectory => Path.Combine(Root, ResultDirectoryName);
     public string BoardJson => Path.Combine(Root, BoardJsonName);
     public string RunJson => Path.Combine(Root, RunJsonName);
+    public string McpJson => Path.Combine(Root, McpJsonName);
     public string CandidatesJsonl => Path.Combine(Root, CandidatesRelativePath);
     public string PlanJson => Path.Combine(Root, PlanRelativePath);
 

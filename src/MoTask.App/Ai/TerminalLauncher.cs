@@ -90,6 +90,13 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         // cwd はプロジェクト。ジョブフォルダはここで読み書きを許す（仕様 §6）。
         parts.Add("--add-dir");
         parts.Add(request.JobFolder);
+        if (request.McpConfigPath is { Length: > 0 } mcpConfig)
+        {
+            // 利用者の手動 MCP 登録に依存しない（仕様 §5.4）。--strict-mcp-config は渡さないので、
+            // 利用者のコネクタ（Gmail・カレンダーなど）はそのまま生きる。
+            parts.Add("--mcp-config");
+            parts.Add(mcpConfig);
+        }
         if (settings.Model is { Length: > 0 } model)
         {
             parts.Add("--model");

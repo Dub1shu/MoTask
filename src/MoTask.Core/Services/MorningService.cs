@@ -144,6 +144,7 @@ public sealed class MorningService : IMorningService
             {
                 Category = JobFolderPaths.MorningDirectoryName,
                 OutputDirectoryName = JobFolderPaths.ResultDirectoryName,
+                WithMcpConfig = true,
             };
             // 指示文は出力先の実パスを含むので、フォルダのパスが決まってから組み立てる。
             var root = _folder.ResolveRoot(request);
@@ -161,7 +162,8 @@ public sealed class MorningService : IMorningService
             // instruction.md の指示と一致させる。
             var command = _launcher.BuildCommand(new SessionLaunchRequest(
                 sessionId, root, root, Resume: false,
-                OutputDirectoryName: JobFolderPaths.ResultDirectoryName, CloseOnExit: true));
+                OutputDirectoryName: JobFolderPaths.ResultDirectoryName, CloseOnExit: true,
+                McpConfigPath: JobFolderPaths.For(root).McpJson));
             if (!command.IsSuccess) return Result.Fail<MorningRun>(command.Error!);
 
             // フォルダとコマンドが確定してから DB に書く。
