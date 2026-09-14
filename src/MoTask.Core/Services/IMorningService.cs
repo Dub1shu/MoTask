@@ -1,4 +1,5 @@
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 
 namespace MoTask.Core.Services;
 
@@ -33,6 +34,18 @@ public interface IMorningService
     /// <summary>追跡をやめる。端末は殺さない。</summary>
     Task<Result> StopTrackingAsync(int runId, CancellationToken ct = default);
     Task RecoverOnStartupAsync(CancellationToken ct = default);
+
+    // MCP 経由の受け口（仕様 §6）。Fail は宛先違い＝ツールエラー、Ok(outcome) は通常の結果。
+
+    /// <summary>対象日と盤面（BoardSnapshot.Build の出力そのまま）を返す。</summary>
+    Task<Result<string>> GetContextAsync(int runId, CancellationToken ct = default);
+
+    /// <summary>候補を 1 件積む。受理のたびに RunChanged(candidatesChanged: true) が上がる。</summary>
+    Task<Result<CandidateOutcome>> AddCandidateAsync(
+        int runId, CandidateInput input, CancellationToken ct = default);
+
+    /// <summary>プランを出す。何度でも呼べて、最後に受理されたものが残る。</summary>
+    Task<Result<MorningOutcome>> SubmitPlanAsync(int runId, string planJson, CancellationToken ct = default);
 
     // 仕分け
     Task<Result<TaskItem>> RegisterAsync(CandidateDecision decision, CancellationToken ct = default);

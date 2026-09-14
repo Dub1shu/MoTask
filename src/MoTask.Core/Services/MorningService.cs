@@ -86,6 +86,27 @@ public sealed class MorningService : IMorningService
 
     private sealed record Prepared(int RunNumber, string BoardJson);
 
+    /// <summary>
+    /// 盤面のスナップショット。ゲートの中から呼ぶこと(リポジトリを 3 つ引く)。
+    /// 開始時の board.json と morning_get_context の両方がこれを使う(形は 1 つ)。
+    /// 盤面が無ければ null。
+    /// </summary>
+    private async Task<string?> BuildSnapshotAsync(DateOnly date, CancellationToken ct)
+    {
+        var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
+        if (board is null) return null;
+
+        var projects = await _boards.GetProjectsAsync(ct).ConfigureAwait(false);
+        var busy = await _jobs.GetByStatusAsync(
+            new[] { AiJobStatus.Pending, AiJobStatus.Running, AiJobStatus.WaitingForInput }, ct)
+            .ConfigureAwait(false);
+
+        return BoardSnapshot.Build(
+            board, date,
+            projects.ToDictionary(p => p.Id, p => p.Name),
+            busy.Select(j => j.TaskId).ToHashSet());
+    }
+
     public async Task<Result<MorningRun>> StartAsync(CancellationToken ct = default)
     {
         var available = _launcher.CheckAvailable();
@@ -103,18 +124,8 @@ public sealed class MorningService : IMorningService
                 var unfinished = await _runs.GetUnfinishedRunAsync(ct).ConfigureAwait(false);
                 if (unfinished is not null) return Result.Fail<Prepared>(Messages.MorningRunAlreadyRunning);
 
-                var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
-                if (board is null) return Result.Fail<Prepared>(Messages.BoardNotFound);
-
-                var projects = await _boards.GetProjectsAsync(ct).ConfigureAwait(false);
-                var busy = await _jobs.GetByStatusAsync(
-                    new[] { AiJobStatus.Pending, AiJobStatus.Running, AiJobStatus.WaitingForInput }, ct)
-                    .ConfigureAwait(false);
-
-                var snapshot = BoardSnapshot.Build(
-                    board, date,
-                    projects.ToDictionary(p => p.Id, p => p.Name),
-                    busy.Select(j => j.TaskId).ToHashSet());
+                var snapshot = await BuildSnapshotAsync(date, ct).ConfigureAwait(false);
+                if (snapshot is null) return Result.Fail<Prepared>(Messages.BoardNotFound);
 
                 // フォルダ名の連番。DB の採番を待たずに決まるので、行の保存を後ろへ回せる(仕様 §12)。
                 var runNumber = await _runs.CountRunsAsync(ct).ConfigureAwait(false) + 1;
@@ -357,6 +368,113 @@ public sealed class MorningService : IMorningService
             : null;
         return new IngestOutcome(added > 0, warning);
     }
+
+    // ---------- MCP 経由の受け口（仕様 §6） ----------
+
+    public Task<Result<string>> GetContextAsync(int runId, CancellationToken ct = default)
+        => _gate.RunAsync(async () =>
+        {
+            var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
+            if (run is null || run.Status.IsTerminal()) return NotRunning<string>(runId);
+
+            var snapshot = await BuildSnapshotAsync(run.Date, ct).ConfigureAwait(false);
+            return snapshot is null ? Result.Fail<string>(Messages.BoardNotFound) : Result.Ok(snapshot);
+        }, ct);
+
+    public async Task<Result<CandidateOutcome>> AddCandidateAsync(
+        int runId, CandidateInput input, CancellationToken ct = default)
+    {
+        // 形の検証はゲートの外(純関数なので DB を待たせない)
+        var validated = CandidateValidator.Validate(input);
+
+        MorningRun? accepted = null;
+        string? warning = null;
+        var result = await _gate.RunAsync(async () =>
+        {
+            var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
+            if (run is null || run.Status.IsTerminal()) return NotRunning<CandidateOutcome>(runId);
+
+            var mine = await _runs.GetCandidatesOfRunAsync(runId, ct).ConfigureAwait(false);
+            var total = mine.Count;
+            if (!validated.IsSuccess) return Refused(validated.Error!, total);
+
+            var record = validated.Value!;
+            if (record.SuggestedAction == TriageAction.Merge)
+            {
+                var target = await _boards.GetTaskAsync(record.MergeTargetTaskId!.Value, ct).ConfigureAwait(false);
+                if (target is null || target.IsDeleted) return Refused(Messages.CandidateMergeTargetMissing, total);
+            }
+
+            // 却下・登録済みの ExternalId は翌朝また出てきても積まない(親仕様 §9)。
+            // 現行は黙って捨てていたが、ここでは理由を返す(仕様 §6)。
+            var known = await _runs.GetKnownExternalIdsAsync(new[] { record.ExternalId }, ct).ConfigureAwait(false);
+            if (known.Count > 0)
+            {
+                var inThisRun = mine.Any(c => string.Equals(c.ExternalId, record.ExternalId, StringComparison.Ordinal));
+                return Refused(
+                    inThisRun ? Messages.CandidateAlreadyInThisRun : Messages.CandidateAlreadyDecidedElsewhere, total);
+            }
+
+            var candidate = new TriageCandidate
+            {
+                MorningRunId = run.Id,
+                ExternalId = record.ExternalId,
+                Source = record.Source,
+                From = record.From,
+                Title = record.Title,
+                Evidence = record.Evidence,
+                Link = record.Link,
+                Reasoning = record.Reasoning,
+                ReceivedAt = record.ReceivedAt,
+                SuggestedDueDate = record.SuggestedDueDate,
+                SuggestedProject = record.SuggestedProject,
+                SuggestedAction = record.SuggestedAction,
+                SuggestedMergeTaskId = record.MergeTargetTaskId,
+                Status = TriageStatus.Pending,
+            };
+            _runs.AddCandidate(candidate);
+            warning = await SaveQuietlyAsync().ConfigureAwait(false);
+            accepted = run;
+            return Result.Ok(new CandidateOutcome(true, null, candidate.Id, total + 1));
+        }, ct).ConfigureAwait(false);
+
+        // 受理したときだけ知らせる。候補キューが 1 件ずつ増える(仕様 §6)。
+        if (accepted is not null) Raise(accepted, warning, candidatesChanged: true);
+        return result;
+    }
+
+    public async Task<Result<MorningOutcome>> SubmitPlanAsync(
+        int runId, string planJson, CancellationToken ct = default)
+    {
+        var validated = MorningPlanValidator.Validate(planJson);
+
+        MorningRun? saved = null;
+        string? warning = null;
+        var result = await _gate.RunAsync(async () =>
+        {
+            var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
+            if (run is null || run.Status.IsTerminal()) return NotRunning<MorningOutcome>(runId);
+            // 受理しなかったプランで、前に受理したものを上書きしない
+            if (!validated.IsSuccess) return Result.Ok(new MorningOutcome(false, validated.Error!));
+
+            run.PlanJson = validated.Value!;
+            run.Status = MorningRunStatus.Running;
+            warning = await SaveQuietlyAsync().ConfigureAwait(false);
+            saved = run;
+            return Result.Ok(new MorningOutcome(true, null));
+        }, ct).ConfigureAwait(false);
+
+        if (saved is not null) Raise(saved, warning, candidatesChanged: false);
+        return result;
+    }
+
+    /// <summary>宛先違い。利用者の普段使いの Claude Code が誤って動かす事故を防ぐ(仕様 §6)。</summary>
+    private static Result<T> NotRunning<T>(int runId)
+        => Result.Fail<T>(string.Format(Messages.MorningRunNotRunningFormat, runId));
+
+    /// <summary>受け取ったが積まなかった。ツールエラーではない(仕様 §3)。</summary>
+    private static Result<CandidateOutcome> Refused(string reason, int total)
+        => Result.Ok(new CandidateOutcome(false, reason, 0, total));
 
     // ---------- 人の操作 ----------
 

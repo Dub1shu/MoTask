@@ -75,6 +75,9 @@ public static class Messages
     public static string PlanItemsInvalidFormat => Get(nameof(PlanItemsInvalidFormat));
     public static string PlanItemNeedsIdFormat => Get(nameof(PlanItemNeedsIdFormat));
     public static string PlanFirstThingNeedsId => Get(nameof(PlanFirstThingNeedsId));
+    public static string MorningRunNotRunningFormat => Get(nameof(MorningRunNotRunningFormat));
+    public static string CandidateAlreadyDecidedElsewhere => Get(nameof(CandidateAlreadyDecidedElsewhere));
+    public static string CandidateAlreadyInThisRun => Get(nameof(CandidateAlreadyInThisRun));
     public static string MorningTerminalClosed => Get(nameof(MorningTerminalClosed));
     public static string CandidateNotFound => Get(nameof(CandidateNotFound));
     public static string CandidateAlreadyDecided => Get(nameof(CandidateAlreadyDecided));
