@@ -1,5 +1,4 @@
 using FluentAssertions;
-using MoTask.App.Ai;
 using MoTask.App.Resources;
 using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
@@ -133,7 +132,7 @@ public class AiSettingsViewModelTests
     [Fact]
     public void TemplateNotice_IsNullForAnOrdinaryTemplate()
     {
-        var vm = new AiSettingsViewModel(new StubSettingsStore(AiSettings.Default()));
+        var vm = new AiSettingsViewModel(new FakeAiSettingsStore());
 
         vm.TemplateNotice.Should().BeNull();
 
@@ -145,7 +144,7 @@ public class AiSettingsViewModelTests
     [Fact]
     public void TemplateNotice_AppearsWhileTypingAWindowsTerminalTemplate()
     {
-        var vm = new AiSettingsViewModel(new StubSettingsStore(AiSettings.Default()));
+        var vm = new AiSettingsViewModel(new FakeAiSettingsStore());
         var raised = new List<string?>();
         vm.PropertyChanged += (_, e) => raised.Add(e.PropertyName);
 
@@ -153,13 +152,5 @@ public class AiSettingsViewModelTests
 
         vm.TemplateNotice.Should().Be(Strings.MorningTemplateFallsBackToDefault);
         raised.Should().Contain(nameof(AiSettingsViewModel.TemplateNotice));
-    }
-
-    private sealed class StubSettingsStore : IAiSettingsStore
-    {
-        private AiSettings _settings;
-        public StubSettingsStore(AiSettings settings) => _settings = settings;
-        public AiSettings Load() => _settings;
-        public void Save(AiSettings settings) => _settings = settings;
     }
 }
