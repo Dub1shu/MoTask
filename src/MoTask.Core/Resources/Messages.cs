@@ -65,6 +65,16 @@ public static class Messages
     public static string MorningRunAlreadyFinished => Get(nameof(MorningRunAlreadyFinished));
     public static string MorningResultUnreadable => Get(nameof(MorningResultUnreadable));
     public static string MorningCandidatesDiscardedFormat => Get(nameof(MorningCandidatesDiscardedFormat));
+    public static string CandidateFieldRequiredFormat => Get(nameof(CandidateFieldRequiredFormat));
+    public static string CandidateEvidenceRequired => Get(nameof(CandidateEvidenceRequired));
+    public static string CandidateActionInvalid => Get(nameof(CandidateActionInvalid));
+    public static string CandidateMergeTargetMissing => Get(nameof(CandidateMergeTargetMissing));
+    public static string PlanNotAnObject => Get(nameof(PlanNotAnObject));
+    public static string PlanGroupsInvalid => Get(nameof(PlanGroupsInvalid));
+    public static string PlanGroupKeyInvalidFormat => Get(nameof(PlanGroupKeyInvalidFormat));
+    public static string PlanItemsInvalidFormat => Get(nameof(PlanItemsInvalidFormat));
+    public static string PlanItemNeedsIdFormat => Get(nameof(PlanItemNeedsIdFormat));
+    public static string PlanFirstThingNeedsId => Get(nameof(PlanFirstThingNeedsId));
     public static string MorningTerminalClosed => Get(nameof(MorningTerminalClosed));
     public static string CandidateNotFound => Get(nameof(CandidateNotFound));
     public static string CandidateAlreadyDecided => Get(nameof(CandidateAlreadyDecided));

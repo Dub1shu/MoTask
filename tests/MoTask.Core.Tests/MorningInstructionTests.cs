@@ -61,7 +61,7 @@ public class MorningInstructionTests
     {
         var text = MorningInstruction.Build(null, Paths, Date);
 
-        foreach (var key in MorningResultReader.PlanGroupKeys) text.Should().Contain(key);
+        foreach (var key in MorningPlanValidator.PlanGroupKeys) text.Should().Contain(key);
     }
 
     [Fact]
