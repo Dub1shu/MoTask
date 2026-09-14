@@ -144,8 +144,12 @@ public sealed class MorningToolHost
     {
         var args = new MorningArgs(arguments);
         if (args.RunId is not int runId) return MissingRunId();
+        if (!args.TryToCandidateInput(out var input, out var reason))
+        {
+            return McpToolResult.Ok(Serialize(new { accepted = false, reason }));
+        }
 
-        var result = await _service.AddCandidateAsync(runId, args.ToCandidateInput(), ct).ConfigureAwait(false);
+        var result = await _service.AddCandidateAsync(runId, input, ct).ConfigureAwait(false);
         if (!result.IsSuccess) return McpToolResult.Error(result.Error!);
 
         var outcome = result.Value!;

@@ -217,4 +217,5 @@ public static class Strings
     public static string MorningTemplateFallsBackToDefault => Get(nameof(MorningTemplateFallsBackToDefault));
     public static string McpMorningRunIdRequired => Get(nameof(McpMorningRunIdRequired));
     public static string McpMorningPlanRequired => Get(nameof(McpMorningPlanRequired));
+    public static string McpMorningSuggestedDueDateInvalid => Get(nameof(McpMorningSuggestedDueDateInvalid));
 }

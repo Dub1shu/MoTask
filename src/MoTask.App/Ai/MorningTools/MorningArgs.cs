@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using MoTask.App.Ai.BoardTools;
+using MoTask.App.Resources;
 using MoTask.Core.Morning;
 
 namespace MoTask.App.Ai.MorningTools;
@@ -32,14 +33,29 @@ public readonly struct MorningArgs
             ? value.GetRawText()
             : null;
 
-    /// <summary>候補 1 件分。欠けた文字列は空文字にする（何が必須かは Core の純関数が決める）。</summary>
-    public CandidateInput ToCandidateInput()
+    /// <summary>
+    /// 候補 1 件分。欠けた文字列は空文字にする（何が必須かは Core の純関数が決める）。
+    /// suggestedDueDate が日付として読めない（型違い・フォーマット不正）ときは false を返す。
+    /// これは「引数が読めるか」という読み取りの範囲であり、値の妥当性の検証（Core の純関数の
+    /// 仕事、仕様 §9）とは別物。読めない場合に黙って null へ落とすと、不備が Claude に伝わらず
+    /// 情報が消えてしまう（仕様 §3: 不備は reason で伝えて直させる）。
+    /// receivedAt が読めないときは（従来どおり）候補ごと捨てず null にする。
+    /// </summary>
+    public bool TryToCandidateInput(out CandidateInput input, out string? reason)
     {
-        _args.TryDate("suggestedDueDate", out var due);
-        return new CandidateInput(
+        if (!_args.TryDate("suggestedDueDate", out var due))
+        {
+            input = null!;
+            reason = Strings.McpMorningSuggestedDueDateInvalid;
+            return false;
+        }
+
+        input = new CandidateInput(
             Text("externalId"), Text("source"), Text("title"), Text("evidence"),
             Text("from"), Text("link"), Text("reasoning"), Instant("receivedAt"),
             due, Text("suggestedProject"), Text("suggestedAction"), _args.Int("mergeTargetTaskId"));
+        reason = null;
+        return true;
     }
 
     private string Text(string name) => _args.String(name) ?? "";

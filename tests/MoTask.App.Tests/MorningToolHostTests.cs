@@ -153,6 +153,40 @@ public class MorningToolHostTests
         json.GetProperty("reason").GetString().Should().Be("evidence が空です。元の文面から引用してください");
     }
 
+    /// <summary>
+    /// suggestedDueDate が日付として読めない不備は、黙って null へ落とさず reason で伝える
+    /// （仕様 §3）。サービスへは渡さない ── 読めない値のまま積んでしまうと後から直せない。
+    /// </summary>
+    [Fact]
+    public async Task AddCandidate_ReportsAnUnreadableSuggestedDueDate_WithoutCallingTheService()
+    {
+        var (json, isError, _) = await CallAsync(MorningToolHost.AddCandidate, """
+            {"runId":7,"externalId":"x","source":"S","title":"T","evidence":"E",
+             "suggestedAction":"register","suggestedDueDate":"09/14/2026"}
+            """);
+
+        isError.Should().BeFalse("ツールエラーではなく通常の結果で返す（仕様 §3）");
+        json.GetProperty("accepted").GetBoolean().Should().BeFalse();
+        json.GetProperty("reason").GetString().Should().Be(Strings.McpMorningSuggestedDueDateInvalid);
+        _service.AddCandidateCalls.Should().BeEmpty("読めない値のまま候補を積んではいけない");
+    }
+
+    /// <summary>receivedAt が読めないときは（suggestedDueDate と違い）候補ごと捨てず、
+    /// null のままサービスへ渡す（仕様どおりの振る舞いの固定）。</summary>
+    [Fact]
+    public async Task AddCandidate_TreatsAnUnreadableReceivedAt_AsNull()
+    {
+        _service.AddCandidateResult = Result.Ok(new CandidateOutcome(true, null, 1, 1));
+
+        await CallAsync(MorningToolHost.AddCandidate, """
+            {"runId":7,"externalId":"x","source":"S","title":"T","evidence":"E",
+             "suggestedAction":"register","receivedAt":"not-a-date"}
+            """);
+
+        _service.AddCandidateCalls.Should().ContainSingle();
+        _service.AddCandidateCalls[0].Input.ReceivedAt.Should().BeNull();
+    }
+
     [Fact]
     public async Task SubmitPlan_PassesTheRawPlanObject()
     {
