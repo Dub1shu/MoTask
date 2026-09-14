@@ -1,21 +1,19 @@
-﻿using System.Collections.Specialized;
+using System.Collections.Specialized;
 using FluentAssertions;
-using MoTask.App.Ai;
 using MoTask.App.Resources;
+using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
 
 public class BoardViewModelTests
 {
-    private readonly IBoardService _service = Substitute.For<IBoardService>();
-    private readonly IBoardChangeSource _externalChanges = Substitute.For<IBoardChangeSource>();
+    private readonly FakeBoardService _service = new();
+    private readonly FakeBoardChangeSource _externalChanges = new();
     private readonly Label _urgent = TestBoards.Urgent();
     private readonly Board _board;
     private readonly BoardViewModel _vm;
@@ -23,14 +21,10 @@ public class BoardViewModelTests
     public BoardViewModelTests()
     {
         _board = TestBoards.Sample(_urgent);
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(_board)));
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Project>>(new[] { TestBoards.ProjectA() }));
-        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Label>>(new[] { _urgent }));
-        _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>()));
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), _externalChanges);
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(_board));
+        _service.Projects = new[] { TestBoards.ProjectA() };
+        _service.Labels = new[] { _urgent };
+        _vm = new BoardViewModel(_service, new TestClock(), new FakeAiJobService(), _externalChanges);
     }
 
     private static int[] Ids(ColumnViewModel c) => c.Cards.Select(x => x.Id).ToArray();
@@ -42,11 +36,11 @@ public class BoardViewModelTests
     public async Task ExternalBoardChange_ReloadsTheBoard()
     {
         await _vm.LoadAsync();
-        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(1);
 
-        _externalChanges.BoardChanged += Raise.Event<EventHandler>(this, EventArgs.Empty);
+        _externalChanges.RaiseBoardChanged();
 
-        await _service.Received(2).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(2);
     }
 
     /// <summary>
@@ -58,7 +52,7 @@ public class BoardViewModelTests
     public async Task OverlappingExternalReloads_DoNotOverwriteNewerDataWithStaleData()
     {
         await _vm.LoadAsync();
-        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(1);
 
         var staleBoard = _board;
         var freshBoard = TestBoards.Sample(_urgent);
@@ -66,17 +60,17 @@ public class BoardViewModelTests
 
         var staleGate = new TaskCompletionSource();
         var callCount = 0;
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnGetBoard = () =>
         {
             callCount++;
             // 1 回目（先に始まる読み込み）はゲートで止め、2 回目（後から始まって先に終わる読み込み）は即座に返す。
             return callCount == 1 ? WaitThenReturnAsync(staleGate.Task, staleBoard) : Task.FromResult(Result.Ok(freshBoard));
-        });
+        };
 
         // 1 回目: GetBoardAsync がまだ戻っていない（先に始まった読み込み）。
-        _externalChanges.BoardChanged += Raise.Event<EventHandler>(this, EventArgs.Empty);
+        _externalChanges.RaiseBoardChanged();
         // 2 回目: GetBoardAsync が同期的に戻る（後から始まって先に終わる読み込み）。
-        _externalChanges.BoardChanged += Raise.Event<EventHandler>(this, EventArgs.Empty);
+        _externalChanges.RaiseBoardChanged();
 
         _vm.Columns[0].Name.Should().Be("更新後", "後から始まった読み込みが先に終わっている");
 
@@ -185,7 +179,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task MoveCard_WhenRejected_RollsBackWithoutReloading()
     {
-        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail("だめ")));
+        _service.OnMoveTask = call => call is { TaskId: 10, ToColumnId: 2, Position: 0 }
+            ? Task.FromResult(Result.Fail("だめ"))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
         _vm.SelectCard(card);
@@ -196,7 +192,7 @@ public class BoardViewModelTests
         _vm.BannerMessage.Should().Be("だめ");
         Ids(_vm.Columns[0]).Should().Equal(10, 11);
         Ids(_vm.Columns[1]).Should().Equal(12);
-        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(1);
 
         // 巻き戻しは同じカード VM を元の列へ戻す。作り直すと選択が孤児 VM を指してしまう。
         _vm.Columns[0].Cards[0].Should().BeSameAs(card);
@@ -213,12 +209,18 @@ public class BoardViewModelTests
     public async Task MoveCard_WhenRejected_LeavesSelectedCardUsable()
     {
         var backlog = _board.Columns[0];
-        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail("だめ")));
-        _service.DeleteTaskAsync(10, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnMoveTask = call => call is { TaskId: 10, ToColumnId: 2, Position: 0 }
+            ? Task.FromResult(Result.Fail("だめ"))
+            : Task.FromResult(Result.Ok());
+        _service.OnDeleteTask = taskId =>
         {
-            backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+            if (taskId == 10)
+            {
+                backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
         _vm.SelectCard(card);
@@ -235,8 +237,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task MoveCard_WhenSaveFails_RollsBackAndReloads()
     {
-        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail(SaveFailure("ディスクがいっぱいです"))));
+        _service.OnMoveTask = call => call is { TaskId: 10, ToColumnId: 2, Position: 0 }
+            ? Task.FromResult(Result.Fail(SaveFailure("ディスクがいっぱいです")))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
 
@@ -246,7 +249,7 @@ public class BoardViewModelTests
         _vm.BannerMessage.Should().Be(SaveFailure("ディスクがいっぱいです"));
         Ids(_vm.Columns[0]).Should().Equal(10, 11);
         Ids(_vm.Columns[1]).Should().Equal(12);
-        await _service.Received(2).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(2);
     }
 
     [Fact]
@@ -254,11 +257,15 @@ public class BoardViewModelTests
     {
         var backlog = _board.Columns[0];
         var active = _board.Columns[1];
-        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnMoveTask = call =>
         {
-            TestBoards.Move(backlog, active, taskId: 10, position: 0);
+            if (call is { TaskId: 10, ToColumnId: 2, Position: 0 })
+            {
+                TestBoards.Move(backlog, active, taskId: 10, position: 0);
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
         _vm.SelectCard(card);
@@ -276,7 +283,7 @@ public class BoardViewModelTests
         _vm.Columns[1].CountText.Should().Be("2 / 1");
         _vm.SelectedCard.Should().BeSameAs(card);
         _vm.Columns[1].SelectedCard.Should().BeSameAs(card);
-        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(1);
     }
 
     /// <summary>
@@ -288,11 +295,15 @@ public class BoardViewModelTests
     public async Task RestoreTask_RebuildsAllCardsInModelPositionOrder()
     {
         var backlog = TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
-        _service.RestoreTaskAsync(11, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnRestoreTask = taskId =>
         {
-            TestBoards.Restore(backlog, 11);
+            if (taskId == 11)
+            {
+                TestBoards.Restore(backlog, 11);
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         _vm.Filter.ShowDeleted = true;
         await _vm.LoadAsync();
         var column = _vm.Columns[0];
@@ -310,11 +321,15 @@ public class BoardViewModelTests
     public async Task DeleteTask_RebuildsAllCardsInModelPositionOrder()
     {
         var backlog = TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
-        _service.DeleteTaskAsync(13, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnDeleteTask = taskId =>
         {
-            TestBoards.SoftDelete(backlog, 13, new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc));
+            if (taskId == 13)
+            {
+                TestBoards.SoftDelete(backlog, 13, new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc));
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         _vm.Filter.ShowDeleted = true;
         await _vm.LoadAsync();
         var column = _vm.Columns[0];
@@ -371,7 +386,7 @@ public class BoardViewModelTests
 
         await column.CommitAddTaskCommand.ExecuteAsync(null);
 
-        await _service.DidNotReceive().CreateTaskAsync(Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        _service.CreateTaskCalls.Should().BeEmpty();
         column.IsAddingTask.Should().BeTrue();
     }
 
@@ -379,12 +394,16 @@ public class BoardViewModelTests
     public async Task CommitAddTask_AddsCardAndSelectsIt()
     {
         var backlog = _board.Columns[0];
-        _service.CreateTaskAsync(1, "新規", Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnCreateTask = call =>
         {
-            var task = new TaskItem { Id = 99, Title = "新規", ColumnId = 1, Position = backlog.Tasks.Count };
-            backlog.Tasks.Add(task);
-            return Task.FromResult(Result.Ok(task));
-        });
+            if (call is { ColumnId: 1, Title: "新規" })
+            {
+                var task = new TaskItem { Id = 99, Title = "新規", ColumnId = 1, Position = backlog.Tasks.Count };
+                backlog.Tasks.Add(task);
+                return Task.FromResult(Result.Ok(task));
+            }
+            return Task.FromResult(Result.Ok(new TaskItem { Title = call.Title }));
+        };
         await _vm.LoadAsync();
         var column = _vm.Columns[0];
         column.BeginAddTaskCommand.Execute(null);
@@ -401,8 +420,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitAddTask_WhenServiceRejects_KeepsEditorAndColumnInstances()
     {
-        _service.CreateTaskAsync(1, "新規", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail<TaskItem>(Messages.TitleRequired)));
+        _service.OnCreateTask = call => call is { ColumnId: 1, Title: "新規" }
+            ? Task.FromResult(Result.Fail<TaskItem>(Messages.TitleRequired))
+            : Task.FromResult(Result.Ok(new TaskItem { Title = call.Title }));
         await _vm.LoadAsync();
         var column = _vm.Columns[0];
         column.BeginAddTaskCommand.Execute(null);
@@ -414,13 +434,15 @@ public class BoardViewModelTests
         column.IsAddingTask.Should().BeTrue();
         column.NewTaskTitle.Should().Be("新規");
         _vm.Columns[0].Should().BeSameAs(column, "検証の却下では列 VM を作り直さない");
-        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(1);
     }
 
     [Fact]
     public async Task DeleteColumn_WhenServiceFails_ShowsReasonAndKeepsColumn()
     {
-        _service.DeleteColumnAsync(1, Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Fail(Messages.ColumnHasTasks)));
+        _service.OnDeleteColumn = columnId => columnId == 1
+            ? Task.FromResult(Result.Fail(Messages.ColumnHasTasks))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
 
         await _vm.Columns[0].DeleteColumnCommand.ExecuteAsync(null);
@@ -433,8 +455,7 @@ public class BoardViewModelTests
     [Fact]
     public async Task ReorderColumns_WhenRejected_RestoresModelOrder()
     {
-        _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail(Messages.ReorderMustIncludeAllColumns)));
+        _service.OnReorderColumns = _ => Task.FromResult(Result.Fail(Messages.ReorderMustIncludeAllColumns));
         await _vm.LoadAsync();
 
         var ok = await _vm.ReorderColumnsAsync(new[] { _vm.Columns[1], _vm.Columns[0], _vm.Columns[2] });
@@ -447,16 +468,14 @@ public class BoardViewModelTests
     [Fact]
     public async Task ReorderColumns_WhenServiceSucceeds_KeepsNewOrder()
     {
-        _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok()));
         await _vm.LoadAsync();
 
         var ok = await _vm.ReorderColumnsAsync(new[] { _vm.Columns[1], _vm.Columns[0], _vm.Columns[2] });
 
         ok.Should().BeTrue();
         _vm.Columns.Select(c => c.Name).Should().Equal("進行中", "未着手", "完了");
-        await _service.Received(1).ReorderColumnsAsync(
-            Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 2, 1, 3 })), Arg.Any<CancellationToken>());
+        _service.ReorderColumnsCalls.Should().ContainSingle()
+            .Which.OrderedColumnIds.Should().Equal(2, 1, 3);
     }
 
     /// <summary>
@@ -486,8 +505,7 @@ public class BoardViewModelTests
     [Fact]
     public async Task Load_WhenBoardQueryThrows_ShowsBannerInsteadOfCrashing()
     {
-        _service.GetBoardAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result<Board>>(new InvalidOperationException("no such table: Boards")));
+        _service.OnGetBoard = () => Task.FromException<Result<Board>>(new InvalidOperationException("no such table: Boards"));
 
         await _vm.LoadAsync();
 
@@ -500,22 +518,20 @@ public class BoardViewModelTests
     [Fact]
     public async Task Load_WhenQueryIsCancelled_IsNotTreatedAsSaveFailure()
     {
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<Project>>(new OperationCanceledException()));
+        _service.OnGetProjects = () => Task.FromException<IReadOnlyList<Project>>(new OperationCanceledException());
 
         Func<Task> load = () => _vm.LoadAsync();
 
         await load.Should().ThrowAsync<OperationCanceledException>();
         _vm.BannerMessage.Should().BeNull();
-        await _service.Received(1).GetBoardAsync(Arg.Any<CancellationToken>());
+        _service.GetBoardCalls.Should().Be(1);
     }
 
     /// <summary>裁定1: Result を返さない照会が投げても落とさず、保存失敗と同じバナーに出す。</summary>
     [Fact]
     public async Task Load_WhenProjectsQueryThrows_ShowsBannerInsteadOfCrashing()
     {
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<Project>>(new PersistenceException("database is locked")));
+        _service.OnGetProjects = () => Task.FromException<IReadOnlyList<Project>>(new PersistenceException("database is locked"));
 
         await _vm.LoadAsync();
 
@@ -528,8 +544,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task GetHistory_WhenQueryThrows_ShowsBannerAndReturnsEmpty()
     {
-        _service.GetHistoryAsync(10, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<HistoryEntry>>(new PersistenceException("no such table")));
+        _service.OnGetHistory = call => call.TaskId == 10
+            ? Task.FromException<IReadOnlyList<HistoryEntry>>(new PersistenceException("no such table"))
+            : Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>());
         await _vm.LoadAsync();
 
         var history = await _vm.GetHistoryAsync(10);
@@ -542,11 +559,11 @@ public class BoardViewModelTests
     [Fact]
     public async Task CreateLabel_WhenReloadOfLabelsThrows_ShowsBanner()
     {
-        _service.CreateLabelAsync("新ラベル", Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new Label { Id = 201, Name = "新ラベル" })));
+        _service.OnCreateLabel = call => call.Name == "新ラベル"
+            ? Task.FromResult(Result.Ok(new Label { Id = 201, Name = "新ラベル" }))
+            : Task.FromResult(Result.Ok(new Label { Name = call.Name }));
         await _vm.LoadAsync();
-        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<IReadOnlyList<Label>>(new PersistenceException("io error")));
+        _service.OnGetLabels = () => Task.FromException<IReadOnlyList<Label>>(new PersistenceException("io error"));
 
         var label = await _vm.CreateLabelAsync("新ラベル");
 
@@ -562,8 +579,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task DeleteTask_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
     {
-        _service.DeleteTaskAsync(10, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result>(new InvalidOperationException("no such table: Tasks")));
+        _service.OnDeleteTask = taskId => taskId == 10
+            ? Task.FromException<Result>(new InvalidOperationException("no such table: Tasks"))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         _vm.SelectCard(_vm.Columns[0].Cards[0]);
 
@@ -576,8 +594,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task SetWipLimit_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
     {
-        _service.SetWipLimitAsync(2, 3, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result>(new InvalidOperationException("database is locked")));
+        _service.OnSetWipLimit = call => call is { ColumnId: 2, WipLimit: 3 }
+            ? Task.FromException<Result>(new InvalidOperationException("database is locked"))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         var column = _vm.Columns[1];
         column.BeginEditWipCommand.Execute(null);
@@ -592,8 +611,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitAddColumn_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
     {
-        _service.AddColumnAsync("確認待ち", ColumnRole.Review, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result<Column>>(new InvalidOperationException("disk I/O error")));
+        _service.OnAddColumn = call => call is { Name: "確認待ち", Role: ColumnRole.Review }
+            ? Task.FromException<Result<Column>>(new InvalidOperationException("disk I/O error"))
+            : Task.FromResult(Result.Ok(new Column { Name = call.Name, Role = call.Role }));
         await _vm.LoadAsync();
         _vm.BeginAddColumnCommand.Execute(null);
         _vm.NewColumnName = "確認待ち";
@@ -634,8 +654,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitRename_WhenRejected_KeepsEditorAndText()
     {
-        _service.RenameColumnAsync(1, "   ", Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail(Messages.ColumnNameRequired)));
+        _service.OnRenameColumn = call => call is { ColumnId: 1, Name: "   " }
+            ? Task.FromResult(Result.Fail(Messages.ColumnNameRequired))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         var column = _vm.Columns[0];
         column.BeginRenameCommand.Execute(null);
@@ -652,11 +673,15 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitRename_WhenAccepted_ClosesEditor()
     {
-        _service.RenameColumnAsync(1, "積み残し", Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnRenameColumn = call =>
         {
-            _board.Columns[0].Name = "積み残し";
+            if (call is { ColumnId: 1, Name: "積み残し" })
+            {
+                _board.Columns[0].Name = "積み残し";
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         await _vm.LoadAsync();
         var column = _vm.Columns[0];
         column.BeginRenameCommand.Execute(null);
@@ -679,7 +704,7 @@ public class BoardViewModelTests
 
         await column.CommitWipCommand.ExecuteAsync(null);
 
-        await _service.DidNotReceive().SetWipLimitAsync(Arg.Any<int>(), Arg.Any<int?>(), Arg.Any<CancellationToken>());
+        _service.SetWipLimitCalls.Should().BeEmpty();
         _vm.BannerMessage.Should().Be(Messages.WipLimitMustBePositive);
         column.WipLimit.Should().Be(1);
         column.CountText.Should().Be("1 / 1");
@@ -691,11 +716,15 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitWip_EmptyText_ClearsLimit()
     {
-        _service.SetWipLimitAsync(2, null, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnSetWipLimit = call =>
         {
-            _board.Columns[1].WipLimit = null;
+            if (call is { ColumnId: 2, WipLimit: null })
+            {
+                _board.Columns[1].WipLimit = null;
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         await _vm.LoadAsync();
         var column = _vm.Columns[1];
         column.BeginEditWipCommand.Execute(null);
@@ -712,8 +741,9 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitWip_WhenRejected_KeepsEditorAndText()
     {
-        _service.SetWipLimitAsync(2, 0, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Fail(Messages.WipLimitMustBePositive)));
+        _service.OnSetWipLimit = call => call is { ColumnId: 2, WipLimit: 0 }
+            ? Task.FromResult(Result.Fail(Messages.WipLimitMustBePositive))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         var column = _vm.Columns[1];
         column.BeginEditWipCommand.Execute(null);
@@ -730,11 +760,15 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitWip_WhenAccepted_ClosesEditor()
     {
-        _service.SetWipLimitAsync(2, 3, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnSetWipLimit = call =>
         {
-            _board.Columns[1].WipLimit = 3;
+            if (call is { ColumnId: 2, WipLimit: 3 })
+            {
+                _board.Columns[1].WipLimit = 3;
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         await _vm.LoadAsync();
         var column = _vm.Columns[1];
         column.BeginEditWipCommand.Execute(null);
@@ -751,11 +785,15 @@ public class BoardViewModelTests
     public async Task DeleteTask_RefreshesCardAndColumnCount()
     {
         var backlog = _board.Columns[0];
-        _service.DeleteTaskAsync(10, Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnDeleteTask = taskId =>
         {
-            backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+            if (taskId == 10)
+            {
+                backlog.Tasks.Single(t => t.Id == 10).DeletedAt = new DateTime(2026, 9, 4, 1, 0, 0, DateTimeKind.Utc);
+                return Task.FromResult(Result.Ok());
+            }
             return Task.FromResult(Result.Ok());
-        });
+        };
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
         _vm.SelectCard(card);
@@ -783,9 +821,10 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitAddColumn_PassesSelectedRoleAndAppendsColumn()
     {
-        _service.AddColumnAsync("確認待ち", ColumnRole.Review, Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(
-                new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review })));
+        _service.OnAddColumn = call => call is { Name: "確認待ち", Role: ColumnRole.Review }
+            ? Task.FromResult(Result.Ok(
+                new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review }))
+            : Task.FromResult(Result.Ok(new Column { Name = call.Name, Role = call.Role }));
         await _vm.LoadAsync();
         _vm.BeginAddColumnCommand.Execute(null);
         _vm.NewColumnName = "確認待ち";

@@ -1,10 +1,10 @@
 using FluentAssertions;
 using MoTask.App;
+using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
 using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -12,17 +12,17 @@ namespace MoTask.App.Tests;
 /// <summary>左パネル・状態 1（仕様 §6）。編集フォームと統合先の選択。</summary>
 public class TriagePanelViewModelTests
 {
-    private readonly IMorningService _service = Substitute.For<IMorningService>();
+    private readonly FakeMorningService _service = new();
     private readonly List<Result> _decisions = new();
     private readonly List<string> _opened = new();
     private readonly TriagePanelViewModel _panel;
 
     public TriagePanelViewModelTests()
     {
-        _service.MergeAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok()));
-        _service.RegisterAsync(Arg.Any<CandidateDecision>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok(new TaskItem { Id = 99 })));
+        _service.RegisterResult = Result.Ok(new TaskItem { Id = 99 });
+        // FakeMorningService の 4 アクションは実サービスと同じく Candidates から該当候補を引いて
+        // Status を書き換えるので、Candidate() が指す Id=1 を偽サービス側にも 1 件置く。
+        _service.Candidates.Add(new TriageCandidate { Id = 1, MorningRunId = 1 });
         _panel = new TriagePanelViewModel(_service, r => { _decisions.Add(r); return Task.CompletedTask; }, _opened.Add);
         _panel.SetChoices(
             new[] { new ColumnChoice(1, "未着手"), new ColumnChoice(2, "進行中") },
@@ -82,7 +82,7 @@ public class TriagePanelViewModelTests
 
         await _panel.MergeCommand.ExecuteAsync(null);
 
-        await _service.Received(1).MergeAsync(1, 10, Arg.Any<CancellationToken>());
+        _service.MergeCalls.Should().ContainSingle().Which.Should().Be(new MergeCall(1, 10));
         _decisions.Should().ContainSingle().Which.IsSuccess.Should().BeTrue();
     }
 
@@ -93,7 +93,7 @@ public class TriagePanelViewModelTests
 
         await _panel.MergeCommand.ExecuteAsync(null);
 
-        await _service.DidNotReceive().MergeAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _service.MergeCalls.Should().BeEmpty();
         _decisions.Should().BeEmpty();
     }
 
@@ -108,9 +108,8 @@ public class TriagePanelViewModelTests
 
         await _panel.RegisterCommand.ExecuteAsync(null);
 
-        await _service.Received(1).RegisterAsync(
-            new CandidateDecision(1, "書き換えた題名", new DateOnly(2026, 9, 10), "別プロジェクト", 2),
-            Arg.Any<CancellationToken>());
+        _service.RegisterCalls.Should().ContainSingle().Which.Should()
+            .Be(new CandidateDecision(1, "書き換えた題名", new DateOnly(2026, 9, 10), "別プロジェクト", 2));
     }
 
     [Fact]
@@ -120,18 +119,17 @@ public class TriagePanelViewModelTests
 
         await _panel.RunAsync(TriageKeyAction.Merge);
 
-        await _service.DidNotReceive().MergeAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _service.MergeCalls.Should().BeEmpty();
     }
 
     [Fact]
     public async Task RunAsync_Reject_CallsTheService()
     {
-        _service.RejectAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(Task.FromResult(Result.Ok()));
         _panel.Show(Candidate(), 0, 1);
 
         await _panel.RunAsync(TriageKeyAction.Reject);
 
-        await _service.Received(1).RejectAsync(1, Arg.Any<CancellationToken>());
+        _service.RejectCalls.Should().ContainSingle().Which.Should().Be(1);
         _decisions.Should().ContainSingle();
     }
 
@@ -139,7 +137,7 @@ public class TriagePanelViewModelTests
     public async Task RunAsync_Reject_IgnoresARepeatWhileTheFirstCallIsStillRunning()
     {
         var tcs = new TaskCompletionSource<Result>();
-        _service.RejectAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(tcs.Task);
+        _service.OnReject = _ => tcs.Task;
         _panel.Show(Candidate(), 0, 1);
 
         var first = _panel.RunAsync(TriageKeyAction.Reject);
@@ -147,7 +145,7 @@ public class TriagePanelViewModelTests
         tcs.SetResult(Result.Ok());
         await Task.WhenAll(first, second);
 
-        await _service.Received(1).RejectAsync(1, Arg.Any<CancellationToken>());
+        _service.RejectCalls.Should().ContainSingle().Which.Should().Be(1);
         _decisions.Should().ContainSingle();
     }
 

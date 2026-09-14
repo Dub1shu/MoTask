@@ -3,11 +3,10 @@ using System.Windows;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.App.DragDrop;
+using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -18,23 +17,15 @@ namespace MoTask.App.Tests;
 /// </summary>
 public class DropHandlerTests
 {
-    private readonly IBoardService _service = Substitute.For<IBoardService>();
+    private readonly FakeBoardService _service = new();
     /// <summary>GetBoardAsync は毎回この値を読むので、LoadAsync の前なら差し替えられる。</summary>
     private Board _board = TestBoards.Sample();
     private readonly BoardViewModel _vm;
 
     public DropHandlerTests()
     {
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(_board)));
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Project>>(Array.Empty<Project>()));
-        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<Label>>(Array.Empty<Label>()));
-        _service.MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok()));
-        _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult(Result.Ok()));
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), Substitute.For<IBoardChangeSource>());
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(_board));
+        _vm = new BoardViewModel(_service, new TestClock(), new FakeAiJobService(), new FakeBoardChangeSource());
     }
 
     private static DropContext Info(object? data, IEnumerable? targetCollection, int insertIndex)
@@ -53,7 +44,7 @@ public class DropHandlerTests
 
         handler.Drop(Info(card, _vm.Columns[1].Cards, 0));
 
-        await _service.Received(1).MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>());
+        _service.MoveTaskCalls.Should().ContainSingle().Which.Should().Be(new MoveTaskCall(10, 2, 0));
     }
 
     [Fact]
@@ -65,7 +56,7 @@ public class DropHandlerTests
 
         handler.Drop(Info(card, _vm.Columns[0].Cards, 2));
 
-        await _service.Received(1).MoveTaskAsync(10, 1, 1, Arg.Any<CancellationToken>());
+        _service.MoveTaskCalls.Should().ContainSingle().Which.Should().Be(new MoveTaskCall(10, 1, 1));
     }
 
     /// <summary>
@@ -87,7 +78,7 @@ public class DropHandlerTests
         handler.Drop(Info(column.Cards[2], column.Cards, 1));
 
         // 14 を除いた AllCards は [10, 11(削除済み), 13] なので、13 の直前は index 2。
-        await _service.Received(1).MoveTaskAsync(14, 1, 2, Arg.Any<CancellationToken>());
+        _service.MoveTaskCalls.Should().ContainSingle().Which.Should().Be(new MoveTaskCall(14, 1, 2));
     }
 
     /// <summary>裁定6: 何も変わらないドロップは保存へ行かない。</summary>
@@ -103,8 +94,7 @@ public class DropHandlerTests
 
         handler.Drop(info);
 
-        await _service.DidNotReceive()
-            .MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _service.MoveTaskCalls.Should().BeEmpty();
         _vm.BannerMessage.Should().BeNull();
         info.NotHandled.Should().BeTrue();   // 何もしなかったのに Drop を握らない
     }
@@ -124,16 +114,16 @@ public class DropHandlerTests
         handler.Drop(info);
 
         info.NotHandled.Should().BeTrue();
-        await _service.DidNotReceive()
-            .MoveTaskAsync(Arg.Any<int>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
+        _service.MoveTaskCalls.Should().BeEmpty();
     }
 
     /// <summary>裁定3: Drop は待てないが、保存の失敗を握りつぶしてはいけない。</summary>
     [Fact]
     public async Task CardDrop_WhenServiceThrows_ShowsBannerInsteadOfEscaping()
     {
-        _service.MoveTaskAsync(10, 2, 0, Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result>(new InvalidOperationException("database is locked")));
+        _service.OnMoveTask = call => call is { TaskId: 10, ToColumnId: 2, Position: 0 }
+            ? Task.FromException<Result>(new InvalidOperationException("database is locked"))
+            : Task.FromResult(Result.Ok());
         await _vm.LoadAsync();
         var card = _vm.Columns[0].Cards[0];
         var handler = new CardDropHandler(_vm);
@@ -168,8 +158,8 @@ public class DropHandlerTests
         handler.Drop(Info(_vm.Columns[0], _vm.Columns, 2));   // 未着手を進行中の後ろへ
 
         _vm.Columns.Select(c => c.Name).Should().Equal("進行中", "未着手", "完了");
-        await _service.Received(1).ReorderColumnsAsync(
-            Arg.Is<IReadOnlyList<int>>(ids => ids.SequenceEqual(new[] { 2, 1, 3 })), Arg.Any<CancellationToken>());
+        _service.ReorderColumnsCalls.Should().ContainSingle()
+            .Which.OrderedColumnIds.Should().Equal(2, 1, 3);
     }
 
     [Fact]
@@ -181,8 +171,7 @@ public class DropHandlerTests
 
         handler.Drop(info);
 
-        await _service.DidNotReceive()
-            .ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
+        _service.ReorderColumnsCalls.Should().BeEmpty();
         info.NotHandled.Should().BeTrue();
     }
 
@@ -197,15 +186,13 @@ public class DropHandlerTests
         handler.Drop(info);
 
         info.NotHandled.Should().BeTrue();
-        await _service.DidNotReceive()
-            .ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>());
+        _service.ReorderColumnsCalls.Should().BeEmpty();
     }
 
     [Fact]
     public async Task ColumnDrop_WhenServiceThrows_ShowsBannerInsteadOfEscaping()
     {
-        _service.ReorderColumnsAsync(Arg.Any<IReadOnlyList<int>>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromException<Result>(new InvalidOperationException("disk I/O error")));
+        _service.OnReorderColumns = _ => Task.FromException<Result>(new InvalidOperationException("disk I/O error"));
         await _vm.LoadAsync();
         var handler = new ColumnDropHandler(_vm);
 

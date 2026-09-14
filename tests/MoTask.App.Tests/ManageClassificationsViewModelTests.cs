@@ -1,17 +1,15 @@
 using FluentAssertions;
-using MoTask.App.Ai;
+using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
 using MoTask.Core.Model;
-using MoTask.Core.Services;
-using NSubstitute;
 using Xunit;
 
 namespace MoTask.App.Tests;
 
 public class ManageClassificationsViewModelTests
 {
-    private readonly IBoardService _service = Substitute.For<IBoardService>();
+    private readonly FakeBoardService _service = new();
     private readonly Board _board;
     private readonly Project _projectA = TestBoards.ProjectA();
     private readonly Project _unused = new() { Id = 101, Name = "使っていない案件" };
@@ -22,34 +20,30 @@ public class ManageClassificationsViewModelTests
     public ManageClassificationsViewModelTests()
     {
         _board = TestBoards.Sample(_urgent);
-        _service.GetBoardAsync(Arg.Any<CancellationToken>()).Returns(_ => Task.FromResult(Result.Ok(_board)));
-        _service.GetProjectsAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult<IReadOnlyList<Project>>(new[] { _projectA, _unused }));
-        _service.GetLabelsAsync(Arg.Any<CancellationToken>())
-            .Returns(_ => Task.FromResult<IReadOnlyList<Label>>(new[] { _urgent, _spare }));
-        _service.GetHistoryAsync(Arg.Any<int>(), Arg.Any<CancellationToken>())
-            .Returns(Task.FromResult<IReadOnlyList<HistoryEntry>>(Array.Empty<HistoryEntry>()));
-        _service.ArchiveProjectAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        _service.OnGetBoard = () => Task.FromResult(Result.Ok(_board));
+        _service.OnGetProjects = () => Task.FromResult<IReadOnlyList<Project>>(new[] { _projectA, _unused });
+        _service.OnGetLabels = () => Task.FromResult<IReadOnlyList<Label>>(new[] { _urgent, _spare });
+        _service.OnArchiveProject = _ =>
         {
             _projectA.Archived = true;
             return Task.FromResult(Result.Ok());
-        });
-        _service.UnarchiveProjectAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        };
+        _service.OnUnarchiveProject = _ =>
         {
             _projectA.Archived = false;
             return Task.FromResult(Result.Ok());
-        });
-        _service.ArchiveLabelAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        };
+        _service.OnArchiveLabel = _ =>
         {
             _urgent.Archived = true;
             return Task.FromResult(Result.Ok());
-        });
-        _service.UnarchiveLabelAsync(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(_ =>
+        };
+        _service.OnUnarchiveLabel = _ =>
         {
             _urgent.Archived = false;
             return Task.FromResult(Result.Ok());
-        });
-        _vm = new BoardViewModel(_service, new TestClock(), Substitute.For<IAiJobService>(), Substitute.For<IBoardChangeSource>());
+        };
+        _vm = new BoardViewModel(_service, new TestClock(), new FakeAiJobService(), new FakeBoardChangeSource());
     }
 
     private async Task<ManageClassificationsViewModel> OpenAsync()
@@ -92,7 +86,7 @@ public class ManageClassificationsViewModelTests
 
         await manage.ArchiveProjectAsync(manage.Projects.Single(r => r.Id == 100));
 
-        await _service.Received(1).ArchiveProjectAsync(100, Arg.Any<CancellationToken>());
+        _service.ArchiveProjectCalls.Should().ContainSingle().Which.Should().Be(100);
         _vm.Filter.Projects.Select(o => o.Id).Should().NotContain(100);
         _board.Columns[0].Tasks.Single(t => t.Id == 10).ProjectId.Should().Be(100);
         manage.Projects.Single(r => r.Id == 100).IsArchived.Should().BeTrue();
@@ -107,7 +101,7 @@ public class ManageClassificationsViewModelTests
 
         await manage.UnarchiveProjectAsync(manage.Projects.Single(r => r.Id == 100));
 
-        await _service.Received(1).UnarchiveProjectAsync(100, Arg.Any<CancellationToken>());
+        _service.UnarchiveProjectCalls.Should().ContainSingle().Which.Should().Be(100);
         _vm.Filter.Projects.Select(o => o.Id).Should().Contain(100);
         manage.Projects.Single(r => r.Id == 100).IsArchived.Should().BeFalse();
     }
@@ -119,7 +113,7 @@ public class ManageClassificationsViewModelTests
 
         await manage.ArchiveLabelAsync(manage.Labels.Single(r => r.Id == 200));
 
-        await _service.Received(1).ArchiveLabelAsync(200, Arg.Any<CancellationToken>());
+        _service.ArchiveLabelCalls.Should().ContainSingle().Which.Should().Be(200);
         _vm.Filter.Labels.Select(l => l.Id).Should().NotContain(200);
         _board.Columns[0].Tasks.Single(t => t.Id == 10).Labels.Should().ContainSingle().Which.Id.Should().Be(200);
         manage.Labels.Single(r => r.Id == 200).IsArchived.Should().BeTrue();
@@ -133,7 +127,7 @@ public class ManageClassificationsViewModelTests
 
         await manage.UnarchiveLabelAsync(manage.Labels.Single(r => r.Id == 200));
 
-        await _service.Received(1).UnarchiveLabelAsync(200, Arg.Any<CancellationToken>());
+        _service.UnarchiveLabelCalls.Should().ContainSingle().Which.Should().Be(200);
         _vm.Filter.Labels.Select(l => l.Id).Should().Contain(200);
     }
 
