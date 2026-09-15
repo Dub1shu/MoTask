@@ -79,11 +79,7 @@ public class JobFolderPathsTests
     {
         var paths = JobFolderPaths.For(@"C:\work\morning\0007-2026-09-07");
 
-        paths.BoardJson.Should().Be(@"C:\work\morning\0007-2026-09-07\board.json");
         paths.RunJson.Should().Be(@"C:\work\morning\0007-2026-09-07\run.json");
-        paths.ResultDirectory.Should().Be(@"C:\work\morning\0007-2026-09-07\result");
-        paths.CandidatesJsonl.Should().Be(@"C:\work\morning\0007-2026-09-07\result\candidates.jsonl");
-        paths.PlanJson.Should().Be(@"C:\work\morning\0007-2026-09-07\result\plan.json");
     }
 
     [Fact]
@@ -92,10 +88,8 @@ public class JobFolderPathsTests
         var root = @"C:\work\morning\0007-2026-09-07";
         var paths = JobFolderPaths.For(root);
 
-        Path.Combine(root, JobFolderPaths.CandidatesRelativePath).Should().Be(paths.CandidatesJsonl);
-        Path.Combine(root, JobFolderPaths.PlanRelativePath).Should().Be(paths.PlanJson);
-        Path.Combine(root, JobFolderPaths.BoardJsonName).Should().Be(paths.BoardJson);
         Path.Combine(root, JobFolderPaths.RunJsonName).Should().Be(paths.RunJson);
+        Path.Combine(root, JobFolderPaths.McpJsonName).Should().Be(paths.McpJson);
     }
 
     [Fact]

@@ -90,6 +90,13 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         // cwd はプロジェクト。ジョブフォルダはここで読み書きを許す（仕様 §6）。
         parts.Add("--add-dir");
         parts.Add(request.JobFolder);
+        if (request.McpConfigPath is { Length: > 0 } mcpConfig)
+        {
+            // 利用者の手動 MCP 登録に依存しない（仕様 §5.4）。--strict-mcp-config は渡さないので、
+            // 利用者のコネクタ（Gmail・カレンダーなど）はそのまま生きる。
+            parts.Add("--mcp-config");
+            parts.Add(mcpConfig);
+        }
         if (settings.Model is { Length: > 0 } model)
         {
             parts.Add("--model");
@@ -101,11 +108,11 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         // （端末は開くが何も始まらない。Claude Code 2.1.261 で確認）。
         parts.Add("--");
         // 指示文そのものは渡さない。長文の引用符・改行をコマンドラインに持ち込まないため（仕様 §7）。
-        // 出力先は呼び出し元が JobFolderRequest.OutputDirectoryName に合わせて指定する
-        // （AI 遂行は artifacts/、朝の実行は result/）。ここを artifacts 固定のままにすると、
-        // 朝の実行の起動プロンプトが instruction.md の指示（result/ に書く）と矛盾してしまう。
-        var outputDirectory = Path.Combine(paths.Root, request.OutputDirectoryName);
-        parts.Add(string.Format(Messages.TerminalStartPromptFormat, paths.InstructionMarkdown, outputDirectory));
+        // 成果物の出し先は AI 遂行だけが伝える。朝の実行は MCP で渡すので、伝えるものが無い（仕様 §5.4）。
+        parts.Add(request.OutputDirectoryName is { Length: > 0 } output
+            ? string.Format(Messages.TerminalStartPromptFormat,
+                paths.InstructionMarkdown, Path.Combine(paths.Root, output))
+            : string.Format(Messages.MorningStartPromptFormat, paths.InstructionMarkdown));
 
         var inner = string.Join(" ", parts.Select(CommandLine.Quote));
         // 利用者定義のテンプレートは AI 遂行でも朝の実行でも効く。ただし朝の実行で wt を挟むと

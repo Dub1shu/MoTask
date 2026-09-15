@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using MoTask.App.Ai;
+using MoTask.Core;
 using MoTask.Core.Ai;
 using MoTask.Core.Model;
 using Xunit;
@@ -15,6 +16,8 @@ public class JobFolderTests : IDisposable
     private readonly StubSettingsStore _settings;
     private readonly JobFolder _folder;
     private readonly string _hooksExe;
+    private readonly string _mcpExe;
+    private readonly string _appExe;
 
     public JobFolderTests()
     {
@@ -22,7 +25,13 @@ public class JobFolderTests : IDisposable
         _hooksExe = Path.Combine(_root, "MoTask.Hooks.exe");
         File.WriteAllText(_hooksExe, "");
         _settings = new StubSettingsStore(AiSettings.Default() with { DefaultWorkingDirectory = _root });
-        _folder = new JobFolder(_settings) { HooksExecutable = _hooksExe };
+        _mcpExe = Path.Combine(_root, "MoTask.Mcp.exe");
+        File.WriteAllText(_mcpExe, "");
+        _appExe = Path.Combine(_root, "MoTask.exe");
+        _folder = new JobFolder(_settings)
+        {
+            HooksExecutable = _hooksExe, McpExecutable = _mcpExe, AppExecutable = _appExe,
+        };
     }
 
     private sealed class StubSettingsStore : IAiSettingsStore
@@ -187,21 +196,55 @@ public class JobFolderTests : IDisposable
         new(7, "2026-09-07", "指示")
         {
             Category = JobFolderPaths.MorningDirectoryName,
-            OutputDirectoryName = JobFolderPaths.ResultDirectoryName,
+            OutputDirectoryName = "",
+            WithMcpConfig = true,
         };
 
+    /// <summary>朝の実行は利用者の手動 MCP 登録に依存しない（仕様 §5.4）。</summary>
     [Fact]
-    public void Create_ForTheMorning_PutsTheFolderUnderMorningAndMakesResult()
+    public void Create_ForTheMorning_WritesTheMcpConfig()
+    {
+        var root = _folder.Create(MorningRequest()).Value!;
+
+        var json = File.ReadAllText(JobFolderPaths.For(root).McpJson);
+        json.Should().Contain("mcpServers").And.Contain("MoTask.Mcp.exe");
+        // ブリッジは mcp\ の下にいるため MoTask.exe に自力では届かない。呼び直せるように
+        // 絶対パスを渡す(Finding 1)。
+        using var doc = JsonDocument.Parse(json);
+        doc.RootElement.GetProperty("mcpServers").GetProperty("motask")
+            .GetProperty("env").GetProperty("MOTASK_APP_EXE").GetString().Should().Be(_appExe);
+    }
+
+    [Fact]
+    public void Create_ForAnAiJob_WritesNoMcpConfig()
+    {
+        var root = _folder.Create(new JobFolderRequest(42, "請求書の突合", "やること")).Value!;
+
+        File.Exists(JobFolderPaths.For(root).McpJson).Should().BeFalse("AI 遂行は利用者の登録に任せる");
+    }
+
+    [Fact]
+    public void Create_ForTheMorning_StopsWhenTheBridgeExeIsMissing()
+    {
+        File.Delete(_mcpExe);
+
+        var created = _folder.Create(MorningRequest());
+
+        created.IsSuccess.Should().BeFalse();
+        created.Error.Should().Be(Messages.McpExecutableNotFound);
+    }
+
+    [Fact]
+    public void Create_ForTheMorning_PutsTheFolderUnderMorningWithNoOutputFolder()
     {
         var root = _folder.Create(MorningRequest());
 
         root.IsSuccess.Should().BeTrue(root.Error);
         root.Value!.Should().EndWith(Path.Combine("morning", "0007-2026-09-07"));
         var paths = JobFolderPaths.For(root.Value!);
-        Directory.Exists(paths.ResultDirectory).Should().BeTrue();
-        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行に artifacts/ は要らない");
-        File.ReadAllText(paths.InstructionMarkdown).Should().Be("指示");
+        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行は成果をファイルに出さない");
         File.Exists(paths.HooksJson).Should().BeTrue();
+        File.Exists(paths.McpJson).Should().BeTrue();
     }
 
     [Fact]
@@ -220,11 +263,11 @@ public class JobFolderTests : IDisposable
     {
         var root = _folder.Create(MorningRequest()).Value!;
 
-        _folder.WriteText(root, JobFolderPaths.BoardJsonName, "{\"date\":\"2026-09-07\"}").IsSuccess.Should().BeTrue();
-        _folder.WriteText(root, JobFolderPaths.CandidatesRelativePath, "1行目\n2行目").IsSuccess.Should().BeTrue();
+        _folder.WriteText(root, "notes.json", "{\"date\":\"2026-09-07\"}").IsSuccess.Should().BeTrue();
+        _folder.WriteText(root, Path.Combine("sub", "lines.txt"), "1行目\n2行目").IsSuccess.Should().BeTrue();
 
-        _folder.ReadText(root, JobFolderPaths.BoardJsonName).Should().Be("{\"date\":\"2026-09-07\"}");
-        _folder.ReadText(root, JobFolderPaths.CandidatesRelativePath).Should().Be("1行目\n2行目");
+        _folder.ReadText(root, "notes.json").Should().Be("{\"date\":\"2026-09-07\"}");
+        _folder.ReadText(root, Path.Combine("sub", "lines.txt")).Should().Be("1行目\n2行目");
     }
 
     [Fact]
@@ -232,9 +275,9 @@ public class JobFolderTests : IDisposable
     {
         var root = _folder.Create(MorningRequest()).Value!;
 
-        _folder.ReadText(root, JobFolderPaths.PlanRelativePath).Should()
-            .BeNull("Claude がまだ書いていないだけで、失敗ではない");
-        _folder.ReadText("", JobFolderPaths.PlanRelativePath).Should().BeNull();
+        _folder.ReadText(root, Path.Combine("sub", "not-yet.json")).Should()
+            .BeNull("まだ書かれていないだけで、失敗ではない");
+        _folder.ReadText("", Path.Combine("sub", "not-yet.json")).Should().BeNull();
     }
 
     [Fact]

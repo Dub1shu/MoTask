@@ -1,11 +1,21 @@
 using MoTask.Core;
 using MoTask.Core.Model;
+using MoTask.Core.Morning;
 using MoTask.Core.Services;
 
 namespace MoTask.App.Tests.Fakes;
 
 /// <summary>MergeAsync に渡された引数の記録。</summary>
 public sealed record MergeCall(int CandidateId, int TargetTaskId);
+
+/// <summary>AddCandidateAsync に渡された引数の記録。</summary>
+public sealed record AddCandidateCall(int RunId, CandidateInput Input);
+
+/// <summary>SubmitPlanAsync に渡された引数の記録。</summary>
+public sealed record SubmitPlanCall(int RunId, string PlanJson);
+
+/// <summary>CompleteRunAsync に渡された引数の記録。closeNow がそのまま渡るかを見るのに使う。</summary>
+public sealed record CompleteRunCall(int RunId, bool CloseNow);
 
 /// <summary>
 /// 呼ばれた操作を記録する偽サービス。候補は全状態を 1 つのリストに持ち、キューは実リポジトリと
@@ -157,11 +167,68 @@ public sealed class FakeMorningService : IMorningService
         return Task.FromResult(BulkResult);
     }
 
+    // ---- MCP 経由の受け口（仕様 §6）----
+
+    /// <summary>GetContextAsync が返す盤面。宛先違いを試すテストは Result.Fail に差し替える。</summary>
+    public Result<string> ContextResult { get; set; } = Result.Ok("{}");
+
+    /// <summary>AddCandidateAsync が返す結果。</summary>
+    public Result<CandidateOutcome> AddCandidateResult { get; set; } = Result.Ok(new CandidateOutcome(true, null, 1, 1));
+
+    /// <summary>SubmitPlanAsync が返す結果。</summary>
+    public Result<MorningOutcome> SubmitPlanResult { get; set; } = Result.Ok(new MorningOutcome(true, null));
+
+    /// <summary>GetContextAsync に渡された runId を呼ばれた順に。</summary>
+    public List<int> GetContextCalls { get; } = new();
+
+    /// <summary>AddCandidateAsync に渡された引数を呼ばれた順に。</summary>
+    public List<AddCandidateCall> AddCandidateCalls { get; } = new();
+
+    /// <summary>SubmitPlanAsync に渡された引数を呼ばれた順に。</summary>
+    public List<SubmitPlanCall> SubmitPlanCalls { get; } = new();
+
+    public Task<Result<string>> GetContextAsync(int runId, CancellationToken ct = default)
+    {
+        Calls.Add("GetContext");
+        GetContextCalls.Add(runId);
+        return Task.FromResult(ContextResult);
+    }
+
+    public Task<Result<CandidateOutcome>> AddCandidateAsync(
+        int runId, CandidateInput input, CancellationToken ct = default)
+    {
+        Calls.Add("AddCandidate");
+        AddCandidateCalls.Add(new AddCandidateCall(runId, input));
+        return Task.FromResult(AddCandidateResult);
+    }
+
+    public Task<Result<MorningOutcome>> SubmitPlanAsync(
+        int runId, string planJson, CancellationToken ct = default)
+    {
+        Calls.Add("SubmitPlan");
+        SubmitPlanCalls.Add(new SubmitPlanCall(runId, planJson));
+        return Task.FromResult(SubmitPlanResult);
+    }
+
     public Task<Result<BulkOutcome>> PostponeAllAsync(int runId, CancellationToken ct = default)
     {
         Calls.Add("PostponeAll");
         foreach (var candidate in Candidates.Where(c => c.Status == TriageStatus.Pending).ToList())
             Decide(candidate.Id, TriageStatus.Later);
         return Task.FromResult(BulkResult);
+    }
+
+    /// <summary>CompleteRunAsync が返す結果。</summary>
+    public Result<MorningOutcome> CompleteRunResult { get; set; } = Result.Ok(new MorningOutcome(true, null));
+
+    /// <summary>CompleteRunAsync に渡された引数を呼ばれた順に。</summary>
+    public List<CompleteRunCall> CompleteRunCalls { get; } = new();
+
+    public Task<Result<MorningOutcome>> CompleteRunAsync(
+        int runId, bool closeNow, CancellationToken ct = default)
+    {
+        Calls.Add("CompleteRun");
+        CompleteRunCalls.Add(new CompleteRunCall(runId, closeNow));
+        return Task.FromResult(CompleteRunResult);
     }
 }

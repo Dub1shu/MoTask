@@ -9,6 +9,14 @@ public sealed record JobFolderRequest(int JobId, string TaskTitle, string Instru
     /// <summary>既定ワークフォルダ直下のどこに置くか（jobs / morning）。</summary>
     public string Category { get; init; } = JobFolderPaths.JobsDirectoryName;
 
-    /// <summary>Create が併せて作る出力フォルダ（artifacts / result）。</summary>
+    /// <summary>
+    /// Create が併せて作る出力フォルダ。空文字なら作らない（朝の実行は成果をファイルに出さない）。
+    /// </summary>
     public string OutputDirectoryName { get; init; } = JobFolderPaths.ArtifactsDirectoryName;
+
+    /// <summary>
+    /// mcp.json を併せて書くか（仕様 §5.4）。朝の実行だけが true。
+    /// AI 遂行は利用者の手動登録に任せるので既定は false。
+    /// </summary>
+    public bool WithMcpConfig { get; init; }
 }

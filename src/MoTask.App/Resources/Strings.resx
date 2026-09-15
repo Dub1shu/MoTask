@@ -224,4 +224,7 @@
   <data name="MorningBulkResultFormat" xml:space="preserve"><value>{0} 件を処理、{1} 件を見送り: {2}</value></data>
   <data name="MorningBulkNoColumn" xml:space="preserve"><value>登録先の列がありません</value></data>
   <data name="MorningTemplateFallsBackToDefault" xml:space="preserve"><value>wt.exe を経由すると完了時に端末を閉じられないので、朝の実行では既定の起動（cmd.exe /s /c）を使います。AI 遂行にはこのテンプレートがそのまま効きます。</value></data>
+  <data name="McpMorningRunIdRequired" xml:space="preserve"><value>runId（整数）を渡してください。instruction.md に書いてある値です</value></data>
+  <data name="McpMorningPlanRequired" xml:space="preserve"><value>plan（JSON オブジェクト）を渡してください</value></data>
+  <data name="McpMorningSuggestedDueDateInvalid" xml:space="preserve"><value>suggestedDueDate が日付として読めません。YYYY-MM-DD で書いてください</value></data>
 </root>

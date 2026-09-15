@@ -6,6 +6,7 @@ using System.Text.Json;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.App.Ai.BoardTools;
+using MoTask.App.Ai.MorningTools;
 using MoTask.Core;
 using MoTask.Core.Model;
 using MoTask.App.Tests.Fakes;
@@ -15,7 +16,8 @@ namespace MoTask.App.Tests;
 
 /// <summary>
 /// 実際に HTTP を立てて叩く。トークンは起動ごとの board トークン 1 本だけで、
-/// 見えるのは board ツール 6 本のみ（承認ツールもジョブ用トークンも無い）。
+/// 見えるのは board ツール 6 本と morning ツール 4 本（BoardToolHost と MorningToolHost を
+/// 束ねたもの。仕様 §9）。宛先の絞り込みはツールごとの runId 引数が担う。
 /// </summary>
 public class MoTaskMcpServerTests : IDisposable
 {
@@ -26,7 +28,9 @@ public class MoTaskMcpServerTests : IDisposable
     public MoTaskMcpServerTests()
     {
         _board.Board = TestBoards.Sample();
-        _server = new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()));
+        _server = new MoTaskMcpServer(
+            new BoardToolHost(_board, new TestClock()),
+            new MorningToolHost(new FakeMorningService()));
         _server.Start();
     }
 
@@ -79,13 +83,15 @@ public class MoTaskMcpServerTests : IDisposable
     }
 
     [Fact]
-    public async Task BoardToken_SeesExactlyTheSixBoardTools()
+    public async Task BoardToken_SeesTheBoardAndMorningTools()
     {
         var (_, body) = await PostAsync(_server.BoardToken, """{"jsonrpc":"2.0","id":11,"method":"tools/list"}""");
 
         var names = body!.RootElement.GetProperty("result").GetProperty("tools")
             .EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToArray();
-        names.Should().Equal("get_board", "list_tasks", "get_task", "add_task", "update_task", "move_task");
+        names.Should().Equal(
+            "get_board", "list_tasks", "get_task", "add_task", "update_task", "move_task",
+            "morning_get_context", "morning_add_candidate", "morning_submit_plan", "morning_complete");
     }
 
     [Fact]
@@ -126,7 +132,9 @@ public class MoTaskMcpServerTests : IDisposable
     {
         _server.BoardToken.Should().MatchRegex("^[0-9A-F]{64}$");
 
-        using var notStarted = new MoTaskMcpServer(new BoardToolHost(_board, new TestClock()));
+        using var notStarted = new MoTaskMcpServer(
+            new BoardToolHost(_board, new TestClock()),
+            new MorningToolHost(new FakeMorningService()));
         notStarted.Invoking(s => s.BoardToken).Should().Throw<InvalidOperationException>();
     }
 

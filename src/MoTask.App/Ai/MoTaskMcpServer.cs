@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using MoTask.App.Ai.BoardTools;
+using MoTask.App.Ai.MorningTools;
 
 namespace MoTask.App.Ai;
 
@@ -13,7 +14,8 @@ namespace MoTask.App.Ai;
 /// HttpListener は 127.0.0.1 への非管理者バインドが可能なことを本機で確認済み（urlacl の登録も
 /// `http://+:port/` への変更も不要）。
 /// 認証はアプリの起動ごとに 1 つ発行する board トークンだけで、endpoint.json 経由でブリッジへ渡す。
-/// 提供するのは <see cref="BoardToolHost"/> の board ツール 6 本のみ。
+/// 提供するのは <see cref="BoardToolHost"/> の board ツール 6 本と
+/// <see cref="MorningToolHost"/> の morning ツール 4 本。
 ///
 /// リクエストにサーバ側のタイムアウトは設けない。ツールの実処理（DB 操作）は短く、詰まったときは
 /// 呼び出し側（ブリッジ / Claude Code）が打ち切るのが筋なので、ここで勝手に切ると
@@ -33,7 +35,7 @@ public sealed class MoTaskMcpServer : IDisposable
     /// 追い越して直前の応答を巻き添えにしないための待機（Dispose() 参照）。</summary>
     private static readonly TimeSpan PostDrainGrace = TimeSpan.FromMilliseconds(200);
 
-    private readonly BoardToolHost _boardTools;
+    private readonly IReadOnlyList<McpTool> _tools;
     private readonly HttpListener _listener = new();
     private readonly ConcurrentDictionary<HttpListenerContext, Task> _inFlight = new();
     private readonly CancellationTokenSource _shutdown = new();
@@ -41,7 +43,8 @@ public sealed class MoTaskMcpServer : IDisposable
     private int _disposed;
     private string? _boardToken;
 
-    public MoTaskMcpServer(BoardToolHost boardTools) => _boardTools = boardTools;
+    public MoTaskMcpServer(BoardToolHost boardTools, MorningToolHost morningTools)
+        => _tools = boardTools.Tools.Concat(morningTools.Tools).ToList();
 
     public Uri? McpUrl { get; private set; }
 
@@ -140,7 +143,7 @@ public sealed class MoTaskMcpServer : IDisposable
             }
 
             // 以降、応答を書き終えるまでこのメソッドは完了しない（早期リターンや書き込みの投げっぱなしをしない）。
-            var result = await McpProtocol.HandleAsync(body, _boardTools.Tools, _shutdown.Token).ConfigureAwait(false);
+            var result = await McpProtocol.HandleAsync(body, _tools, _shutdown.Token).ConfigureAwait(false);
             await WriteAsync(response, result.StatusCode, result.Body).ConfigureAwait(false);
         }
         catch (Exception)

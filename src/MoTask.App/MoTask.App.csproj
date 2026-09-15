@@ -16,6 +16,8 @@
     <ProjectReference Include="..\MoTask.Data\MoTask.Data.csproj" />
     <!-- フックの exe。参照はビルド順のためだけで、アセンブリとしては使わない。 -->
     <ProjectReference Include="..\MoTask.Hooks\MoTask.Hooks.csproj" ReferenceOutputAssembly="false" />
+    <!-- MCP ブリッジの exe。参照はビルド順のためだけで、アセンブリとしては使わない。 -->
+    <ProjectReference Include="..\MoTask.Mcp\MoTask.Mcp.csproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MoTask.App.Tests" />
@@ -46,5 +48,18 @@
              Link="hooks\MoTask.Hooks.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <Content Include="..\MoTask.Hooks\bin\$(Configuration)\net10.0\MoTask.Hooks.runtimeconfig.json"
              Link="hooks\MoTask.Hooks.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <!--
+      mcp\ に実体を運ぶ。MoTask.Mcp は MoTask.Core.dll を必要とするが、それはこのプロジェクトの
+      出力ルートに既にある。ブリッジは出力ルートではなく mcp\ に置かれるので、MoTask.Core.dll も
+      並べる必要がある。MoTask.Mcp も net10.0 固定・出力パスも既定なので、パスを直に書いてよい。
+    -->
+    <Content Include="..\MoTask.Mcp\bin\$(Configuration)\net10.0\MoTask.Mcp.exe"
+             Link="mcp\MoTask.Mcp.exe" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <Content Include="..\MoTask.Mcp\bin\$(Configuration)\net10.0\MoTask.Mcp.dll"
+             Link="mcp\MoTask.Mcp.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <Content Include="..\MoTask.Mcp\bin\$(Configuration)\net10.0\MoTask.Mcp.runtimeconfig.json"
+             Link="mcp\MoTask.Mcp.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <Content Include="..\MoTask.Mcp\bin\$(Configuration)\net10.0\MoTask.Core.dll"
+             Link="mcp\MoTask.Core.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 </Project>

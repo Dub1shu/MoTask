@@ -46,7 +46,7 @@ public class MorningServiceStartTests
         started.IsSuccess.Should().BeTrue(started.Error);
         _folder.Created.Should().ContainSingle();
         _folder.Created[0].Category.Should().Be(JobFolderPaths.MorningDirectoryName);
-        _folder.Created[0].OutputDirectoryName.Should().Be(JobFolderPaths.ResultDirectoryName);
+        _folder.Created[0].OutputDirectoryName.Should().BeEmpty("朝の実行に出力フォルダは要らない");
         _folder.Created[0].TaskTitle.Should().Be("2026-09-07");
         started.Value!.JobFolder.Should().Be(@"C:\work\morning\0001-2026-09-07");
     }
@@ -68,23 +68,20 @@ public class MorningServiceStartTests
 
         run.Status.Should().Be(MorningRunStatus.Pending);
         run.JobFolder.Should().NotBeEmpty("JobFolder が空のまま Pending で残る窓を作らない（仕様 §12）");
-        run.Instruction.Should().Contain(run.JobFolder, "指示文には出力先の実パスが入る");
+        run.Instruction.Should().Contain($"runId は {run.Id} です", "契約文は runId を名指しする（仕様 §8）");
         run.SessionId.Should().NotBeEmpty();
         run.StartedAt.Should().Be(_clock.UtcNow);
         _store.Runs.Should().ContainSingle();
     }
 
+    /// <summary>フォルダの instruction.md と DB の Instruction 列は同じ文言（仕様 §8）。</summary>
     [Fact]
-    public async Task Start_WritesBoardJsonWithTheUnfinishedTasks()
+    public async Task Start_WritesTheSameInstructionToTheFolderAndTheRow()
     {
         var run = (await _service.StartAsync()).Value!;
 
-        var board = _folder.ReadText(run.JobFolder, JobFolderPaths.BoardJsonName);
-        board.Should().NotBeNull();
-        var root = JsonDocument.Parse(board!).RootElement;
-        root.GetProperty("date").GetString().Should().Be("2026-09-07");
-        root.GetProperty("tasks").EnumerateArray()
-            .Select(t => t.GetProperty("title").GetString()).Should().Equal("Q4企画書の内容を確定する");
+        _folder.ReadText(run.JobFolder, JobFolderPaths.InstructionMarkdownName).Should().Be(run.Instruction);
+        run.Instruction.Should().Contain("mcp__motask__morning_complete");
     }
 
     [Fact]
@@ -106,6 +103,14 @@ public class MorningServiceStartTests
         await _service.StartAsync();
 
         _launcher.Requests.Should().ContainSingle().Which.CloseOnExit.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Start_DoesNotAskThePromptToPointAtAnOutputFolder()
+    {
+        await _service.StartAsync();
+
+        _launcher.Requests.Should().ContainSingle().Which.OutputDirectoryName.Should().BeNull();
     }
 
     /// <summary>完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。</summary>
@@ -213,6 +218,28 @@ public class MorningServiceStartTests
     }
 
     /// <summary>
+    /// 1 回目の保存（Add）は通って Id が採番された後、2 回目（指示文の書き戻し）だけが
+    /// 落ちた場合。行を Pending のまま残すと、次の StartAsync が二重起動防止に引っかかって
+    /// 朝の実行が永久に始められなくなる（仕様 §12）。ベストエフォートで Failed に倒す。
+    /// </summary>
+    [Fact]
+    public async Task Start_MarksTheRunFailed_WhenOnlyTheSecondSaveFails()
+    {
+        _store.FailSaveAtCount = 2;
+
+        var started = await _service.StartAsync();
+
+        started.IsSuccess.Should().BeFalse();
+        var run = _store.Runs.Should().ContainSingle().Subject;
+        run.Status.Should().Be(MorningRunStatus.Failed, "Pending のまま残すと次の実行を永久に塞ぐ");
+        run.ErrorMessage.Should().Contain(Messages.SaveFailed);
+
+        var second = await _service.StartAsync();
+
+        second.IsSuccess.Should().BeTrue(second.Error, "終端に倒れているので次の実行は塞がれない");
+    }
+
+    /// <summary>
     /// 端末はもう走っているので、run.json が書けなくても実行は続ける。ただし再起動後に
     /// 掛け直せなくなる（仕様 §7）ので、理由を警告として人に見せる。
     /// </summary>
@@ -239,7 +266,7 @@ public class MorningServiceStartTests
         var run = (await _service.StartAsync()).Value!;
 
         run.Instruction.Should().StartWith("私の方針");
-        _folder.Created[0].Instruction.Should().Be(run.Instruction);
+        _folder.ReadText(run.JobFolder, JobFolderPaths.InstructionMarkdownName).Should().Be(run.Instruction);
     }
 
     [Fact]
@@ -251,6 +278,16 @@ public class MorningServiceStartTests
         _changes[0].Run.RunId.Should().Be(run.Id);
         _changes[0].Run.Status.Should().Be(MorningRunStatus.Pending);
         _changes[0].CandidatesChanged.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Start_AsksForTheMcpConfigSoTheToolsAreThereWithoutManualRegistration()
+    {
+        var run = (await _service.StartAsync()).Value!;
+
+        _folder.Created[0].WithMcpConfig.Should().BeTrue();
+        _launcher.Requests.Should().ContainSingle().Which.McpConfigPath
+            .Should().Be(JobFolderPaths.For(run.JobFolder).McpJson);
     }
 
     [Fact]

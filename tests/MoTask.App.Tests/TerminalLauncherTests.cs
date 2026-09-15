@@ -106,15 +106,27 @@ public class TerminalLauncherTests : IDisposable
     /// 端末の窓は開かない（CreateNoWindow）。claude には触れない。1 秒もかからない。
     /// </summary>
     [Theory]
-    [InlineData(false)] // AI 遂行（/s /k）
-    [InlineData(true)]  // 朝の実行（/s /c）
-    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit)
+    [InlineData(false, false)] // AI 遂行（/s /k）
+    [InlineData(true, false)]  // 朝の実行（/s /c）、mcp.json 無し
+    // 朝の実行の実物の形。--mcp-config で引用符が 2 個増え、OutputDirectoryName は無い
+    // （仕様 §5.4）。空白と日本語を含むパスも通す。
+    [InlineData(true, true)]
+    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit, bool morningShape)
     {
         var fakeClaude = Path.Combine(_dir, "fake-claude.cmd");
         File.WriteAllText(fakeClaude, "@echo off\r\necho " + LaunchMarker + "\r\nexit " + LaunchExitCode + "\r\n");
         _store.Save(_store.Load() with { ClaudeExecutablePath = fakeClaude });
 
-        var command = Launcher().BuildCommand(_request with { CloseOnExit = closeOnExit }).Value!;
+        var request = _request with { CloseOnExit = closeOnExit };
+        if (morningShape)
+        {
+            request = request with
+            {
+                OutputDirectoryName = null,
+                McpConfigPath = @"C:\work\jobs\0007-2026 09 07\mcp 設定.json",
+            };
+        }
+        var command = Launcher().BuildCommand(request).Value!;
         command.FileName.Should().Be("cmd.exe");
 
         var (exitCode, stdout, stderr) = RunCmd(command.Arguments);
@@ -178,21 +190,19 @@ public class TerminalLauncherTests : IDisposable
     }
 
     /// <summary>
-    /// 朝の実行は成果物を artifacts/ ではなく result/ に出す（JobFolderRequest.OutputDirectoryName
-    /// と揃える）。起動プロンプトが instruction.md の指示と食い違うと、そちらに従った Claude が
-    /// result/ に何も書かず実行が失敗で終わる。
+    /// 朝の実行は成果をファイルに出さないので、起動プロンプトに出し先を書かない（仕様 §5.4）。
     /// </summary>
     [Fact]
-    public void BuildCommand_PointsThePromptAtTheResultFolder_ForAMorningShapedRequest()
+    public void BuildCommand_PointsThePromptOnlyAtTheInstruction_ForAMorningRun()
     {
-        var morningRequest = _request with { OutputDirectoryName = "result" };
+        var morning = _request with { OutputDirectoryName = null, CloseOnExit = true };
 
-        var command = Launcher().BuildCommand(morningRequest).Value!;
+        var command = Launcher().BuildCommand(morning).Value!;
 
         command.Arguments.Should()
             .Contain(@"C:\work\jobs\0042-見積り\instruction.md")
-            .And.Contain(@"C:\work\jobs\0042-見積り\result")
-            .And.NotContain(@"C:\work\jobs\0042-見積り\artifacts");
+            .And.NotContain(@"C:\work\jobs\0042-見積り\artifacts")
+            .And.NotContain(@"C:\work\jobs\0042-見積り\result");
     }
 
     /// <summary>
@@ -334,6 +344,17 @@ public class TerminalLauncherTests : IDisposable
     public void IsWindowsTerminalTemplate_LooksOnlyAtTheFirstTokensFileName(string? template, bool expected)
     {
         TerminalLauncher.IsWindowsTerminalTemplate(template).Should().Be(expected);
+    }
+
+    [Fact]
+    public void BuildCommand_PassesTheMcpConfigWhenOneIsGiven()
+    {
+        var command = Launcher()
+            .BuildCommand(_request with { McpConfigPath = @"C:\work\jobs\0042-見積り\mcp.json" }).Value!;
+
+        command.Arguments.Should().Contain(@"--mcp-config"" ""C:\work\jobs\0042-見積り\mcp.json""");
+        command.Arguments.Should().NotContain("--strict-mcp-config",
+            "利用者のコネクタはそのまま生きる（仕様 §5.4）");
     }
 
     [Fact]

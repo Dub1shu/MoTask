@@ -6,7 +6,7 @@ public enum MorningRunStatus
     /// <summary>行は作ったが、まだ SessionStart フックが来ていない。</summary>
     Pending = 0,
     Running = 1,
-    /// <summary>result/ を読んで候補とプランを保存し終えた。</summary>
+    /// <summary>Claude が morning_complete を呼び、候補とプランが揃った。</summary>
     Ingested = 2,
     Failed = 3,
     Cancelled = 4,
