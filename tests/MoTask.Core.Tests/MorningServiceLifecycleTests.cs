@@ -369,6 +369,7 @@ public class MorningServiceLifecycleTests
         run.Status.Should().Be(MorningRunStatus.Ingested, "取り込み済みの実行を蘇らせない");
         run.ErrorMessage.Should().BeNull();
         _launcher.Closed.Should().BeEmpty("端末はもう自分で死んでいるので、無意味な CloseOwned を打たない");
+        _events.IsFollowing(run.Id).Should().BeFalse("予約を捨てるなら追従も降りる。誰も止めないポーラーを残さない");
     }
 
     /// <summary>知らない runId のイベントで落ちない。</summary>

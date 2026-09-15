@@ -448,6 +448,9 @@ public sealed class MorningService : IMorningService
         var result = await CompleteRunAsync(runId, closeNow: true, ct).ConfigureAwait(false);
         if (!result.IsSuccess) return Result.Fail(result.Error!);
         // result.Value.Reason は Claude 向け(MCP ツール名を含む)。人には出さない。
+        // CompleteRunAsync が Accepted:false を返す理由は今のところ「プラン未提出」の
+        // 1 種類だけ(他の拒否は NotRunning = Result.Fail でここまで来ない)。理由が増えたら
+        // ここも作り直すこと。
         return result.Value!.Accepted ? Result.Ok() : Result.Fail(Messages.MorningCompleteWithoutPlan);
     }
 
@@ -599,8 +602,11 @@ public sealed class MorningService : IMorningService
         if (run is null)
         {
             // 終端の実行(closePending中も含む)。端末はもう自分で死んでいるので、予約が残っていれば
-            // 捨てる。捨てないと最大 CloseGrace 秒後に死んだ端末へ無意味な CloseOwned を打つ(B1)。
-            _closePending.TryRemove(runId, out _);
+            // 捨てて追従も降りる。予約だけ捨てて StopFollowing を呼ばないと、closeNow:false は
+            // 「追従は予約が解けるまで続ける」設計なので、この経路だけ誰も止めない follower が
+            // アプリ終了まで残る(B1)。捨てないと最大 CloseGrace 秒後に死んだ端末へも
+            // 無意味な CloseOwned を打つ。
+            if (_closePending.TryRemove(runId, out _)) _events.StopFollowing(runId);
             return;
         }
         _events.StopFollowing(run.Id);
