@@ -188,24 +188,29 @@ public sealed class MorningService : IMorningService
                 catch (PersistenceException ex)
                 {
                     var error = $"{Messages.SaveFailed}: {ex.Message}";
-                    if (run.Id != 0)
+                    // EfUnitOfWork.SaveChangesAsync は例外を投げる前に ChangeTracker.Clear()
+                    // する(次の GetBoard が DB を読み直せるように)ので、この時点で run は
+                    // Detach 済み。run.Status を書き換えて SaveChanges しても追跡対象がゼロ
+                    // で何も保存されない。読み直せば追跡された同一インスタンスが返る
+                    // (IMorningRepository の契約)ので、それを倒す。1 回目の保存自体が
+                    // 落ちていて何も commit されていなければ null(何もしない、で正しい)。
+                    // ここは既にゲートの中なので FailAsync(ゲートを取り直す)は呼べない。
+                    // ベストエフォートで倒すだけにし、後始末自体が落ちても元のエラーを
+                    // 黙って優先する。
+                    try
                     {
-                        // 1 回目は通って Id が採番済み。このままだと Pending のまま終端に
-                        // ならず、次の StartAsync が GetUnfinishedRunAsync に引っかかって
-                        // 永久に塞がる(仕様 §12)。ここは既にゲートの中なので FailAsync
-                        // (ゲートを取り直す)は呼べない。ベストエフォートで Failed に倒す
-                        // だけにし、後始末自体が落ちても元のエラーを黙って優先する。
-                        try
+                        var persisted = await _runs.GetUnfinishedRunAsync(ct).ConfigureAwait(false);
+                        if (persisted is not null)
                         {
-                            run.Status = MorningRunStatus.Failed;
-                            run.ErrorMessage = error;
-                            run.EndedAt = _clock.UtcNow;
+                            persisted.Status = MorningRunStatus.Failed;
+                            persisted.ErrorMessage = error;
+                            persisted.EndedAt = _clock.UtcNow;
                             await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
                         }
-                        catch (PersistenceException)
-                        {
-                            // 後始末も失敗。行は Pending のまま残るが、これ以上リトライしない。
-                        }
+                    }
+                    catch (PersistenceException)
+                    {
+                        // 後始末も失敗。行は Pending のまま残るが、これ以上リトライしない。
                     }
                     return Result.Fail(error);
                 }

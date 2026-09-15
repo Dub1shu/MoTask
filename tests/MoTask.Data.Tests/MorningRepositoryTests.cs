@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
 using MoTask.Data.Repositories;
 using Xunit;
@@ -212,6 +213,61 @@ public class MorningRepositoryTests : IDisposable
 
         (await repo.GetUnfinishedRunAsync())!.Id.Should().Be(running.Id);
         (await repo.GetLatestRunAsync())!.Id.Should().Be(running.Id);
+    }
+
+    /// <summary>
+    /// MorningService.StartAsync の後始末が本番経路で効くことを実 SQLite で押さえる
+    /// （仕様 §12）。EfUnitOfWork.SaveChangesAsync は失敗時に例外を投げる前に
+    /// ChangeTracker.Clear() する（TransactionTests 参照）ので、1 回目の保存で採番済みの
+    /// 行を保持したままの C# インスタンスをそのまま書き換えて保存しても何も反映されない。
+    /// リポジトリから読み直せば追跡された同一インスタンスが返るので、それを Failed に倒す。
+    /// </summary>
+    [Fact]
+    public async Task GetUnfinishedRun_ReturnsATrackedInstance_AfterAFailedSaveClearsTheTracker()
+    {
+        await InitAsync();
+        int runId;
+        await using (var ctx = _db.CreateContext())
+        {
+            var repo = new MorningRepository(ctx);
+            var uow = new EfUnitOfWork(ctx);
+            var run = NewRun(new DateOnly(2026, 9, 7));
+            repo.Add(run);
+            await uow.SaveChangesAsync(); // 1回目: 成功し、Id が採番される
+            runId = run.Id;
+
+            // 2回目の保存で運ぶはずだった変更（指示文の書き戻しを模す）。
+            run.Instruction = "書き戻すはずだった指示文";
+            // 重複した ExternalId → ユニーク制約違反で2回目の SaveChanges が失敗する
+            // （ExternalId_IsUnique と同じ仕掛け）。
+            repo.AddCandidate(NewCandidate(run.Id, "outlook:dup"));
+            repo.AddCandidate(NewCandidate(run.Id, "outlook:dup"));
+
+            var act = () => uow.SaveChangesAsync();
+
+            await act.Should().ThrowAsync<PersistenceException>();
+            ctx.ChangeTracker.Entries().Should().BeEmpty("失敗後は EfUnitOfWork が追跡を捨てる（run も Detach 済み）");
+
+            // MorningService.StartAsync の catch と同じ手順: 読み直して Failed に倒す。
+            var persisted = await repo.GetUnfinishedRunAsync();
+            persisted.Should().NotBeNull("1回目の保存は成功しているので DB には行が残っている");
+            persisted!.Id.Should().Be(runId);
+            persisted.Instruction.Should().Be("指示", "2回目の変更はコミットされていない");
+
+            persisted.Status = MorningRunStatus.Failed;
+            persisted.ErrorMessage = "テスト用の保存失敗";
+            await uow.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            var repo = new MorningRepository(ctx);
+
+            (await repo.GetUnfinishedRunAsync()).Should().BeNull("Failed に倒れたので二重起動防止に引っかからない");
+            var stored = await repo.GetRunAsync(runId);
+            stored!.Status.Should().Be(MorningRunStatus.Failed);
+            stored.ErrorMessage.Should().Be("テスト用の保存失敗");
+        }
     }
 
     public void Dispose() => _db.Dispose();
