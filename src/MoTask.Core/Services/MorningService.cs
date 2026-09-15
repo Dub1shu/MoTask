@@ -90,12 +90,11 @@ public sealed class MorningService : IMorningService
 
     // ---------- 開始 ----------
 
-    private sealed record Prepared(int RunNumber, string BoardJson);
+    private sealed record Prepared(int RunNumber);
 
     /// <summary>
     /// 盤面のスナップショット。ゲートの中から呼ぶこと(リポジトリを 3 つ引く)。
-    /// 開始時の board.json と morning_get_context の両方がこれを使う(形は 1 つ)。
-    /// 盤面が無ければ null。
+    /// morning_get_context が返す形はこれ 1 つ(仕様 §4)。盤面が無ければ null。
     /// </summary>
     private async Task<string?> BuildSnapshotAsync(DateOnly date, CancellationToken ct)
     {
@@ -130,12 +129,13 @@ public sealed class MorningService : IMorningService
                 var unfinished = await _runs.GetUnfinishedRunAsync(ct).ConfigureAwait(false);
                 if (unfinished is not null) return Result.Fail<Prepared>(Messages.MorningRunAlreadyRunning);
 
-                var snapshot = await BuildSnapshotAsync(date, ct).ConfigureAwait(false);
-                if (snapshot is null) return Result.Fail<Prepared>(Messages.BoardNotFound);
+                // 盤面は morning_get_context が返すので、ここでは「在るか」だけを見る（仕様 §4）
+                var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
+                if (board is null) return Result.Fail<Prepared>(Messages.BoardNotFound);
 
-                // フォルダ名の連番。DB の採番を待たずに決まるので、行の保存を後ろへ回せる(仕様 §12)。
+                // フォルダ名の連番。DB の採番を待たずに決まる（親仕様 §12）。
                 var runNumber = await _runs.CountRunsAsync(ct).ConfigureAwait(false) + 1;
-                return Result.Ok(new Prepared(runNumber, snapshot));
+                return Result.Ok(new Prepared(runNumber));
             }, ct).ConfigureAwait(false);
             if (!prepared.IsSuccess) return Result.Fail<MorningRun>(prepared.Error!);
 
@@ -143,7 +143,7 @@ public sealed class MorningService : IMorningService
             var request = new JobFolderRequest(prepared.Value!.RunNumber, date.ToString("yyyy-MM-dd"), "")
             {
                 Category = JobFolderPaths.MorningDirectoryName,
-                OutputDirectoryName = JobFolderPaths.ResultDirectoryName,
+                OutputDirectoryName = "",
                 WithMcpConfig = true,
             };
             // 指示文は runId（DB の採番）を含むので、行を保存してからでないと組み立てられない
@@ -152,16 +152,12 @@ public sealed class MorningService : IMorningService
             var created = _folder.Create(request);
             if (!created.IsSuccess) return Result.Fail<MorningRun>(created.Error!);
 
-            var wroteBoard = _folder.WriteText(root, JobFolderPaths.BoardJsonName, prepared.Value!.BoardJson);
-            if (!wroteBoard.IsSuccess) return Result.Fail<MorningRun>(wroteBoard.Error!);
-
             var sessionId = Guid.NewGuid();
             // cwd はジョブフォルダ自身。朝の実行はソースツリーに用が無い(仕様 §6)。
-            // 成果物の出力先は result/(AI 遂行の既定 artifacts/ とは違う)。起動プロンプトを
-            // instruction.md の指示と一致させる。
+            // 成果はファイルではなく MCP で渡すので、起動プロンプトに出力先を出さない(仕様 §5.4)。
             var command = _launcher.BuildCommand(new SessionLaunchRequest(
                 sessionId, root, root, Resume: false,
-                OutputDirectoryName: JobFolderPaths.ResultDirectoryName, CloseOnExit: true,
+                OutputDirectoryName: null, CloseOnExit: true,
                 McpConfigPath: JobFolderPaths.For(root).McpJson));
             if (!command.IsSuccess) return Result.Fail<MorningRun>(command.Error!);
 

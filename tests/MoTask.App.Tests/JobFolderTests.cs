@@ -191,7 +191,7 @@ public class JobFolderTests : IDisposable
         new(7, "2026-09-07", "指示")
         {
             Category = JobFolderPaths.MorningDirectoryName,
-            OutputDirectoryName = JobFolderPaths.ResultDirectoryName,
+            OutputDirectoryName = "",
             WithMcpConfig = true,
         };
 
@@ -225,17 +225,16 @@ public class JobFolderTests : IDisposable
     }
 
     [Fact]
-    public void Create_ForTheMorning_PutsTheFolderUnderMorningAndMakesResult()
+    public void Create_ForTheMorning_PutsTheFolderUnderMorningWithNoOutputFolder()
     {
         var root = _folder.Create(MorningRequest());
 
         root.IsSuccess.Should().BeTrue(root.Error);
         root.Value!.Should().EndWith(Path.Combine("morning", "0007-2026-09-07"));
         var paths = JobFolderPaths.For(root.Value!);
-        Directory.Exists(paths.ResultDirectory).Should().BeTrue();
-        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行に artifacts/ は要らない");
-        File.ReadAllText(paths.InstructionMarkdown).Should().Be("指示");
+        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行は成果をファイルに出さない");
         File.Exists(paths.HooksJson).Should().BeTrue();
+        File.Exists(paths.McpJson).Should().BeTrue();
     }
 
     [Fact]
@@ -254,11 +253,11 @@ public class JobFolderTests : IDisposable
     {
         var root = _folder.Create(MorningRequest()).Value!;
 
-        _folder.WriteText(root, JobFolderPaths.BoardJsonName, "{\"date\":\"2026-09-07\"}").IsSuccess.Should().BeTrue();
-        _folder.WriteText(root, JobFolderPaths.CandidatesRelativePath, "1行目\n2行目").IsSuccess.Should().BeTrue();
+        _folder.WriteText(root, "notes.json", "{\"date\":\"2026-09-07\"}").IsSuccess.Should().BeTrue();
+        _folder.WriteText(root, Path.Combine("sub", "lines.txt"), "1行目\n2行目").IsSuccess.Should().BeTrue();
 
-        _folder.ReadText(root, JobFolderPaths.BoardJsonName).Should().Be("{\"date\":\"2026-09-07\"}");
-        _folder.ReadText(root, JobFolderPaths.CandidatesRelativePath).Should().Be("1行目\n2行目");
+        _folder.ReadText(root, "notes.json").Should().Be("{\"date\":\"2026-09-07\"}");
+        _folder.ReadText(root, Path.Combine("sub", "lines.txt")).Should().Be("1行目\n2行目");
     }
 
     [Fact]
@@ -266,9 +265,9 @@ public class JobFolderTests : IDisposable
     {
         var root = _folder.Create(MorningRequest()).Value!;
 
-        _folder.ReadText(root, JobFolderPaths.PlanRelativePath).Should()
-            .BeNull("Claude がまだ書いていないだけで、失敗ではない");
-        _folder.ReadText("", JobFolderPaths.PlanRelativePath).Should().BeNull();
+        _folder.ReadText(root, Path.Combine("sub", "not-yet.json")).Should()
+            .BeNull("まだ書かれていないだけで、失敗ではない");
+        _folder.ReadText("", Path.Combine("sub", "not-yet.json")).Should().BeNull();
     }
 
     [Fact]

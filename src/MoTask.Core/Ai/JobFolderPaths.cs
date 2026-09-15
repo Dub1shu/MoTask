@@ -5,6 +5,8 @@ namespace MoTask.Core.Ai;
 /// <summary>
 /// ジョブフォルダのレイアウト（仕様 §6）。パスを組み立てるだけで、ファイルには触らない。
 /// 実体を作るのは App の JobFolder。
+/// 朝の実行のフォルダは instruction.md / hooks.json / events.jsonl / run.json / mcp.json だけ
+/// （成果は MCP で渡すので result/ も board.json も作らない・仕様 §4）。
 /// </summary>
 public sealed record JobFolderPaths(string Root)
 {
@@ -17,23 +19,14 @@ public sealed record JobFolderPaths(string Root)
     /// <summary>AI 遂行の成果物。Create が併せて作る。</summary>
     public const string ArtifactsDirectoryName = "artifacts";
 
-    /// <summary>朝の実行の成果物。Create が併せて作る。</summary>
-    public const string ResultDirectoryName = "result";
-
     public const string JobJsonName = "job.json";
     public const string InstructionMarkdownName = "instruction.md";
     public const string HooksJsonName = "hooks.json";
     public const string EventsJsonlName = "events.jsonl";
-    public const string BoardJsonName = "board.json";
     public const string RunJsonName = "run.json";
 
     /// <summary>--mcp-config に渡す MCP サーバ登録（仕様 §5.4）。朝の実行だけが持つ。</summary>
     public const string McpJsonName = "mcp.json";
-
-    /// <summary>ルートからの相対パス。IJobFolder.WriteText / ReadText に渡す。</summary>
-    public static readonly string CandidatesRelativePath = Path.Combine(ResultDirectoryName, "candidates.jsonl");
-
-    public static readonly string PlanRelativePath = Path.Combine(ResultDirectoryName, "plan.json");
 
     /// <summary>フォルダ名に残す長さの上限。パス全体が 260 文字に近づかないようにする。</summary>
     private const int MaxSlugLength = 40;
@@ -43,12 +36,8 @@ public sealed record JobFolderPaths(string Root)
     public string HooksJson => Path.Combine(Root, HooksJsonName);
     public string EventsJsonl => Path.Combine(Root, EventsJsonlName);
     public string ArtifactsDirectory => Path.Combine(Root, ArtifactsDirectoryName);
-    public string ResultDirectory => Path.Combine(Root, ResultDirectoryName);
-    public string BoardJson => Path.Combine(Root, BoardJsonName);
     public string RunJson => Path.Combine(Root, RunJsonName);
     public string McpJson => Path.Combine(Root, McpJsonName);
-    public string CandidatesJsonl => Path.Combine(Root, CandidatesRelativePath);
-    public string PlanJson => Path.Combine(Root, PlanRelativePath);
 
     public static JobFolderPaths For(string root) => new(root);
 

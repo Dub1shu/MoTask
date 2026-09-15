@@ -178,21 +178,19 @@ public class TerminalLauncherTests : IDisposable
     }
 
     /// <summary>
-    /// 朝の実行は成果物を artifacts/ ではなく result/ に出す（JobFolderRequest.OutputDirectoryName
-    /// と揃える）。起動プロンプトが instruction.md の指示と食い違うと、そちらに従った Claude が
-    /// result/ に何も書かず実行が失敗で終わる。
+    /// 朝の実行は成果をファイルに出さないので、起動プロンプトに出し先を書かない（仕様 §5.4）。
     /// </summary>
     [Fact]
-    public void BuildCommand_PointsThePromptAtTheResultFolder_ForAMorningShapedRequest()
+    public void BuildCommand_PointsThePromptOnlyAtTheInstruction_ForAMorningRun()
     {
-        var morningRequest = _request with { OutputDirectoryName = "result" };
+        var morning = _request with { OutputDirectoryName = null, CloseOnExit = true };
 
-        var command = Launcher().BuildCommand(morningRequest).Value!;
+        var command = Launcher().BuildCommand(morning).Value!;
 
         command.Arguments.Should()
             .Contain(@"C:\work\jobs\0042-見積り\instruction.md")
-            .And.Contain(@"C:\work\jobs\0042-見積り\result")
-            .And.NotContain(@"C:\work\jobs\0042-見積り\artifacts");
+            .And.NotContain(@"C:\work\jobs\0042-見積り\artifacts")
+            .And.NotContain(@"C:\work\jobs\0042-見積り\result");
     }
 
     /// <summary>

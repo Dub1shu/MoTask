@@ -60,7 +60,9 @@ public sealed class JobFolder : IJobFolder
         try
         {
             // 既にあっても作り直さない（--resume で開き直すときに同じフォルダへ戻る）
-            Directory.CreateDirectory(Path.Combine(root, request.OutputDirectoryName));
+            Directory.CreateDirectory(request.OutputDirectoryName is { Length: > 0 } output
+                ? Path.Combine(root, output)
+                : root);
             File.WriteAllText(paths.InstructionMarkdown, request.Instruction, Utf8);
             File.WriteAllText(paths.HooksJson, HooksJson.Build(HooksExecutable, paths.EventsJsonl), Utf8);
             if (request.WithMcpConfig)

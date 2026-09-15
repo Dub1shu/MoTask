@@ -46,7 +46,7 @@ public class MorningServiceStartTests
         started.IsSuccess.Should().BeTrue(started.Error);
         _folder.Created.Should().ContainSingle();
         _folder.Created[0].Category.Should().Be(JobFolderPaths.MorningDirectoryName);
-        _folder.Created[0].OutputDirectoryName.Should().Be(JobFolderPaths.ResultDirectoryName);
+        _folder.Created[0].OutputDirectoryName.Should().BeEmpty("朝の実行に出力フォルダは要らない");
         _folder.Created[0].TaskTitle.Should().Be("2026-09-07");
         started.Value!.JobFolder.Should().Be(@"C:\work\morning\0001-2026-09-07");
     }
@@ -85,19 +85,6 @@ public class MorningServiceStartTests
     }
 
     [Fact]
-    public async Task Start_WritesBoardJsonWithTheUnfinishedTasks()
-    {
-        var run = (await _service.StartAsync()).Value!;
-
-        var board = _folder.ReadText(run.JobFolder, JobFolderPaths.BoardJsonName);
-        board.Should().NotBeNull();
-        var root = JsonDocument.Parse(board!).RootElement;
-        root.GetProperty("date").GetString().Should().Be("2026-09-07");
-        root.GetProperty("tasks").EnumerateArray()
-            .Select(t => t.GetProperty("title").GetString()).Should().Equal("Q4企画書の内容を確定する");
-    }
-
-    [Fact]
     public async Task Start_WritesRunJsonWithTheLaunchCommand()
     {
         var run = (await _service.StartAsync()).Value!;
@@ -116,6 +103,14 @@ public class MorningServiceStartTests
         await _service.StartAsync();
 
         _launcher.Requests.Should().ContainSingle().Which.CloseOnExit.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Start_DoesNotAskThePromptToPointAtAnOutputFolder()
+    {
+        await _service.StartAsync();
+
+        _launcher.Requests.Should().ContainSingle().Which.OutputDirectoryName.Should().BeNull();
     }
 
     /// <summary>完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。</summary>
