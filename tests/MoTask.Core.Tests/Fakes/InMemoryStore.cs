@@ -22,6 +22,9 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public int SaveCount { get; private set; }
     public bool FailNextSave { get; set; }
 
+    /// <summary>true にすると GetBoardAsync が null を返す(盤面が無い、をテストで作る)。</summary>
+    public bool NoBoard { get; set; }
+
     /// <summary>
     /// 何回目の SaveChangesAsync 呼び出し（成否を問わない通し番号）だけを落とすか。
     /// FailNextSave と違い自分でフラグを下ろさないので、「1 回目は通って 2 回目だけ失敗する」
@@ -73,7 +76,8 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     // ---- IBoardRepository ----
 
-    public Task<Board?> GetBoardAsync(CancellationToken ct = default) => Task.FromResult<Board?>(Board);
+    public Task<Board?> GetBoardAsync(CancellationToken ct = default)
+        => Task.FromResult(NoBoard ? null : Board);
 
     public Task<Column?> GetColumnAsync(int columnId, CancellationToken ct = default)
         => Task.FromResult(Board.Columns.FirstOrDefault(c => c.Id == columnId));

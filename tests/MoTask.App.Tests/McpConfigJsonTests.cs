@@ -23,6 +23,9 @@ public class McpConfigJsonTests
     /// ブリッジは mcp\ の下にいるので、既定の exe 探索（AppContext.BaseDirectory 直下）では
     /// MoTask.exe に届かない。MOTASK_APP_EXE（SystemAppHost.ExeOverrideVariable と同じ名前）に
     /// 絶対パスを渡すことで、MoTask を閉じたあとも呼び直せるようにする（Finding 1）。
+    /// この文字列は MoTask.Mcp 側の定数と独立しているので、綴りのペアは
+    /// tests/MoTask.Mcp.Tests/SystemAppHostTests.cs の ExeOverrideVariable_IsSpelledMotaskAppExe
+    /// が固定している。
     /// </summary>
     [Fact]
     public void Build_PassesTheAppExeThroughTheOverrideEnvironmentVariable()

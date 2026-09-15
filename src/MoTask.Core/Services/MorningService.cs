@@ -143,7 +143,7 @@ public sealed class MorningService : IMorningService
             var request = new JobFolderRequest(prepared.Value!.RunNumber, date.ToString("yyyy-MM-dd"), "")
             {
                 Category = JobFolderPaths.MorningDirectoryName,
-                OutputDirectoryName = "",
+                OutputDirectoryName = null,
                 WithMcpConfig = true,
             };
             // 指示文は runId（DB の採番）を含むので、行を保存してからでないと組み立てられない
@@ -204,9 +204,12 @@ public sealed class MorningService : IMorningService
                             await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
                         }
                     }
-                    catch (PersistenceException)
+                    catch (Exception)
                     {
-                        // 後始末も失敗。行は Pending のまま残るが、これ以上リトライしない。
+                        // 後始末も失敗。GetUnfinishedRunAsync は PersistenceException に包まない
+                        // ので、DB ロックなどで落ちると別種の例外になりうる。ここは後始末なので、
+                        // 何が起きても握りつぶし、元の保存エラー(error)を優先して返す。行は
+                        // Pending のまま残るが、これ以上リトライしない。
                     }
                     return Result.Fail(error);
                 }
@@ -444,7 +447,11 @@ public sealed class MorningService : IMorningService
         // 待つべき Stop が来る保証が無いのでその場で閉じる(仕様 §7)。
         var result = await CompleteRunAsync(runId, closeNow: true, ct).ConfigureAwait(false);
         if (!result.IsSuccess) return Result.Fail(result.Error!);
-        return result.Value!.Accepted ? Result.Ok() : Result.Fail(result.Value.Reason!);
+        // result.Value.Reason は Claude 向け(MCP ツール名を含む)。人には出さない。
+        // CompleteRunAsync が Accepted:false を返す理由は今のところ「プラン未提出」の
+        // 1 種類だけ(他の拒否は NotRunning = Result.Fail でここまで来ない)。理由が増えたら
+        // ここも作り直すこと。
+        return result.Value!.Accepted ? Result.Ok() : Result.Fail(Messages.MorningCompleteWithoutPlan);
     }
 
     public async Task<Result<MorningOutcome>> CompleteRunAsync(
@@ -592,7 +599,16 @@ public sealed class MorningService : IMorningService
             return await SaveQuietlyAsync().ConfigureAwait(false);
         }).ConfigureAwait(false);
 
-        if (run is null) return;
+        if (run is null)
+        {
+            // 終端の実行(closePending中も含む)。端末はもう自分で死んでいるので、予約が残っていれば
+            // 捨てて追従も降りる。予約だけ捨てて StopFollowing を呼ばないと、closeNow:false は
+            // 「追従は予約が解けるまで続ける」設計なので、この経路だけ誰も止めない follower が
+            // アプリ終了まで残る(B1)。捨てないと最大 CloseGrace 秒後に死んだ端末へも
+            // 無意味な CloseOwned を打つ。
+            if (_closePending.TryRemove(runId, out _)) _events.StopFollowing(runId);
+            return;
+        }
         _events.StopFollowing(run.Id);
         _turns.TryRemove(run.Id, out _);
         Raise(run, warning, candidatesChanged: false);

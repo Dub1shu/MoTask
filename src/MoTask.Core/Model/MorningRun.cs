@@ -21,6 +21,6 @@ public sealed class MorningRun
     public string? ErrorMessage { get; set; }
     /// <summary>events.jsonl から読んだ行数。追従を張り直すときの読み飛ばし数になる。</summary>
     public int ProcessedLines { get; set; }
-    /// <summary>検証済み plan.json の生データ。未取り込みは空文字（仕様 §9）。</summary>
+    /// <summary>morning_submit_plan で受けた検証済みの生 JSON。未取り込みは空文字（仕様 §9）。</summary>
     public string PlanJson { get; set; } = "";
 }

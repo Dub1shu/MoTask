@@ -70,6 +70,19 @@ public class MorningServiceMcpTests
             .Select(t => t.GetProperty("title").GetString()).Should().Equal("Q4企画書の内容を確定する");
     }
 
+    /// <summary>盤面が無い(論理的にありえないはずだが)なら、Claude に取り違えさせず Fail にする。</summary>
+    [Fact]
+    public async Task GetContext_FailsWhenThereIsNoBoard()
+    {
+        var run = await StartAsync();
+        _store.NoBoard = true;
+
+        var context = await _service.GetContextAsync(run.Id);
+
+        context.IsSuccess.Should().BeFalse();
+        context.Error.Should().Be(Messages.BoardNotFound);
+    }
+
     /// <summary>
     /// 利用者が普段使っている Claude Code も同じ MCP サーバに繋がる。宛先違いはツールエラーにして、
     /// そちらが誤って朝の実行を動かす事故を防ぐ（仕様 §6）。
@@ -281,6 +294,7 @@ public class MorningServiceMcpTests
     [Fact]
     public async Task Complete_AcceptsARunWithNoCandidates()
     {
+        _service.CloseGrace = TimeSpan.FromMinutes(10); // 保険は今回は効かせない
         var run = await StartAsync();
         await _service.SubmitPlanAsync(run.Id, Plan);
 
@@ -365,7 +379,8 @@ public class MorningServiceMcpTests
         var done = await _service.CompleteAsync(run.Id);
 
         done.IsSuccess.Should().BeFalse();
-        done.Error.Should().Be(Messages.MorningPlanNotSubmitted);
+        // 人向けの文言。Claude 向け(MCP ツール名入り)の Messages.MorningPlanNotSubmitted とは別物。
+        done.Error.Should().Be(Messages.MorningCompleteWithoutPlan);
         run.Status.Should().Be(MorningRunStatus.Pending);
     }
 

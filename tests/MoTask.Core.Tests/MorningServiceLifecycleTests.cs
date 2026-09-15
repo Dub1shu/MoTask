@@ -202,6 +202,33 @@ public class MorningServiceLifecycleTests
         run.Status.Should().Be(MorningRunStatus.Cancelled);
     }
 
+    /// <summary>
+    /// 取り込み済み・閉じる予約も無い実行に、遅れて Stop や SessionEnd が届いても黙って
+    /// 落ちる。既存の LinesArrivingAfterTheRunFinished_AreDropped は Cancelled ＋
+    /// SessionStart の組み合わせしか見ていないので、Ingested ＋ Stop / SessionEnd を足す。
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(LateLines))]
+    public async Task LinesArrivingAfterCompletionWithNoPendingClose_AreDropped(string line)
+    {
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+        await _service.CompleteAsync(run.Id); // closeNow:true。予約は残らない
+
+        await _events.EmitAsync(run.Id, line);
+
+        run.Status.Should().Be(MorningRunStatus.Ingested);
+        run.ErrorMessage.Should().BeNull();
+        // CompleteAsync の 1 回だけ。遅れた行で二重に閉じない
+        _launcher.Closed.Should().Equal(run.Id);
+    }
+
+    public static IEnumerable<object[]> LateLines()
+    {
+        yield return new object[] { FakeJobEventSource.Stop() };
+        yield return new object[] { FakeJobEventSource.SessionEnd() };
+    }
+
     [Fact]
     public async Task Recover_ResumesFollowingFromTheProcessedLineCount()
     {
@@ -319,6 +346,30 @@ public class MorningServiceLifecycleTests
 
         run.Status.Should().Be(MorningRunStatus.Ingested);
         run.ErrorMessage.Should().BeNull();
+    }
+
+    /// <summary>
+    /// morning_complete(closeNow:false) で閉じる予約が入った後、次の Stop より先に端末が
+    /// 自分で死んだ(人が × で閉じた)。実行はもう終端なので蘇らせない。予約は捨てて、後から
+    /// 保険のタイマーが来ても死んだ端末へ二重に CloseOwned を打たない(B1)。
+    /// </summary>
+    [Fact]
+    public async Task TheTerminalDyingWhileACloseIsPending_DiscardsTheReservation()
+    {
+        _service.CloseGrace = TimeSpan.FromMilliseconds(10);
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+        await _service.CompleteRunAsync(run.Id, closeNow: false);
+        var pendingClose = _service.PendingClose; // 保険のタイマー。予約を捨てた後に走っても何もしないはず
+
+        _launcher.RaiseExited(run.Id);
+        await _service.PendingTerminalExit;
+        await pendingClose;
+
+        run.Status.Should().Be(MorningRunStatus.Ingested, "取り込み済みの実行を蘇らせない");
+        run.ErrorMessage.Should().BeNull();
+        _launcher.Closed.Should().BeEmpty("端末はもう自分で死んでいるので、無意味な CloseOwned を打たない");
+        _events.IsFollowing(run.Id).Should().BeFalse("予約を捨てるなら追従も降りる。誰も止めないポーラーを残さない");
     }
 
     /// <summary>知らない runId のイベントで落ちない。</summary>

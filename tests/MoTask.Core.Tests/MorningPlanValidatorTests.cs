@@ -36,6 +36,19 @@ public class MorningPlanValidatorTests
         result.Error.Should().Be(string.Format(Messages.PlanGroupKeyInvalidFormat, 1, "later"));
     }
 
+    [Fact]
+    public void Validate_NamesTheGroupThatIsNotAnObject()
+    {
+        var plan = """{"groups":[{"key":"today","items":[]},1]}""";
+
+        var result = MorningPlanValidator.Validate(plan);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(
+            string.Format(Messages.PlanGroupNotAnObjectFormat, 1),
+            "groups[1] がオブジェクトでないこと自体が不正なので、items の話にすり替えない");
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]

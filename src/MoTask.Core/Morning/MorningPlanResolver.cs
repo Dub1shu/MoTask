@@ -10,7 +10,7 @@ namespace MoTask.Core.Morning;
 /// </summary>
 public static class MorningPlanResolver
 {
-    /// <summary>JSON の key と enum の対応。MorningResultReader.PlanGroupKeys と同じ並び。</summary>
+    /// <summary>JSON の key と enum の対応。MorningPlanValidator.PlanGroupKeys と同じ並び。</summary>
     private static readonly (string Json, PlanGroupKey Key)[] Keys =
     {
         ("today", PlanGroupKey.Today),
@@ -35,7 +35,7 @@ public static class MorningPlanResolver
         }
         catch (JsonException)
         {
-            // MorningResultReader が検証済みのはずだが、DB の中身を信用しきらない
+            // MorningPlanValidator が検証済みのはずだが、DB の中身を信用しきらない
             return ResolvedPlan.Empty(summary);
         }
 
