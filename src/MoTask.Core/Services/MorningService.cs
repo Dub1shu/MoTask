@@ -204,9 +204,12 @@ public sealed class MorningService : IMorningService
                             await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
                         }
                     }
-                    catch (PersistenceException)
+                    catch (Exception)
                     {
-                        // 後始末も失敗。行は Pending のまま残るが、これ以上リトライしない。
+                        // 後始末も失敗。GetUnfinishedRunAsync は PersistenceException に包まない
+                        // ので、DB ロックなどで落ちると別種の例外になりうる。ここは後始末なので、
+                        // 何が起きても握りつぶし、元の保存エラー(error)を優先して返す。行は
+                        // Pending のまま残るが、これ以上リトライしない。
                     }
                     return Result.Fail(error);
                 }
@@ -593,7 +596,13 @@ public sealed class MorningService : IMorningService
             return await SaveQuietlyAsync().ConfigureAwait(false);
         }).ConfigureAwait(false);
 
-        if (run is null) return;
+        if (run is null)
+        {
+            // 終端の実行(closePending中も含む)。端末はもう自分で死んでいるので、予約が残っていれば
+            // 捨てる。捨てないと最大 CloseGrace 秒後に死んだ端末へ無意味な CloseOwned を打つ(B1)。
+            _closePending.TryRemove(runId, out _);
+            return;
+        }
         _events.StopFollowing(run.Id);
         _turns.TryRemove(run.Id, out _);
         Raise(run, warning, candidatesChanged: false);
