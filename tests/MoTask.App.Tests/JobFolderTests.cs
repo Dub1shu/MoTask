@@ -196,7 +196,7 @@ public class JobFolderTests : IDisposable
         new(7, "2026-09-07", "指示")
         {
             Category = JobFolderPaths.MorningDirectoryName,
-            OutputDirectoryName = "",
+            OutputDirectoryName = null,
             WithMcpConfig = true,
         };
 

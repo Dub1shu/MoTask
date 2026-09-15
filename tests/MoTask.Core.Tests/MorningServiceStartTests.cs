@@ -46,7 +46,7 @@ public class MorningServiceStartTests
         started.IsSuccess.Should().BeTrue(started.Error);
         _folder.Created.Should().ContainSingle();
         _folder.Created[0].Category.Should().Be(JobFolderPaths.MorningDirectoryName);
-        _folder.Created[0].OutputDirectoryName.Should().BeEmpty("朝の実行に出力フォルダは要らない");
+        _folder.Created[0].OutputDirectoryName.Should().BeNull("朝の実行に出力フォルダは要らない");
         _folder.Created[0].TaskTitle.Should().Be("2026-09-07");
         started.Value!.JobFolder.Should().Be(@"C:\work\morning\0001-2026-09-07");
     }

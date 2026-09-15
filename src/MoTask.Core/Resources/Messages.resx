@@ -84,12 +84,14 @@
   <data name="MorningRunAlreadyFinished" xml:space="preserve"><value>この朝の実行はもう終わっています</value></data>
   <data name="MorningPlanNotSubmitted" xml:space="preserve"><value>先に morning_submit_plan を呼んでください</value></data>
   <data name="MorningCompleteMissing" xml:space="preserve"><value>Claude が完了を通知しないままセッションを終えました</value></data>
+  <data name="MorningCompleteWithoutPlan" xml:space="preserve"><value>まだプランが出ていないので、完了にできません</value></data>
   <data name="CandidateFieldRequiredFormat" xml:space="preserve"><value>{0} が空です。必須の項目です</value></data>
   <data name="CandidateEvidenceRequired" xml:space="preserve"><value>evidence が空です。元の文面から引用してください</value></data>
   <data name="CandidateActionInvalid" xml:space="preserve"><value>suggestedAction は register / merge / later / reject のどれかにしてください</value></data>
   <data name="CandidateMergeTargetMissing" xml:space="preserve"><value>mergeTargetTaskId が盤面にありません</value></data>
   <data name="PlanNotAnObject" xml:space="preserve"><value>plan は JSON オブジェクトで渡してください</value></data>
   <data name="PlanGroupsInvalid" xml:space="preserve"><value>groups が配列ではありません</value></data>
+  <data name="PlanGroupNotAnObjectFormat" xml:space="preserve"><value>groups[{0}] が JSON オブジェクトではありません</value></data>
   <data name="PlanGroupKeyInvalidFormat" xml:space="preserve"><value>groups[{0}].key が '{1}' です。today / ifTime / aiReady / waiting のどれかにしてください</value></data>
   <data name="PlanItemsInvalidFormat" xml:space="preserve"><value>groups[{0}].items が配列ではありません</value></data>
   <data name="PlanItemNeedsIdFormat" xml:space="preserve"><value>groups[{0}].items[{1}] は taskId か externalId のどちらかを持ってください</value></data>

@@ -3,7 +3,7 @@ using MoTask.Core.Model;
 namespace MoTask.Core.Morning;
 
 /// <summary>
-/// candidates.jsonl の 1 行を検証したもの（仕様 §8）。ここから先は DB のエンティティに写すだけ。
+/// morning_add_candidate の引数を検証したもの（仕様 §6）。ここから先は DB のエンティティに写すだけ。
 /// </summary>
 public sealed record CandidateRecord(
     string ExternalId,

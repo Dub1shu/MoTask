@@ -67,12 +67,14 @@ public static class Messages
     public static string MorningRunAlreadyFinished => Get(nameof(MorningRunAlreadyFinished));
     public static string MorningPlanNotSubmitted => Get(nameof(MorningPlanNotSubmitted));
     public static string MorningCompleteMissing => Get(nameof(MorningCompleteMissing));
+    public static string MorningCompleteWithoutPlan => Get(nameof(MorningCompleteWithoutPlan));
     public static string CandidateFieldRequiredFormat => Get(nameof(CandidateFieldRequiredFormat));
     public static string CandidateEvidenceRequired => Get(nameof(CandidateEvidenceRequired));
     public static string CandidateActionInvalid => Get(nameof(CandidateActionInvalid));
     public static string CandidateMergeTargetMissing => Get(nameof(CandidateMergeTargetMissing));
     public static string PlanNotAnObject => Get(nameof(PlanNotAnObject));
     public static string PlanGroupsInvalid => Get(nameof(PlanGroupsInvalid));
+    public static string PlanGroupNotAnObjectFormat => Get(nameof(PlanGroupNotAnObjectFormat));
     public static string PlanGroupKeyInvalidFormat => Get(nameof(PlanGroupKeyInvalidFormat));
     public static string PlanItemsInvalidFormat => Get(nameof(PlanItemsInvalidFormat));
     public static string PlanItemNeedsIdFormat => Get(nameof(PlanItemNeedsIdFormat));

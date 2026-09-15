@@ -365,7 +365,8 @@ public class MorningServiceMcpTests
         var done = await _service.CompleteAsync(run.Id);
 
         done.IsSuccess.Should().BeFalse();
-        done.Error.Should().Be(Messages.MorningPlanNotSubmitted);
+        // 人向けの文言。Claude 向け(MCP ツール名入り)の Messages.MorningPlanNotSubmitted とは別物。
+        done.Error.Should().Be(Messages.MorningCompleteWithoutPlan);
         run.Status.Should().Be(MorningRunStatus.Pending);
     }
 

@@ -143,7 +143,7 @@ public sealed class MorningService : IMorningService
             var request = new JobFolderRequest(prepared.Value!.RunNumber, date.ToString("yyyy-MM-dd"), "")
             {
                 Category = JobFolderPaths.MorningDirectoryName,
-                OutputDirectoryName = "",
+                OutputDirectoryName = null,
                 WithMcpConfig = true,
             };
             // 指示文は runId（DB の採番）を含むので、行を保存してからでないと組み立てられない
@@ -444,7 +444,8 @@ public sealed class MorningService : IMorningService
         // 待つべき Stop が来る保証が無いのでその場で閉じる(仕様 §7)。
         var result = await CompleteRunAsync(runId, closeNow: true, ct).ConfigureAwait(false);
         if (!result.IsSuccess) return Result.Fail(result.Error!);
-        return result.Value!.Accepted ? Result.Ok() : Result.Fail(result.Value.Reason!);
+        // result.Value.Reason は Claude 向け(MCP ツール名を含む)。人には出さない。
+        return result.Value!.Accepted ? Result.Ok() : Result.Fail(Messages.MorningCompleteWithoutPlan);
     }
 
     public async Task<Result<MorningOutcome>> CompleteRunAsync(

@@ -31,7 +31,7 @@ public static class MorningPlanValidator
             {
                 if (group.ValueKind != JsonValueKind.Object)
                 {
-                    return Result.Fail<string>(string.Format(Messages.PlanItemsInvalidFormat, groupIndex));
+                    return Result.Fail<string>(string.Format(Messages.PlanGroupNotAnObjectFormat, groupIndex));
                 }
                 var key = Text(group, "key");
                 if (!PlanGroupKeys.Contains(key))
