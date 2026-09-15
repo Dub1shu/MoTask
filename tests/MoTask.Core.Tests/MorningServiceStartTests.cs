@@ -223,6 +223,28 @@ public class MorningServiceStartTests
     }
 
     /// <summary>
+    /// 1 回目の保存（Add）は通って Id が採番された後、2 回目（指示文の書き戻し）だけが
+    /// 落ちた場合。行を Pending のまま残すと、次の StartAsync が二重起動防止に引っかかって
+    /// 朝の実行が永久に始められなくなる（仕様 §12）。ベストエフォートで Failed に倒す。
+    /// </summary>
+    [Fact]
+    public async Task Start_MarksTheRunFailed_WhenOnlyTheSecondSaveFails()
+    {
+        _store.FailSaveAtCount = 2;
+
+        var started = await _service.StartAsync();
+
+        started.IsSuccess.Should().BeFalse();
+        var run = _store.Runs.Should().ContainSingle().Subject;
+        run.Status.Should().Be(MorningRunStatus.Failed, "Pending のまま残すと次の実行を永久に塞ぐ");
+        run.ErrorMessage.Should().Contain(Messages.SaveFailed);
+
+        var second = await _service.StartAsync();
+
+        second.IsSuccess.Should().BeTrue(second.Error, "終端に倒れているので次の実行は塞がれない");
+    }
+
+    /// <summary>
     /// 端末はもう走っているので、run.json が書けなくても実行は続ける。ただし再起動後に
     /// 掛け直せなくなる（仕様 §7）ので、理由を警告として人に見せる。
     /// </summary>

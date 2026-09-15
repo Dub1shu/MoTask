@@ -187,7 +187,27 @@ public sealed class MorningService : IMorningService
                 }
                 catch (PersistenceException ex)
                 {
-                    return Result.Fail($"{Messages.SaveFailed}: {ex.Message}");
+                    var error = $"{Messages.SaveFailed}: {ex.Message}";
+                    if (run.Id != 0)
+                    {
+                        // 1 回目は通って Id が採番済み。このままだと Pending のまま終端に
+                        // ならず、次の StartAsync が GetUnfinishedRunAsync に引っかかって
+                        // 永久に塞がる(仕様 §12)。ここは既にゲートの中なので FailAsync
+                        // (ゲートを取り直す)は呼べない。ベストエフォートで Failed に倒す
+                        // だけにし、後始末自体が落ちても元のエラーを黙って優先する。
+                        try
+                        {
+                            run.Status = MorningRunStatus.Failed;
+                            run.ErrorMessage = error;
+                            run.EndedAt = _clock.UtcNow;
+                            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+                        }
+                        catch (PersistenceException)
+                        {
+                            // 後始末も失敗。行は Pending のまま残るが、これ以上リトライしない。
+                        }
+                    }
+                    return Result.Fail(error);
                 }
             }, ct).ConfigureAwait(false);
             if (!saved.IsSuccess) return Result.Fail<MorningRun>(saved.Error!);

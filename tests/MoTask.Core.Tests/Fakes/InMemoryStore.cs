@@ -12,6 +12,7 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 {
     private int _nextId = 1;
     private long _nextHistoryId = 1;
+    private int _saveAttempts;
 
     public Board Board { get; } = new() { Id = 1, Name = "テスト" };
     public List<Project> Projects { get; } = new();
@@ -20,6 +21,13 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public List<AiJob> Jobs { get; } = new();
     public int SaveCount { get; private set; }
     public bool FailNextSave { get; set; }
+
+    /// <summary>
+    /// 何回目の SaveChangesAsync 呼び出し（成否を問わない通し番号）だけを落とすか。
+    /// FailNextSave と違い自分でフラグを下ろさないので、「1 回目は通って 2 回目だけ失敗する」
+    /// といったシナリオを組める。
+    /// </summary>
+    public int? FailSaveAtCount { get; set; }
 
     // ---- テスト用の投入ヘルパー ----
 
@@ -207,10 +215,15 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     public Task SaveChangesAsync(CancellationToken ct = default)
     {
+        _saveAttempts++;
         if (FailNextSave)
         {
             FailNextSave = false;
             throw new PersistenceException("テスト用の保存失敗");
+        }
+        if (FailSaveAtCount == _saveAttempts)
+        {
+            throw new PersistenceException($"テスト用の保存失敗（{_saveAttempts}回目）");
         }
         SaveCount++;
         return Task.CompletedTask;
