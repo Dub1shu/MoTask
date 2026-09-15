@@ -146,11 +146,10 @@ public sealed class MorningService : IMorningService
                 OutputDirectoryName = JobFolderPaths.ResultDirectoryName,
                 WithMcpConfig = true,
             };
-            // 指示文は出力先の実パスを含むので、フォルダのパスが決まってから組み立てる。
+            // 指示文は runId（DB の採番）を含むので、行を保存してからでないと組み立てられない
+            // （仕様 §8）。フォルダと hooks.json / mcp.json だけを先に作り、instruction.md は後で書く。
             var root = _folder.ResolveRoot(request);
-            var instruction = MorningInstruction.Build(settings.MorningInstruction, JobFolderPaths.For(root), date);
-
-            var created = _folder.Create(request with { Instruction = instruction });
+            var created = _folder.Create(request);
             if (!created.IsSuccess) return Result.Fail<MorningRun>(created.Error!);
 
             var wroteBoard = _folder.WriteText(root, JobFolderPaths.BoardJsonName, prepared.Value!.BoardJson);
@@ -172,13 +171,17 @@ public sealed class MorningService : IMorningService
             var run = new MorningRun
             {
                 Date = date, Status = MorningRunStatus.Pending, SessionId = sessionId,
-                Instruction = instruction, JobFolder = root, StartedAt = now,
+                Instruction = "", JobFolder = root, StartedAt = now,
             };
             var saved = await _gate.RunAsync(async () =>
             {
                 try
                 {
                     _runs.Add(run);
+                    // Id が要るのでいったん保存し、採番してから指示文を作って書き戻す（仕様 §8）。
+                    // ゲートの取得は 1 回のままで、SaveChanges が 2 回走るだけ。
+                    await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+                    run.Instruction = MorningInstruction.Build(settings.MorningInstruction, date, run.Id);
                     await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
                     return Result.Ok();
                 }
@@ -188,6 +191,13 @@ public sealed class MorningService : IMorningService
                 }
             }, ct).ConfigureAwait(false);
             if (!saved.IsSuccess) return Result.Fail<MorningRun>(saved.Error!);
+
+            var wroteInstruction = _folder.WriteText(
+                root, JobFolderPaths.InstructionMarkdownName, run.Instruction);
+            if (!wroteInstruction.IsSuccess)
+            {
+                return await FailAsync(run, wroteInstruction.Error!).ConfigureAwait(false);
+            }
 
             // 追従は起動より先に掛ける。起こした端末が即死すると OwnedSessionExited は
             // LaunchOwned が戻る前にも届きうるので、後から掛けると「終わった実行に追従を

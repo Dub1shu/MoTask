@@ -68,10 +68,20 @@ public class MorningServiceStartTests
 
         run.Status.Should().Be(MorningRunStatus.Pending);
         run.JobFolder.Should().NotBeEmpty("JobFolder が空のまま Pending で残る窓を作らない（仕様 §12）");
-        run.Instruction.Should().Contain(run.JobFolder, "指示文には出力先の実パスが入る");
+        run.Instruction.Should().Contain($"runId は {run.Id} です", "契約文は runId を名指しする（仕様 §8）");
         run.SessionId.Should().NotBeEmpty();
         run.StartedAt.Should().Be(_clock.UtcNow);
         _store.Runs.Should().ContainSingle();
+    }
+
+    /// <summary>フォルダの instruction.md と DB の Instruction 列は同じ文言（仕様 §8）。</summary>
+    [Fact]
+    public async Task Start_WritesTheSameInstructionToTheFolderAndTheRow()
+    {
+        var run = (await _service.StartAsync()).Value!;
+
+        _folder.ReadText(run.JobFolder, JobFolderPaths.InstructionMarkdownName).Should().Be(run.Instruction);
+        run.Instruction.Should().Contain("mcp__motask__morning_complete");
     }
 
     [Fact]
@@ -239,7 +249,7 @@ public class MorningServiceStartTests
         var run = (await _service.StartAsync()).Value!;
 
         run.Instruction.Should().StartWith("私の方針");
-        _folder.Created[0].Instruction.Should().Be(run.Instruction);
+        _folder.ReadText(run.JobFolder, JobFolderPaths.InstructionMarkdownName).Should().Be(run.Instruction);
     }
 
     [Fact]

@@ -61,34 +61,23 @@
 1 件ごとに、元の文面から根拠となる一文を引用してください。引用できないものは候補にしないでください。</value></data>
   <data name="MorningInstructionContractFormat" xml:space="preserve"><value>## 出力の契約（この節は MoTask が書いています。変更しないでください）
 
-対象日は {0} です。
-現在の盤面は {1} にあります。統合先の推薦と今日のプランは、必ずこのファイルの内容に基づいてください。
+対象日は {0} です。この朝の実行の runId は {1} です。
+成果は MCP ツールで渡してください。ファイルは書かないでください。
 
-### 1. 候補: {2}
+1. mcp__motask__morning_get_context({{"runId":{1}}}) で今日の盤面を取る。
+   統合先の推薦と今日のプランは、必ずこの結果に基づくこと。
+2. 候補 1 件ごとに mcp__motask__morning_add_candidate({{"runId":{1}, ...}}) を呼ぶ。
+   externalId は再実行しても同じ値になるようにすること（例: サービス名:元のID）。
+   一度片づけた候補を二度出さないための鍵である。
+   accepted:false が返ったら reason を読み、直せるなら直して呼び直す。
+   直せないなら、その候補は諦めて次へ進んでよい。
+3. mcp__motask__morning_submit_plan({{"runId":{1},"plan":{{...}}}}) でプランを出す。
+   plan の groups[].key は today / ifTime / aiReady / waiting のいずれかにする。
+   aiReady には、morning_get_context の hasActiveAiJob が false で AI に任せられるものを入れる。
+4. mcp__motask__morning_complete({{"runId":{1}}}) を呼ぶ。呼ぶとこの端末は閉じる。
 
-1 行 1 件の JSON Lines で書いてください。1 行は次の形です（改行を含めないこと）。
-
-{{"externalId":"outlook:AAMkAD001","source":"Outlook","receivedAt":"2026-09-07T07:42:00+09:00","from":"顧客A 山本さん","title":"請求先情報を更新する","evidence":"「9月8日までに新しい請求先へ…」","link":"https://outlook.office.com/...","reasoning":"依頼が明確で期限の記述あり。既存タスクとの重複なし。","suggestedDueDate":"2026-09-08","suggestedProject":"顧客A","suggestedAction":"register","mergeTargetTaskId":null}}
-
-- externalId / source / title / evidence / suggestedAction は必須です。欠けている行は捨てられます。
-- externalId は再実行しても同じ値になるようにしてください（例: サービス名:元のID）。一度片づけた候補を二度出さないための鍵です。
-- suggestedAction は register / merge / later / reject の 4 つだけです。
-- suggestedAction が merge のときは、mergeTargetTaskId に {1} の tasks[].id を必ず入れてください。
-- 決めるのは人です。suggestedAction は推薦であって実行ではありません。
-
-### 2. プラン: {3}
-
-次の形の JSON を 1 つ書いてください。
-
-{{"date":"{0}","firstThing":{{"taskId":45,"reason":"送付前に部長の確認が必要"}},"groups":[{{"key":"today","items":[{{"taskId":45}},{{"externalId":"outlook:AAMkAD001"}}]}},{{"key":"ifTime","items":[]}},{{"key":"aiReady","items":[]}},{{"key":"waiting","items":[]}}]}}
-
-- groups[].key は today / ifTime / aiReady / waiting の 4 つに固定です。
-- items の各要素は taskId（{1} にあるタスク）か externalId（今朝の候補）のどちらか一方を持ちます。
-- firstThing も taskId か externalId のどちらかを指し、reason に理由を 1 文で書いてください。
-- aiReady には、{1} の hasActiveAiJob が false で、AI に任せられるものを入れてください。
-- 候補が 0 件の朝もあります。それは失敗ではなく正常な結果です。その場合でも、このファイルは必ず書いてください。
-
-両方のファイルを書き終えたら、何を何件書いたかを 1 行で報告してください。</value></data>
+決めるのは人である。suggestedAction は推薦であって実行ではない。
+候補が 0 件の朝もある。それは失敗ではない。その場合も 3 と 4 は必ず呼ぶこと。</value></data>
   <data name="MorningRunAlreadyRunning" xml:space="preserve"><value>朝の実行がまだ終わっていません。先に取り込むか、追跡をやめてください</value></data>
   <data name="MorningRunNotFound" xml:space="preserve"><value>朝の実行が見つかりません</value></data>
   <data name="MorningRunAlreadyFinished" xml:space="preserve"><value>この朝の実行はもう終わっています</value></data>

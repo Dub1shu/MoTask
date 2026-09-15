@@ -1,92 +1,82 @@
 using FluentAssertions;
-using MoTask.Core.Ai;
 using MoTask.Core.Morning;
 using Xunit;
 
 namespace MoTask.Core.Tests;
 
 /// <summary>
-/// instruction.md（仕様 §6）。前半は人が編集できる収集方針、後半は MoTask が必ず付ける契約。
+/// instruction.md（仕様 §8）。前半は人が書き換えられる収集方針、後半は MoTask が必ず付ける契約。
+/// 契約を人に編集させるとツールの呼び方との対応が黙って壊れる。
 /// </summary>
 public class MorningInstructionTests
 {
-    private static readonly JobFolderPaths Paths = JobFolderPaths.For(@"C:\work\morning\0007-2026-09-07");
-    private static readonly DateOnly Date = new(2026, 9, 7);
+    private static string Build(string? template = null)
+        => MorningInstruction.Build(template, new DateOnly(2026, 9, 13), runId: 7);
 
     [Fact]
-    public void Build_UsesTheDefaultTemplate_WhenNothingIsConfigured()
+    public void Build_PutsTheConfiguredPolicyFirst()
     {
-        var text = MorningInstruction.Build(null, Paths, Date);
-
-        text.Should().StartWith(MorningInstruction.DefaultTemplate);
+        Build("私の方針").Should().StartWith("私の方針");
     }
 
     [Theory]
+    [InlineData(null)]
     [InlineData("")]
-    [InlineData("   \n  ")]
-    public void Build_FallsBackToTheDefault_ForABlankTemplate(string template)
-        => MorningInstruction.Build(template, Paths, Date).Should().StartWith(MorningInstruction.DefaultTemplate);
-
-    [Fact]
-    public void Build_UsesTheConfiguredTemplate_WhenThereIsOne()
+    [InlineData("   ")]
+    public void Build_FallsBackToTheDefaultPolicy(string? template)
     {
-        var text = MorningInstruction.Build("  自分で書いた方針  ", Paths, Date);
-
-        text.Should().StartWith("自分で書いた方針");
-        text.Should().NotContain(MorningInstruction.DefaultTemplate);
+        Build(template).Should().StartWith(MorningInstruction.DefaultTemplate);
     }
 
     [Fact]
-    public void Build_AlwaysAppendsTheContract_EvenWithACustomTemplate()
+    public void Build_SpellsOutTheDateAndTheRunId()
     {
-        var text = MorningInstruction.Build("自分で書いた方針", Paths, Date);
+        var text = Build();
 
-        text.Should().Contain(Paths.CandidatesJsonl, "出力先は MoTask が決める");
-        text.Should().Contain(Paths.PlanJson);
-        text.Should().Contain(Paths.BoardJson);
-        text.Should().Contain("2026-09-07");
+        text.Should().Contain("2026-09-13");
+        text.Should().Contain("runId は 7 です");
+    }
+
+    /// <summary>Claude が 4 本を順に呼べるだけの手順が書いてある（仕様 §8）。</summary>
+    [Fact]
+    public void Build_NamesTheFourToolsInOrder()
+    {
+        var text = Build();
+
+        text.IndexOf("mcp__motask__morning_get_context", StringComparison.Ordinal)
+            .Should().BeLessThan(text.IndexOf("mcp__motask__morning_add_candidate", StringComparison.Ordinal));
+        text.IndexOf("mcp__motask__morning_add_candidate", StringComparison.Ordinal)
+            .Should().BeLessThan(text.IndexOf("mcp__motask__morning_submit_plan", StringComparison.Ordinal));
+        text.IndexOf("mcp__motask__morning_submit_plan", StringComparison.Ordinal)
+            .Should().BeLessThan(text.IndexOf("mcp__motask__morning_complete", StringComparison.Ordinal));
     }
 
     [Fact]
-    public void Build_SpellsOutTheFourSuggestedActions()
+    public void Build_PassesTheRunIdInEveryCall()
     {
-        var text = MorningInstruction.Build(null, Paths, Date);
-
-        foreach (var action in new[] { "register", "merge", "later", "reject" })
-            text.Should().Contain(action);
+        Build().Should().Contain("""{"runId":7}""");
     }
 
     [Fact]
     public void Build_SpellsOutTheFourPlanGroupKeys()
     {
-        var text = MorningInstruction.Build(null, Paths, Date);
+        var text = Build();
 
         foreach (var key in MorningPlanValidator.PlanGroupKeys) text.Should().Contain(key);
     }
 
+    /// <summary>ファイルの契約はもう無い（仕様 §4）。</summary>
     [Fact]
-    public void Build_DoesNotNameAnySpecificConnector()
+    public void Build_NoLongerMentionsTheOldFileContract()
     {
-        var text = MorningInstruction.Build(null, Paths, Date);
+        var text = Build();
 
-        // 取り込み元は列挙しない（仕様 §4）。例として出す JSON の中の値は別（そこは形の説明）。
-        MorningInstruction.DefaultTemplate.Should().NotContain("Outlook");
-        MorningInstruction.DefaultTemplate.Should().NotContain("Gmail");
-        MorningInstruction.DefaultTemplate.Should().NotContain("Teams");
-        text.Should().Contain("認証済み", "コネクタが 0 でも候補 0 件は失敗ではないと伝える");
+        text.Should().NotContain("candidates.jsonl").And.NotContain("plan.json").And.NotContain("board.json");
     }
 
     [Fact]
-    public void Build_EndsWithASingleNewline()
-        => MorningInstruction.Build(null, Paths, Date).Should().EndWith("\n").And.NotEndWith("\n\n");
-
-    [Fact]
-    public void Build_KeepsTheZeroCandidatesIsNotAFailureGuarantee_EvenWithACustomTemplate()
+    public void Build_TellsThatAnEmptyMorningIsNotAFailure()
     {
-        // 「それは失敗ではありません」は編集可能な前半（既定テンプレート）にしか無いと、
-        // 利用者が方針を書き換えた瞬間にこの保証が消える。契約側（後半）にも要る。
-        var text = MorningInstruction.Build("自分で書いた方針", Paths, Date);
-
-        text.Should().Contain("失敗ではなく正常な結果です");
+        Build().Should().Contain("候補が 0 件の朝もある");
     }
 }
