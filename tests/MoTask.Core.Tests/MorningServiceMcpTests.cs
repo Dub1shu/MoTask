@@ -184,6 +184,24 @@ public class MorningServiceMcpTests
         _store.Candidates.Should().ContainSingle();
     }
 
+    /// <summary>
+    /// 保存に失敗したのに Accepted:true を返すと、Claude は積まれたと信じて次へ進み、
+    /// 候補は黙って消える。保存できていなければ理由付きで断り、呼び直す機会を与える(Finding 2)。
+    /// </summary>
+    [Fact]
+    public async Task AddCandidate_RefusesWhenTheSaveFails_SoClaudeCanRetry()
+    {
+        var run = await StartAsync();
+        _store.FailNextSave = true;
+
+        var result = await _service.AddCandidateAsync(run.Id, Candidate("outlook:001"));
+
+        result.IsSuccess.Should().BeTrue("ツールエラーではない");
+        result.Value!.Accepted.Should().BeFalse("保存できていないのに積まれたと Claude に信じさせない");
+        result.Value.Reason.Should().StartWith(Messages.SaveFailed);
+        result.Value.Total.Should().Be(0, "保存できていない候補は数えない");
+    }
+
     [Fact]
     public async Task AddCandidate_FailsForARunIdThatIsNotRunning()
     {

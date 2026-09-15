@@ -158,6 +158,24 @@ public class MorningServiceLifecycleTests
         again.Error.Should().Be(string.Format(Messages.MorningRunNotRunningFormat, run.Id));
     }
 
+    /// <summary>
+    /// 終わった実行への StopTracking は拒む。ここを緩めると、取り込みを終えた実行を
+    /// レースで Cancelled に上書きしてしまう(MorningService.StopTrackingAsync のガードのコメント参照)。
+    /// </summary>
+    [Fact]
+    public async Task StopTracking_RefusesARunThatAlreadyFinishedIngesting()
+    {
+        var run = await StartAsync();
+        await _service.SubmitPlanAsync(run.Id, Plan);
+        await _service.CompleteAsync(run.Id);
+
+        var stopped = await _service.StopTrackingAsync(run.Id);
+
+        stopped.IsSuccess.Should().BeFalse();
+        stopped.Error.Should().Be(Messages.MorningRunAlreadyFinished);
+        run.Status.Should().Be(MorningRunStatus.Ingested, "既に終わった実行の状態を上書きしない");
+    }
+
     [Fact]
     public async Task StopTracking_CancelsWithoutFinishingTheRun()
     {

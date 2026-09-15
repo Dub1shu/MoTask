@@ -17,6 +17,7 @@ public class JobFolderTests : IDisposable
     private readonly JobFolder _folder;
     private readonly string _hooksExe;
     private readonly string _mcpExe;
+    private readonly string _appExe;
 
     public JobFolderTests()
     {
@@ -26,7 +27,11 @@ public class JobFolderTests : IDisposable
         _settings = new StubSettingsStore(AiSettings.Default() with { DefaultWorkingDirectory = _root });
         _mcpExe = Path.Combine(_root, "MoTask.Mcp.exe");
         File.WriteAllText(_mcpExe, "");
-        _folder = new JobFolder(_settings) { HooksExecutable = _hooksExe, McpExecutable = _mcpExe };
+        _appExe = Path.Combine(_root, "MoTask.exe");
+        _folder = new JobFolder(_settings)
+        {
+            HooksExecutable = _hooksExe, McpExecutable = _mcpExe, AppExecutable = _appExe,
+        };
     }
 
     private sealed class StubSettingsStore : IAiSettingsStore
@@ -203,6 +208,11 @@ public class JobFolderTests : IDisposable
 
         var json = File.ReadAllText(JobFolderPaths.For(root).McpJson);
         json.Should().Contain("mcpServers").And.Contain("MoTask.Mcp.exe");
+        // ブリッジは mcp\ の下にいるため MoTask.exe に自力では届かない。呼び直せるように
+        // 絶対パスを渡す(Finding 1)。
+        using var doc = JsonDocument.Parse(json);
+        doc.RootElement.GetProperty("mcpServers").GetProperty("motask")
+            .GetProperty("env").GetProperty("MOTASK_APP_EXE").GetString().Should().Be(_appExe);
     }
 
     [Fact]

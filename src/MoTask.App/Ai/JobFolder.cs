@@ -38,6 +38,13 @@ public sealed class JobFolder : IJobFolder
     internal string McpExecutable { get; set; } =
         Path.Combine(AppContext.BaseDirectory, "mcp", "MoTask.Mcp.exe");
 
+    /// <summary>
+    /// MoTask 自身の exe。ブリッジ（mcp\ の下）が MOTASK_APP_EXE 経由で MoTask を起動し直すための
+    /// 絶対パス（Finding 1）。テストは差し替える。
+    /// </summary>
+    internal string AppExecutable { get; set; } =
+        Path.Combine(AppContext.BaseDirectory, "MoTask.exe");
+
     public string ResolveRoot(JobFolderRequest request)
         => Path.Combine(
             _settings.Load().DefaultWorkingDirectory,
@@ -67,7 +74,7 @@ public sealed class JobFolder : IJobFolder
             File.WriteAllText(paths.HooksJson, HooksJson.Build(HooksExecutable, paths.EventsJsonl), Utf8);
             if (request.WithMcpConfig)
             {
-                File.WriteAllText(paths.McpJson, McpConfigJson.Build(McpExecutable), Utf8);
+                File.WriteAllText(paths.McpJson, McpConfigJson.Build(McpExecutable, AppExecutable), Utf8);
             }
             return Result.Ok(root);
         }

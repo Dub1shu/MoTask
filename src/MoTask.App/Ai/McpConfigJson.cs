@@ -10,6 +10,14 @@ namespace MoTask.App.Ai;
 /// </summary>
 public static class McpConfigJson
 {
+    /// <summary>
+    /// src/MoTask.Mcp/IAppHost.cs の SystemAppHost.ExeOverrideVariable と同じ名前(仕様 §3)。
+    /// MoTask.Mcp はビルド順だけの依存で参照しないので、名前は文字列で合わせる。
+    /// これが無いと、ブリッジは mcp\ フォルダの隣にある既定の "MoTask.exe" を探しに行き、
+    /// mcp\ の下にコピーされたブリッジからは見つからない。
+    /// </summary>
+    private const string AppExeOverrideVariable = "MOTASK_APP_EXE";
+
     private static readonly JsonSerializerOptions Options = new()
     {
         WriteIndented = true,
@@ -17,11 +25,16 @@ public static class McpConfigJson
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    public static string Build(string mcpExecutable)
+    public static string Build(string mcpExecutable, string appExecutable)
     {
         var servers = new Dictionary<string, object>
         {
-            ["motask"] = new { command = mcpExecutable, args = Array.Empty<string>() },
+            ["motask"] = new
+            {
+                command = mcpExecutable,
+                args = Array.Empty<string>(),
+                env = new Dictionary<string, string> { [AppExeOverrideVariable] = appExecutable },
+            },
         };
         return JsonSerializer.Serialize(new { mcpServers = servers }, Options);
     }

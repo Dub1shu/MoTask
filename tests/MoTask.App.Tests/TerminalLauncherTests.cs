@@ -106,15 +106,27 @@ public class TerminalLauncherTests : IDisposable
     /// 端末の窓は開かない（CreateNoWindow）。claude には触れない。1 秒もかからない。
     /// </summary>
     [Theory]
-    [InlineData(false)] // AI 遂行（/s /k）
-    [InlineData(true)]  // 朝の実行（/s /c）
-    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit)
+    [InlineData(false, false)] // AI 遂行（/s /k）
+    [InlineData(true, false)]  // 朝の実行（/s /c）、mcp.json 無し
+    // 朝の実行の実物の形。--mcp-config で引用符が 2 個増え、OutputDirectoryName は無い
+    // （仕様 §5.4）。空白と日本語を含むパスも通す。
+    [InlineData(true, true)]
+    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit, bool morningShape)
     {
         var fakeClaude = Path.Combine(_dir, "fake-claude.cmd");
         File.WriteAllText(fakeClaude, "@echo off\r\necho " + LaunchMarker + "\r\nexit " + LaunchExitCode + "\r\n");
         _store.Save(_store.Load() with { ClaudeExecutablePath = fakeClaude });
 
-        var command = Launcher().BuildCommand(_request with { CloseOnExit = closeOnExit }).Value!;
+        var request = _request with { CloseOnExit = closeOnExit };
+        if (morningShape)
+        {
+            request = request with
+            {
+                OutputDirectoryName = null,
+                McpConfigPath = @"C:\work\jobs\0007-2026 09 07\mcp 設定.json",
+            };
+        }
+        var command = Launcher().BuildCommand(request).Value!;
         command.FileName.Should().Be("cmd.exe");
 
         var (exitCode, stdout, stderr) = RunCmd(command.Arguments);

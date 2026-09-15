@@ -390,7 +390,12 @@ public sealed class MorningService : IMorningService
             _runs.AddCandidate(candidate);
             warning = await SaveQuietlyAsync().ConfigureAwait(false);
             accepted = run;
-            return Result.Ok(new CandidateOutcome(true, null, candidate.Id, total + 1));
+            // 保存できていなければ積めていない。Accepted:true を返すと Claude は積まれたと
+            // 信じて次へ進み、候補は黙って消える。ツールエラーにはせず、理由を返して
+            // 呼び直せるようにする(Finding 2)。
+            return warning is null
+                ? Result.Ok(new CandidateOutcome(true, null, candidate.Id, total + 1))
+                : Refused(warning, total);
         }, ct).ConfigureAwait(false);
 
         // 受理したときだけ知らせる。候補キューが 1 件ずつ増える(仕様 §6)。
