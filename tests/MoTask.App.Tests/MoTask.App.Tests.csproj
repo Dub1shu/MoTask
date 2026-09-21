@@ -17,5 +17,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      BoardView.xaml を読めるようにする。ビューを実体化するテストは書けない
+      （Application を作ると BoardViewModel/MorningPlanViewModel の
+      「Application があるなら UI スレッドのはず」という Debug.Assert を壊す）ので、
+      マークアップの配線はテキストとして確かめる。
+    -->
+    <None Include="..\..\src\MoTask.App\Views\BoardView.xaml" Link="Fixtures\BoardView.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

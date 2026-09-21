@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using FluentAssertions;
 using MoTask.App.Behaviors;
 using Xunit;
@@ -139,6 +140,147 @@ public class HorizontalWheelScrollTests
         });
     }
 
+    [Fact]
+    public void Disabled_AfterHavingBeenEnabled_StopsScrolling()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+            HorizontalWheelScroll.SetIsEnabled(board.Scroll, false);
+
+            Wheel(board.Headers[0], -120);
+
+            board.Scroll.HorizontalOffset.Should().Be(0);
+        });
+    }
+
+    [Fact]
+    public void EnabledTwice_DoesNotScrollTwiceAsFar()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+            Wheel(board.Headers[0], -120);
+            var once = board.Scroll.HorizontalOffset;
+            board.Scroll.ScrollToLeftEnd();
+            board.Scroll.UpdateLayout();
+
+            HorizontalWheelScroll.SetIsEnabled(board.Scroll, true);
+            Wheel(board.Headers[0], -120);
+
+            board.Scroll.HorizontalOffset.Should().Be(once, "二重購読していれば 2 倍動く");
+        });
+    }
+
+    [Fact]
+    public void WheelWithNothingToScrollHorizontally_LeavesTheEventForSomeoneElse()
+    {
+        // 横に余りが無いのにイベントを食べると、外側で使いたくなったときに理由が分からなくなる。
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 1, cardsPerColumn: 1, expectOverflow: false);
+            board.Scroll.ScrollableWidth.Should().Be(0, "列が 1 つなら横に余らないという前提");
+
+            var handled = Wheel(board.Headers[0], -120);
+
+            handled.Should().BeFalse();
+        });
+    }
+
+    // ---- 横へ回すかどうかの判定（ルーテッドイベントを組まずに直接見る） ----
+
+    [Fact]
+    public void ScrollsTheBoard_WhenNothingInsideCanTakeTheWheel()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+
+            HorizontalWheelScroll.ShouldScrollBoard(board.Headers[0], board.Scroll, -120).Should().BeTrue();
+        });
+    }
+
+    [Fact]
+    public void LeavesTheWheelAlone_WhenTheCursorIsOverAListThatCanStillScroll()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 20);
+
+            HorizontalWheelScroll.ShouldScrollBoard(board.FirstCardOf(0), board.Scroll, -120).Should().BeFalse();
+        });
+    }
+
+    [Fact]
+    public void LeavesTheWheelAlone_WhenItComesFromOutsideTheBoardTree()
+    {
+        // ポップアップ(ComboBox のドロップダウンなど)の中身は別のツリーに居る。親をたどっても
+        // ボードの ScrollViewer に行き着かないので、裏のボードを動かしてはいけない。
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+            var strayElement = new Border();
+
+            HorizontalWheelScroll.ShouldScrollBoard(strayElement, board.Scroll, -120).Should().BeFalse();
+        });
+    }
+
+    [Fact]
+    public void LeavesTheWheelAlone_WhenTheForeignTreeHasAScrollViewerOfItsOwn()
+    {
+        // ComboBox のドロップダウンは自前の ScrollViewer を持つ。それが縦に動けないからといって
+        // 横に回すと、ドロップダウンの上で回したのに裏のボードが流れる。
+        // 「内側の ScrollViewer が見つかったか」ではなく「ボードに行き着くか」で決めること。
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+            var insidePopup = new Border();
+            var popupScroll = new ScrollViewer { Content = insidePopup };
+            popupScroll.Measure(new Size(100, 100));
+            popupScroll.Arrange(new Rect(0, 0, 100, 100));
+            popupScroll.UpdateLayout();
+            popupScroll.ScrollableHeight.Should().Be(0, "ドロップダウンは縦に動く余地が無いという前提");
+
+            HorizontalWheelScroll.ShouldScrollBoard(insidePopup, board.Scroll, -120).Should().BeFalse();
+        });
+    }
+
+    [Fact]
+    public void LeavesTheWheelAlone_WhenTheSourceIsNotAnElementAtAll()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+
+            HorizontalWheelScroll.ShouldScrollBoard(null, board.Scroll, -120).Should().BeFalse();
+        });
+    }
+
+    // ---- 移動量の計算（純粋な計算なので WPF を組まずに見る） ----
+
+    [Theory]
+    [InlineData(3, 48)]     // 既定。16px × 3 行
+    [InlineData(1, 16)]
+    [InlineData(0, 0)]      // ホイールでのスクロールを切っている設定
+    public void Step_FollowsTheSystemLineCount(int lines, double expected)
+        => HorizontalWheelScroll.Step(lines, viewportWidth: 600).Should().Be(expected);
+
+    [Fact]
+    public void Step_WhenTheSystemAsksForPaging_MovesAWholeViewport()
+        => HorizontalWheelScroll.Step(-1, viewportWidth: 600).Should().Be(600);
+
+    [Theory]
+    [InlineData(-120, 100, 148)]   // 手前に回す → 右へ
+    [InlineData(120, 100, 52)]     // 奥に回す → 左へ
+    public void NextOffset_MovesByOneStepInTheWheelDirection(int delta, double current, double expected)
+        => HorizontalWheelScroll.NextOffset(delta, current, scrollableWidth: 1000, step: 48).Should().Be(expected);
+
+    [Theory]
+    [InlineData(-120, 980, 1000)]  // 右端で止まる
+    [InlineData(120, 20, 0)]       // 左端で止まる
+    public void NextOffset_StopsAtTheEnds(int delta, double current, double expected)
+        => HorizontalWheelScroll.NextOffset(delta, current, scrollableWidth: 1000, step: 48).Should().Be(expected);
+
     // ---- 以下、組み立てとホイール送出 ----
 
     private sealed record Board(ScrollViewer Scroll, IReadOnlyList<Border> Headers, IReadOnlyList<ListBox> Lists)
@@ -151,7 +293,8 @@ public class HorizontalWheelScrollTests
     }
 
     /// <summary>BoardView と同じ形を組んで、レイアウトまで済ませる。</summary>
-    private static Board BuildBoard(int columns, int cardsPerColumn, bool enableBehavior = true)
+    private static Board BuildBoard(
+        int columns, int cardsPerColumn, bool enableBehavior = true, bool expectOverflow = true)
     {
         var scroll = new ScrollViewer
         {
@@ -186,7 +329,7 @@ public class HorizontalWheelScrollTests
         scroll.Arrange(new Rect(0, 0, ViewportWidth, ViewportHeight));
         scroll.UpdateLayout();
 
-        scroll.ScrollableWidth.Should().BeGreaterThan(0, "列が並びきらず横に余るという前提");
+        if (expectOverflow) scroll.ScrollableWidth.Should().BeGreaterThan(0, "列が並びきらず横に余るという前提");
         return new Board(scroll, headers, lists);
     }
 
@@ -194,7 +337,8 @@ public class HorizontalWheelScrollTests
     /// 実際のカーソル位置から流れるのと同じ経路でホイールを送る。WPF の入力系と同じく、
     /// まず Preview（根→カーソル位置のトンネリング）、食われなければ本番（カーソル位置→根のバブリング）。
     /// </summary>
-    private static void Wheel(UIElement source, int delta)
+    /// <returns>Preview の時点で食われたか。</returns>
+    private static bool Wheel(UIElement source, int delta)
     {
         MouseWheelEventArgs Args(RoutedEvent routed) =>
             new(Mouse.PrimaryDevice, Environment.TickCount, delta) { RoutedEvent = routed, Source = source };
@@ -204,6 +348,7 @@ public class HorizontalWheelScrollTests
         if (!preview.Handled) source.RaiseEvent(Args(UIElement.MouseWheelEvent));
 
         source.UpdateLayout();
+        return preview.Handled;
     }
 
     private static T? FindDescendant<T>(DependencyObject node) where T : DependencyObject
@@ -218,7 +363,11 @@ public class HorizontalWheelScrollTests
         return null;
     }
 
-    /// <summary>WPF の部品は STA でないと作れない。xunit の実行スレッドは MTA なので、専用に一本立てる。</summary>
+    /// <summary>
+    /// WPF の部品は STA でないと作れない。xunit の実行スレッドは MTA なので、専用に一本立てる。
+    /// 待ちには必ず上限を置く。何かの拍子に WPF 側で止まったとき、無期限に待つとテスト名すら
+    /// 出ないままテストホストごとハングして原因が分からなくなる。
+    /// </summary>
     private static void OnStaThread(Action action)
     {
         ExceptionDispatchInfo? failure = null;
@@ -232,10 +381,21 @@ public class HorizontalWheelScrollTests
             {
                 failure = ExceptionDispatchInfo.Capture(ex);
             }
-        });
+            finally
+            {
+                // このスレッドに紐づいた Dispatcher を残さない。
+                Dispatcher.CurrentDispatcher.InvokeShutdown();
+            }
+        })
+        {
+            IsBackground = true,
+        };
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        thread.Join();
+
+        thread.Join(StaTimeout).Should().BeTrue($"UI スレッドの処理が {StaTimeout.TotalSeconds} 秒で終わること");
         failure?.Throw();
     }
+
+    private static readonly TimeSpan StaTimeout = TimeSpan.FromSeconds(30);
 }
