@@ -11,10 +11,12 @@ using Xunit;
 namespace MoTask.App.Tests;
 
 /// <summary>
-/// ボードのホイール操作。WPF の ScrollViewer はホイールを縦にしか配らず、
-/// VerticalScrollBarVisibility=Disabled だと何もせず Handled だけ立てて終わる。
-/// ここではボードと同じ形（横 ScrollViewer &gt; 横 StackPanel &gt; 列 &gt; カード一覧）を
-/// 実物の WPF で組み、ホイールが期待どおりに配られることを確かめる。
+/// ボードのホイール操作。横へ動かすのは Shift 併用のときと、横ホイールを持つマウスのときだけ。
+/// 普通に縦へ回したホイールには触らない（触ると縦のつもりの操作で盤面が流れる）。
+///
+/// Shift の押下は Keyboard.Modifiers から読むしかなく、テストから作れない。そこで判断は
+/// 修飾キーを引数に取る純粋な計算に出してあり、ここではそれを直接確かめる。
+/// ルーテッドイベントを組んで見るのは Shift の要らない経路（＝触らないこと）。
 /// </summary>
 public class HorizontalWheelScrollTests
 {
@@ -22,36 +24,37 @@ public class HorizontalWheelScrollTests
     private const double ViewportHeight = 400;
     private const double ColumnWidth = 280;
 
+    // ---- 普通のホイールには触らない ----
+
     [Fact]
-    public void WheelDown_OverBoardBackground_ScrollsRight()
+    public void PlainWheel_OverBoardBackground_LeavesTheBoardAlone()
     {
         OnStaThread(() =>
         {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 20);
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
 
             Wheel(board.Headers[0], -120);
 
-            board.Scroll.HorizontalOffset.Should().BeGreaterThan(0);
+            board.Scroll.HorizontalOffset.Should().Be(0);
         });
     }
 
     [Fact]
-    public void WheelUp_AfterScrollingRight_ScrollsBackLeft()
+    public void PlainWheel_OverAColumnWithNothingToScroll_LeavesTheBoardAlone()
     {
         OnStaThread(() =>
         {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 20);
-            Wheel(board.Headers[0], -120);
-            var scrolled = board.Scroll.HorizontalOffset;
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+            board.CardScrolls[0].ScrollableHeight.Should().Be(0, "この列は縦に動く余地が無いという前提");
 
-            Wheel(board.Headers[0], 120);
+            Wheel(board.FirstCardOf(0), -120);
 
-            board.Scroll.HorizontalOffset.Should().BeLessThan(scrolled);
+            board.Scroll.HorizontalOffset.Should().Be(0);
         });
     }
 
     [Fact]
-    public void WheelDown_OverScrollableCardList_ScrollsThatListInsteadOfTheBoard()
+    public void PlainWheel_OverScrollableCardList_StillScrollsThatListVertically()
     {
         OnStaThread(() =>
         {
@@ -66,171 +69,73 @@ public class HorizontalWheelScrollTests
         });
     }
 
-    [Fact]
-    public void WheelDown_OverCardListWithNothingToScroll_ScrollsTheBoardRight()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
-            board.CardScrolls[0].ScrollableHeight.Should().Be(0, "この列は縦に動く余地が無いという前提");
+    // ---- Shift + ホイール ----
 
-            Wheel(board.FirstCardOf(0), -120);
+    [Theory]
+    [InlineData(-120, 48)]   // 手前に回す → 右へ
+    [InlineData(120, -48)]   // 奥に回す → 左へ
+    public void ShiftAndWheel_MovesSideways(int delta, double expected)
+        => HorizontalWheelScroll.AmountForVerticalWheel(delta, ModifierKeys.Shift, step: 48).Should().Be(expected);
 
-            board.Scroll.HorizontalOffset.Should().BeGreaterThan(0);
-        });
-    }
-
-    [Fact]
-    public void WheelDown_OverCardListAlreadyAtBottom_ScrollsTheBoardRight()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 20);
-            var cards = board.CardScrolls[0];
-            cards.ScrollToBottom();
-            cards.UpdateLayout();
-
-            Wheel(board.FirstCardOf(0), -120);
-
-            board.Scroll.HorizontalOffset.Should().BeGreaterThan(0);
-        });
-    }
+    [Theory]
+    [InlineData(ModifierKeys.None)]
+    [InlineData(ModifierKeys.Control)]
+    [InlineData(ModifierKeys.Alt)]
+    public void WheelWithoutShift_MovesNothing(ModifierKeys modifiers)
+        => HorizontalWheelScroll.AmountForVerticalWheel(-120, modifiers, step: 48).Should().Be(0);
 
     [Fact]
-    public void WheelUp_AtLeftEnd_StaysAtZero()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+    public void ShiftAndWheel_WithNoRotation_MovesNothing()
+        => HorizontalWheelScroll.AmountForVerticalWheel(0, ModifierKeys.Shift, step: 48).Should().Be(0);
 
-            Wheel(board.Headers[0], 120);
+    // ---- 横ホイールを持つマウス（WM_MOUSEHWHEEL） ----
 
-            board.Scroll.HorizontalOffset.Should().Be(0);
-        });
-    }
+    [Theory]
+    [InlineData(120, 48)]    // 右へ倒す → 右へ
+    [InlineData(-120, -48)]  // 左へ倒す → 左へ
+    [InlineData(0, 0)]
+    public void HorizontalWheel_MovesTheSameWayItIsTilted(int delta, double expected)
+        => HorizontalWheelScroll.AmountForHorizontalWheel(delta, step: 48).Should().Be(expected);
 
-    [Fact]
-    public void WheelDown_AtRightEnd_StaysAtTheEnd()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
-            board.Scroll.ScrollToRightEnd();
-            board.Scroll.UpdateLayout();
-            var end = board.Scroll.HorizontalOffset;
-            end.Should().Be(board.Scroll.ScrollableWidth);
-
-            Wheel(board.Headers[0], -120);
-
-            board.Scroll.HorizontalOffset.Should().Be(end);
-        });
-    }
+    [Theory]
+    [InlineData(0x00780000, 120)]            // 上位ワードが回転量
+    [InlineData(unchecked((int)0xFF880000), -120)]  // 負の回転量は符号付きで読む
+    public void HorizontalWheelDelta_ReadsTheHighWordOfWParam(int wParam, int expected)
+        => HorizontalWheelScroll.HorizontalWheelDelta(new IntPtr(wParam)).Should().Be(expected);
 
     [Fact]
-    public void WithoutTheBehavior_WheelDoesNothing()
-    {
-        // 不具合そのもの。付けなければ動かないことを残しておく。
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1, enableBehavior: false);
+    public void HorizontalWheelDelta_IgnoresTheLowWord()
+        => HorizontalWheelScroll.HorizontalWheelDelta(new IntPtr(0x0078_0004)).Should().Be(120);
 
-            Wheel(board.Headers[0], -120);
-
-            board.Scroll.HorizontalOffset.Should().Be(0);
-        });
-    }
+    // ---- ボードの中から来たホイールかどうか ----
 
     [Fact]
-    public void Disabled_AfterHavingBeenEnabled_StopsScrolling()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
-            HorizontalWheelScroll.SetIsEnabled(board.Scroll, false);
-
-            Wheel(board.Headers[0], -120);
-
-            board.Scroll.HorizontalOffset.Should().Be(0);
-        });
-    }
-
-    [Fact]
-    public void EnabledTwice_DoesNotScrollTwiceAsFar()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
-            Wheel(board.Headers[0], -120);
-            var once = board.Scroll.HorizontalOffset;
-            board.Scroll.ScrollToLeftEnd();
-            board.Scroll.UpdateLayout();
-
-            HorizontalWheelScroll.SetIsEnabled(board.Scroll, true);
-            Wheel(board.Headers[0], -120);
-
-            board.Scroll.HorizontalOffset.Should().Be(once, "二重購読していれば 2 倍動く");
-        });
-    }
-
-    [Fact]
-    public void WheelWithNothingToScrollHorizontally_LeavesTheEventForSomeoneElse()
-    {
-        // 横に余りが無いのにイベントを食べると、外側で使いたくなったときに理由が分からなくなる。
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 1, cardsPerColumn: 1, expectOverflow: false);
-            board.Scroll.ScrollableWidth.Should().Be(0, "列が 1 つなら横に余らないという前提");
-
-            var handled = Wheel(board.Headers[0], -120);
-
-            handled.Should().BeFalse();
-        });
-    }
-
-    // ---- 横へ回すかどうかの判定（ルーテッドイベントを組まずに直接見る） ----
-
-    [Fact]
-    public void ScrollsTheBoard_WhenNothingInsideCanTakeTheWheel()
-    {
-        OnStaThread(() =>
-        {
-            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
-
-            HorizontalWheelScroll.ShouldScrollBoard(board.Headers[0], board.Scroll, -120).Should().BeTrue();
-        });
-    }
-
-    [Fact]
-    public void LeavesTheWheelAlone_WhenTheCursorIsOverAListThatCanStillScroll()
+    public void ComesFromTheBoard_WhenTheCursorIsOnIt()
     {
         OnStaThread(() =>
         {
             var board = BuildBoard(columns: 5, cardsPerColumn: 20);
 
-            HorizontalWheelScroll.ShouldScrollBoard(board.FirstCardOf(0), board.Scroll, -120).Should().BeFalse();
+            HorizontalWheelScroll.IsInsideBoard(board.FirstCardOf(0), board.Scroll).Should().BeTrue();
         });
     }
 
     [Fact]
-    public void LeavesTheWheelAlone_WhenItComesFromOutsideTheBoardTree()
+    public void ComesFromTheBoard_WhenItIsTheBoardItself()
     {
-        // ポップアップ(ComboBox のドロップダウンなど)の中身は別のツリーに居る。親をたどっても
-        // ボードの ScrollViewer に行き着かないので、裏のボードを動かしてはいけない。
         OnStaThread(() =>
         {
             var board = BuildBoard(columns: 5, cardsPerColumn: 1);
-            var strayElement = new Border();
 
-            HorizontalWheelScroll.ShouldScrollBoard(strayElement, board.Scroll, -120).Should().BeFalse();
+            HorizontalWheelScroll.IsInsideBoard(board.Scroll, board.Scroll).Should().BeTrue();
         });
     }
 
     [Fact]
-    public void LeavesTheWheelAlone_WhenTheForeignTreeHasAScrollViewerOfItsOwn()
+    public void DoesNotComeFromTheBoard_WhenItIsFromAPopup()
     {
-        // ComboBox のドロップダウンは自前の ScrollViewer を持つ。それが縦に動けないからといって
-        // 横に回すと、ドロップダウンの上で回したのに裏のボードが流れる。
-        // 「内側の ScrollViewer が見つかったか」ではなく「ボードに行き着くか」で決めること。
+        // ポップアップ（ComboBox のドロップダウンなど）の中身は別のビジュアルツリーに居る。
+        // ドロップダウンは自前の ScrollViewer を持つので、途中で打ち切って判断してはいけない。
         OnStaThread(() =>
         {
             var board = BuildBoard(columns: 5, cardsPerColumn: 1);
@@ -239,24 +144,66 @@ public class HorizontalWheelScrollTests
             popupScroll.Measure(new Size(100, 100));
             popupScroll.Arrange(new Rect(0, 0, 100, 100));
             popupScroll.UpdateLayout();
-            popupScroll.ScrollableHeight.Should().Be(0, "ドロップダウンは縦に動く余地が無いという前提");
 
-            HorizontalWheelScroll.ShouldScrollBoard(insidePopup, board.Scroll, -120).Should().BeFalse();
+            HorizontalWheelScroll.IsInsideBoard(insidePopup, board.Scroll).Should().BeFalse();
         });
     }
 
     [Fact]
-    public void LeavesTheWheelAlone_WhenTheSourceIsNotAnElementAtAll()
+    public void DoesNotComeFromTheBoard_WhenThereIsNoElementAtAll()
     {
         OnStaThread(() =>
         {
             var board = BuildBoard(columns: 5, cardsPerColumn: 1);
 
-            HorizontalWheelScroll.ShouldScrollBoard(null, board.Scroll, -120).Should().BeFalse();
+            HorizontalWheelScroll.IsInsideBoard(null, board.Scroll).Should().BeFalse();
         });
     }
 
-    // ---- 移動量の計算（純粋な計算なので WPF を組まずに見る） ----
+    // ---- 実際に動かす ----
+
+    [Fact]
+    public void Scrolling_MovesTheBoardByTheGivenAmount()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+
+            HorizontalWheelScroll.TryScroll(board.Scroll, 48, board.Headers[0]).Should().BeTrue();
+            board.Scroll.UpdateLayout();
+
+            board.Scroll.HorizontalOffset.Should().Be(48);
+        });
+    }
+
+    [Fact]
+    public void Scrolling_FromOutsideTheBoard_DoesNothing()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+
+            HorizontalWheelScroll.TryScroll(board.Scroll, 48, new Border()).Should().BeFalse();
+            board.Scroll.UpdateLayout();
+
+            board.Scroll.HorizontalOffset.Should().Be(0);
+        });
+    }
+
+    [Fact]
+    public void Scrolling_WithNothingToScroll_DoesNothing()
+    {
+        // 1px も動かないのにイベントを食べると、外側で使いたくなったとき理由が分からなくなる。
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 1, cardsPerColumn: 1, expectOverflow: false);
+            board.Scroll.ScrollableWidth.Should().Be(0, "列が 1 つなら横に余らないという前提");
+
+            HorizontalWheelScroll.TryScroll(board.Scroll, 48, board.Headers[0]).Should().BeFalse();
+        });
+    }
+
+    // ---- 移動量の計算 ----
 
     [Theory]
     [InlineData(3, 48)]     // 既定。16px × 3 行
@@ -270,16 +217,45 @@ public class HorizontalWheelScrollTests
         => HorizontalWheelScroll.Step(-1, viewportWidth: 600).Should().Be(600);
 
     [Theory]
-    [InlineData(-120, 100, 148)]   // 手前に回す → 右へ
-    [InlineData(120, 100, 52)]     // 奥に回す → 左へ
-    public void NextOffset_MovesByOneStepInTheWheelDirection(int delta, double current, double expected)
-        => HorizontalWheelScroll.NextOffset(delta, current, scrollableWidth: 1000, step: 48).Should().Be(expected);
+    [InlineData(100, 48, 148)]
+    [InlineData(100, -48, 52)]
+    public void NextOffset_MovesByTheGivenAmount(double current, double amount, double expected)
+        => HorizontalWheelScroll.NextOffset(current, scrollableWidth: 1000, amount).Should().Be(expected);
 
     [Theory]
-    [InlineData(-120, 980, 1000)]  // 右端で止まる
-    [InlineData(120, 20, 0)]       // 左端で止まる
-    public void NextOffset_StopsAtTheEnds(int delta, double current, double expected)
-        => HorizontalWheelScroll.NextOffset(delta, current, scrollableWidth: 1000, step: 48).Should().Be(expected);
+    [InlineData(980, 48, 1000)]   // 右端で止まる
+    [InlineData(20, -48, 0)]      // 左端で止まる
+    public void NextOffset_StopsAtTheEnds(double current, double amount, double expected)
+        => HorizontalWheelScroll.NextOffset(current, scrollableWidth: 1000, amount).Should().Be(expected);
+
+    // ---- 添付プロパティの付け外し ----
+
+    [Fact]
+    public void Disabled_AfterHavingBeenEnabled_StopsListening()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+            HorizontalWheelScroll.SetIsEnabled(board.Scroll, false);
+
+            HorizontalWheelScroll.GetIsEnabled(board.Scroll).Should().BeFalse();
+            Wheel(board.Headers[0], -120);
+            board.Scroll.HorizontalOffset.Should().Be(0);
+        });
+    }
+
+    [Fact]
+    public void EnabledTwice_DoesNotThrow()
+    {
+        OnStaThread(() =>
+        {
+            var board = BuildBoard(columns: 5, cardsPerColumn: 1);
+
+            var enableAgain = () => HorizontalWheelScroll.SetIsEnabled(board.Scroll, true);
+
+            enableAgain.Should().NotThrow();
+        });
+    }
 
     // ---- 以下、組み立てとホイール送出 ----
 
@@ -336,9 +312,9 @@ public class HorizontalWheelScrollTests
     /// <summary>
     /// 実際のカーソル位置から流れるのと同じ経路でホイールを送る。WPF の入力系と同じく、
     /// まず Preview（根→カーソル位置のトンネリング）、食われなければ本番（カーソル位置→根のバブリング）。
+    /// Shift は押せないので、ここを通るのは常に修飾キー無しのホイール。
     /// </summary>
-    /// <returns>Preview の時点で食われたか。</returns>
-    private static bool Wheel(UIElement source, int delta)
+    private static void Wheel(UIElement source, int delta)
     {
         MouseWheelEventArgs Args(RoutedEvent routed) =>
             new(Mouse.PrimaryDevice, Environment.TickCount, delta) { RoutedEvent = routed, Source = source };
@@ -348,7 +324,6 @@ public class HorizontalWheelScrollTests
         if (!preview.Handled) source.RaiseEvent(Args(UIElement.MouseWheelEvent));
 
         source.UpdateLayout();
-        return preview.Handled;
     }
 
     private static T? FindDescendant<T>(DependencyObject node) where T : DependencyObject

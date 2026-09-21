@@ -1,23 +1,27 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Media3D;
 
 namespace MoTask.App.Behaviors;
 
 /// <summary>
-/// 横に並ぶ ScrollViewer にマウスホイールでの横スクロールを足す添付ビヘイビア。
+/// 横に並ぶ ScrollViewer を、Shift + ホイールと横ホイール付きマウスで横に流す添付ビヘイビア。
 ///
-/// WPF の ScrollViewer はホイールを縦にしか配らない。ボードのように
+/// WPF が用意しているのは縦のホイールだけで、しかもボードのように
 /// VerticalScrollBarVisibility=Disabled にしていると、ホイールは
-/// ScrollContentPresenter.MouseWheelDown() まで届いたあと何もせず、
-/// e.Handled だけが立って終わる（＝ホイールが完全に死ぬ）。横へ読み替える口は
-/// WPF 側に無いので、ここで塞ぐ。
+/// ScrollContentPresenter.MouseWheelDown() まで届いたあと何もせず e.Handled だけ立てて終わる。
+/// 横へ動かす手立てが無いので、ここで足す。
 ///
-/// トンネリングの PreviewMouseWheel で拾うのが要点。カードの上でホイールを回したときは
-/// 列のカード一覧（ListBox 内部の ScrollViewer）がバブリングで先に食ってしまうため、
-/// バブリングの MouseWheel では盤面のほとんどに届かない。
+/// 足すのは横へ動かすつもりの操作だけ。普通に縦へ回したホイールには触らない。
+/// 触ると、縦のつもりで回したときに盤面が横へ流れて操作と結果が食い違う。
+///
+/// - Shift + ホイール: WPF のルーテッドイベントで受ける。トンネリングの PreviewMouseWheel で
+///   拾うのが要点で、バブリングだと列のカード一覧が先に食ってしまい盤面のほとんどに届かない。
+/// - 横ホイール（チルトホイールなど）: Windows は WM_MOUSEHWHEEL を送るが、WPF はこれを
+///   まったくルーティングしない。ウィンドウメッセージのまま受けるほかない。
 /// </summary>
 public static class HorizontalWheelScroll
 {
@@ -28,8 +32,8 @@ public static class HorizontalWheelScroll
     /// </summary>
     private const double LineDelta = 16;
 
-    /// <summary>端まで来たかの判定に使う許容差。レイアウトの丸めで半端な端数が残ることがある。</summary>
-    private const double Epsilon = 0.5;
+    /// <summary>横ホイールのウィンドウメッセージ。WPF はこれをルーティングしない。</summary>
+    internal const int WmMouseHWheel = 0x020E;
 
     public static readonly DependencyProperty IsEnabledProperty = DependencyProperty.RegisterAttached(
         "IsEnabled", typeof(bool), typeof(HorizontalWheelScroll),
@@ -45,68 +49,135 @@ public static class HorizontalWheelScroll
     {
         if (element is not ScrollViewer viewer) return;
 
+        // 付け直されても二重に購読しないよう、必ず外してから付ける。
         viewer.PreviewMouseWheel -= OnPreviewMouseWheel;
-        if (e.NewValue is true) viewer.PreviewMouseWheel += OnPreviewMouseWheel;
+        viewer.Loaded -= OnLoaded;
+        viewer.Unloaded -= OnUnloaded;
+        DetachWindowHook(viewer);
+
+        if (e.NewValue is not true) return;
+
+        viewer.PreviewMouseWheel += OnPreviewMouseWheel;
+        viewer.Loaded += OnLoaded;
+        viewer.Unloaded += OnUnloaded;
+        if (viewer.IsLoaded) AttachWindowHook(viewer);
     }
+
+    // ---- Shift + ホイール ----
 
     private static void OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
     {
-        if (e.Handled || e.Delta == 0) return;
+        if (e.Handled) return;
         var viewer = (ScrollViewer)sender;
 
-        // 横に余りが無いなら 1px も動かせない。食べずに他へ渡す。
-        if (viewer.ScrollableWidth <= 0) return;
-        if (!ShouldScrollBoard(e.OriginalSource as DependencyObject, viewer, e.Delta)) return;
-
-        viewer.ScrollToHorizontalOffset(
-            NextOffset(e.Delta, viewer.HorizontalOffset, viewer.ScrollableWidth,
-                Step(SystemParameters.WheelScrollLines, viewer.ViewportWidth)));
-        e.Handled = true;
+        var amount = AmountForVerticalWheel(e.Delta, Keyboard.Modifiers, StepFor(viewer));
+        if (TryScroll(viewer, amount, e.OriginalSource as DependencyObject)) e.Handled = true;
     }
 
-    /// <summary>ホイール 1 回ぶん動かした後の横位置。行き過ぎは端で止める。</summary>
-    /// <param name="delta">MouseWheelEventArgs.Delta。負なら右へ、正なら左へ。0 は呼び出し側で弾く。</param>
-    internal static double NextOffset(int delta, double current, double scrollableWidth, double step)
-        => Math.Clamp(current + (delta < 0 ? step : -step), 0, Math.Max(0, scrollableWidth));
+    /// <summary>
+    /// 縦ホイールを横の移動量に読み替える。Shift を押していないときは 0（＝何もしない）。
+    /// </summary>
+    /// <param name="delta">MouseWheelEventArgs.Delta。手前へ回すと負。</param>
+    internal static double AmountForVerticalWheel(int delta, ModifierKeys modifiers, double step)
+    {
+        if ((modifiers & ModifierKeys.Shift) == 0) return 0;
+        return delta < 0 ? step : delta > 0 ? -step : 0;
+    }
+
+    // ---- 横ホイール（WM_MOUSEHWHEEL） ----
+
+    /// <summary>
+    /// 横ホイールの回転量を横の移動量に読み替える。倒した向きへそのまま動かす。
+    /// </summary>
+    /// <param name="delta">WM_MOUSEHWHEEL の回転量。右へ倒すと正で、縦ホイールとは向きが逆。</param>
+    internal static double AmountForHorizontalWheel(int delta, double step)
+        => delta > 0 ? step : delta < 0 ? -step : 0;
+
+    /// <summary>WM_MOUSEHWHEEL の wParam から回転量を取り出す（上位ワードを符号付きで読む）。</summary>
+    internal static int HorizontalWheelDelta(IntPtr wParam)
+        => (short)(((long)wParam >> 16) & 0xFFFF);
+
+    private static void OnLoaded(object sender, RoutedEventArgs e) => AttachWindowHook((ScrollViewer)sender);
+
+    private static void OnUnloaded(object sender, RoutedEventArgs e) => DetachWindowHook((ScrollViewer)sender);
+
+    /// <summary>解除できるよう、掛けたフックと掛け先を持っておく。</summary>
+    private sealed record Hooked(HwndSource Source, HwndSourceHook Hook);
+
+    private static readonly DependencyProperty WindowHookProperty = DependencyProperty.RegisterAttached(
+        "WindowHook", typeof(Hooked), typeof(HorizontalWheelScroll));
+
+    private static void AttachWindowHook(ScrollViewer viewer)
+    {
+        if (viewer.GetValue(WindowHookProperty) is Hooked) return;
+        if (PresentationSource.FromVisual(viewer) is not HwndSource source) return;
+
+        IntPtr Hook(IntPtr window, int message, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (message != WmMouseHWheel) return IntPtr.Zero;
+
+            // メッセージはフォーカスのあるウィンドウに届くだけなので、カーソルがボードの上に
+            // あるかはこちらで確かめる。Mouse.DirectlyOver がカーソル直下の要素。
+            var amount = AmountForHorizontalWheel(HorizontalWheelDelta(wParam), StepFor(viewer));
+            if (TryScroll(viewer, amount, Mouse.DirectlyOver as DependencyObject)) handled = true;
+            return IntPtr.Zero;
+        }
+
+        var hook = new HwndSourceHook(Hook);
+        source.AddHook(hook);
+        viewer.SetValue(WindowHookProperty, new Hooked(source, hook));
+    }
+
+    private static void DetachWindowHook(ScrollViewer viewer)
+    {
+        if (viewer.GetValue(WindowHookProperty) is not Hooked hooked) return;
+
+        // 掛け先を覚えておくのは、Unloaded の時点では PresentationSource が既に外れていて
+        // そこから辿り直せないため。
+        hooked.Source.RemoveHook(hooked.Hook);
+        viewer.ClearValue(WindowHookProperty);
+    }
+
+    // ---- 実際に動かす ----
+
+    /// <summary>
+    /// ボードを <paramref name="amount"/> だけ横へ動かす。動かせたら true。
+    /// 1px も動かせないときに true を返さないのは、食べたイベントを他所へ渡すため。
+    /// </summary>
+    internal static bool TryScroll(ScrollViewer viewer, double amount, DependencyObject? origin)
+    {
+        if (amount == 0 || viewer.ScrollableWidth <= 0) return false;
+        if (!IsInsideBoard(origin, viewer)) return false;
+
+        viewer.ScrollToHorizontalOffset(NextOffset(viewer.HorizontalOffset, viewer.ScrollableWidth, amount));
+        return true;
+    }
+
+    /// <summary>動かした後の横位置。行き過ぎは端で止める。</summary>
+    internal static double NextOffset(double current, double scrollableWidth, double amount)
+        => Math.Clamp(current + amount, 0, Math.Max(0, scrollableWidth));
 
     /// <summary>ホイール 1 回で動かす量。OS の「1 度にスクロールする行数」に従う（-1 はページ送り）。</summary>
     internal static double Step(int wheelScrollLines, double viewportWidth)
         => wheelScrollLines < 0 ? viewportWidth : wheelScrollLines * LineDelta;
 
+    private static double StepFor(ScrollViewer viewer)
+        => Step(SystemParameters.WheelScrollLines, viewer.ViewportWidth);
+
     /// <summary>
-    /// このホイールをボードの横スクロールへ回してよいか。カーソル位置から
-    /// <paramref name="outer"/> まで親をたどって決める。
-    ///
-    /// 途中で見つかる ScrollViewer のうち、いちばん内側のものだけを見る。バブリングなら実際に
-    /// それがホイールを食うからで、もっと外側のものに譲っても内側が先に握りつぶして誰も動かない。
+    /// カーソル直下の要素からボードまで親をたどれるか。ポップアップ（ComboBox のドロップダウン
+    /// など）の中身は別のビジュアルツリーに居るので、親が尽きてボードに行き着かない。
+    /// そこで動かすと、ドロップダウンを操作しているのに裏の盤面が流れることになる。
     /// </summary>
-    internal static bool ShouldScrollBoard(DependencyObject? origin, ScrollViewer outer, int delta)
+    internal static bool IsInsideBoard(DependencyObject? origin, ScrollViewer board)
     {
-        ScrollViewer? inner = null;
         for (var node = origin; node is not null; node = ParentOf(node))
         {
-            if (ReferenceEquals(node, outer))
-            {
-                // 間に何も挟まっていない（列ヘッダーや盤面の余白）か、挟まっていても
-                // その向きへはもう動けない。どちらも横へ回してよい。
-                return inner is null || !CanScrollVertically(inner, delta);
-            }
-
-            inner ??= node as ScrollViewer;
+            if (ReferenceEquals(node, board)) return true;
         }
 
-        // outer に行き着かないまま親が尽きた。ポップアップ（ComboBox のドロップダウンなど）の
-        // 中身は別ツリーに居るのでこうなる。裏のボードを動かすと操作と結果が食い違う。
-        // 途中で ScrollViewer が見つかった時点で打ち切ってはいけない。ドロップダウンは
-        // 自前の ScrollViewer を持っていて、それは縦に動けないので横に回されてしまう。
         return false;
     }
-
-    /// <summary>この向きへまだ縦に動けるか。単位は px とは限らない（ListBox は「件」で数える）。</summary>
-    private static bool CanScrollVertically(ScrollViewer viewer, int delta)
-        => delta < 0
-            ? viewer.VerticalOffset < viewer.ScrollableHeight - Epsilon
-            : viewer.VerticalOffset > Epsilon;
 
     /// <summary>
     /// 親をたどる。OriginalSource はテンプレート内の部品のほか、TextBlock 内の Run のような
