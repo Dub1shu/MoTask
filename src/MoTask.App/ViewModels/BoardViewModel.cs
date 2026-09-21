@@ -395,6 +395,22 @@ public sealed partial class BoardViewModel : ObservableObject
         return true;
     }
 
+    /// <summary>完了列の末尾へ移す。カードの ✓ と詳細パネルの「完了にする」の共通の実体。</summary>
+    public Task<bool> CompleteCardAsync(TaskCardViewModel card)
+    {
+        var done = Columns.FirstOrDefault(c => c.IsDone);
+        // 削除済みは動かさない（Delete と同じ扱い）。既に完了列にいるなら並べ直さない。
+        if (done is null || card.IsDeleted || done.AllCards.Contains(card)) return Task.FromResult(false);
+        return MoveCardAsync(card, done, int.MaxValue);
+    }
+
+    /// <summary>カードの ✓ から。XAML は CommandParameter でカードを渡す。</summary>
+    [RelayCommand]
+    private async Task CompleteAsync(TaskCardViewModel? card)
+    {
+        if (card is not null) await CompleteCardAsync(card);
+    }
+
     public Task<bool> DeleteTaskAsync(TaskCardViewModel card)
         => RunTaskChangeAsync(card, () => _service.DeleteTaskAsync(card.Id));
 

@@ -286,6 +286,87 @@ public class BoardViewModelTests
         _service.GetBoardCalls.Should().Be(1);
     }
 
+    // ---------- ワンタッチ完了（カードの ✓ と詳細パネルの「完了にする」の実体） ----------
+
+    /// <summary>完了は「Role が Done の列の末尾へ移す」。既に入っているカードの後ろに付く。</summary>
+    [Fact]
+    public async Task CompleteCard_MovesTheCardToTheEndOfTheDoneColumn()
+    {
+        var backlog = _board.Columns[0];
+        var done = SeedDoneCard();
+        _service.OnMoveTask = call =>
+        {
+            if (call is { TaskId: 10, ToColumnId: 3 }) TestBoards.Move(backlog, done, taskId: 10, position: call.Position);
+            return Task.FromResult(Result.Ok());
+        };
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+
+        var ok = await _vm.CompleteCardAsync(card);
+
+        ok.Should().BeTrue();
+        _service.MoveTaskCalls.Should().ContainSingle().Which.Should().Be(new MoveTaskCall(10, 3, 1));
+        Ids(_vm.Columns[0]).Should().Equal(11);
+        Ids(_vm.Columns[2]).Should().Equal(20, 10);
+    }
+
+    /// <summary>完了列のカードで押されても同じ列へ動かし直さない（✓ は出さないが、念のため）。</summary>
+    [Fact]
+    public async Task CompleteCard_DoesNothing_WhenTheCardIsAlreadyInTheDoneColumn()
+    {
+        SeedDoneCard();
+        await _vm.LoadAsync();
+        var card = _vm.Columns[2].Cards.Single();
+
+        var ok = await _vm.CompleteCardAsync(card);
+
+        ok.Should().BeFalse();
+        _service.MoveTaskCalls.Should().BeEmpty();
+    }
+
+    /// <summary>削除済みのカードは完了させない（Delete と同じく、消えたものは動かさない）。</summary>
+    [Fact]
+    public async Task CompleteCard_DoesNothing_WhenTheCardIsDeleted()
+    {
+        TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].AllCards.Single(c => c.Id == 11);
+        card.IsDeleted.Should().BeTrue();
+
+        var ok = await _vm.CompleteCardAsync(card);
+
+        ok.Should().BeFalse();
+        _service.MoveTaskCalls.Should().BeEmpty();
+    }
+
+    /// <summary>カードの ✓ が押す口。XAML からはコマンド経由でしか呼べないので、そこも固定する。</summary>
+    [Fact]
+    public async Task CompleteCommand_CompletesTheGivenCard()
+    {
+        var backlog = _board.Columns[0];
+        var done = _board.Columns[2];
+        _service.OnMoveTask = call =>
+        {
+            if (call is { TaskId: 10, ToColumnId: 3 }) TestBoards.Move(backlog, done, taskId: 10, position: call.Position);
+            return Task.FromResult(Result.Ok());
+        };
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+
+        await _vm.CompleteCommand.ExecuteAsync(card);
+
+        Ids(_vm.Columns[2]).Should().Equal(10);
+    }
+
+    /// <summary><see cref="TestBoards.Sample"/> の完了列(3)に既に終わったカード 20 を 1 枚置く。</summary>
+    private Column SeedDoneCard()
+    {
+        var t = new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+        var done = _board.Columns[2];
+        done.Tasks.Add(new TaskItem { Id = 20, Title = "先週片づけたもの", ColumnId = 3, Position = 0, CreatedAt = t, UpdatedAt = t });
+        return done;
+    }
+
     /// <summary>
     /// 削除済みを表示したまま復元すると、BoardService はそのタスクを列の末尾へ動かす。表示の
     /// AllCards をモデルから組み直さないと、画面はカードを元のスロットに残したまま DB だけが動く。

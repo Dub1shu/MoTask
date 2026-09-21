@@ -3,61 +3,99 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:dd="clr-namespace:MoTask.App.DragDrop"
+             xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
+             xmlns:views="clr-namespace:MoTask.App.Views"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:TaskCardViewModel}">
-  <!-- 子要素はヒットテストしない: クリックと D&D は ListBoxItem が受ける -->
-  <StackPanel IsHitTestVisible="False">
-    <DockPanel>
-      <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" Style="{StaticResource Text.Caption}"
-                 Foreground="{Binding DueStatus, Converter={StaticResource DueStatusBrush}}" FontWeight="Medium" />
-      <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
-              CornerRadius="3" HorizontalAlignment="Left"
-              Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
-        <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
-      </Border>
-    </DockPanel>
-    <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}"
-               TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
-    <!-- AI 稼働中・入力待ちのバッジ（仕様 §10）。入力待ちは濃い段で目立たせる -->
-    <Border Margin="{StaticResource Gap.Top.1}" Padding="{StaticResource Pad.Chip}" CornerRadius="3" HorizontalAlignment="Left"
-            Visibility="{Binding HasAiBadge, Converter={StaticResource BoolToVisibility}}">
-      <Border.Style>
-        <Style TargetType="Border">
-          <Setter Property="Background" Value="{StaticResource Brush.AccentSubtle}" />
-          <Style.Triggers>
-            <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
-              <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
-            </DataTrigger>
-          </Style.Triggers>
-        </Style>
-      </Border.Style>
-      <TextBlock Text="{Binding AiBadgeText}" FontWeight="Medium">
-        <TextBlock.Style>
-          <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
-            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" />
+      <!-- ✓ の場所。ホバーで出入りしても中身が動かないよう、常に空けておく。 -->
+      <ColumnDefinition Width="Auto" />
+    </Grid.ColumnDefinitions>
+
+    <!-- 子要素はヒットテストしない: クリックと D&D は ListBoxItem が受ける -->
+    <StackPanel Grid.Column="0" IsHitTestVisible="False">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" Style="{StaticResource Text.Caption}"
+                   Foreground="{Binding DueStatus, Converter={StaticResource DueStatusBrush}}" FontWeight="Medium" />
+        <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
+                CornerRadius="3" HorizontalAlignment="Left"
+                Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
+          <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+        </Border>
+      </DockPanel>
+      <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}"
+                 TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
+      <!-- AI 稼働中・入力待ちのバッジ（仕様 §10）。入力待ちは濃い段で目立たせる -->
+      <Border Margin="{StaticResource Gap.Top.1}" Padding="{StaticResource Pad.Chip}" CornerRadius="3" HorizontalAlignment="Left"
+              Visibility="{Binding HasAiBadge, Converter={StaticResource BoolToVisibility}}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Brush.AccentSubtle}" />
             <Style.Triggers>
               <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
-                <Setter Property="Foreground" Value="{StaticResource Brush.OnAccent}" />
+                <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
-        </TextBlock.Style>
-      </TextBlock>
-    </Border>
-    <ItemsControl ItemsSource="{Binding Labels}" Margin="{StaticResource Gap.Top.2}">
-      <ItemsControl.ItemsPanel>
-        <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
-      </ItemsControl.ItemsPanel>
-      <ItemsControl.ItemTemplate>
-        <DataTemplate>
-          <!-- 文字色は段の濃さから選んだ TextColor を使う（濃いラベルの上でも読めるように）。 -->
-          <Border Background="{Binding Color, Converter={StaticResource RampBrush}}" CornerRadius="3"
-                  Padding="{StaticResource Pad.Chip}" Margin="{StaticResource Gap.Chip}">
-            <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Caption}"
-                       Foreground="{Binding TextColor, Converter={StaticResource RampBrush}}" />
-          </Border>
-        </DataTemplate>
-      </ItemsControl.ItemTemplate>
-    </ItemsControl>
-  </StackPanel>
+        </Border.Style>
+        <TextBlock Text="{Binding AiBadgeText}" FontWeight="Medium">
+          <TextBlock.Style>
+            <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+              <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
+                  <Setter Property="Foreground" Value="{StaticResource Brush.OnAccent}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+      </Border>
+      <ItemsControl ItemsSource="{Binding Labels}" Margin="{StaticResource Gap.Top.2}">
+        <ItemsControl.ItemsPanel>
+          <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+        </ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate>
+          <DataTemplate>
+            <!-- 文字色は段の濃さから選んだ TextColor を使う（濃いラベルの上でも読めるように）。 -->
+            <Border Background="{Binding Color, Converter={StaticResource RampBrush}}" CornerRadius="3"
+                    Padding="{StaticResource Pad.Chip}" Margin="{StaticResource Gap.Chip}">
+              <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Caption}"
+                         Foreground="{Binding TextColor, Converter={StaticResource RampBrush}}" />
+            </Border>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+
+    <!-- ワンタッチ完了。上の StackPanel の中に置けないのは、IsHitTestVisible="False" が
+         子孫まで効いて押せなくなるため。DragSourceIgnore で、ここを押したときは
+         カードを掴まない（列ヘッダーの「⋯」と同じ扱い）。 -->
+    <Button Grid.Column="1" VerticalAlignment="Top" Content="✓" Padding="{StaticResource Pad.Chip}"
+            ToolTip="{x:Static res:Strings.CompleteTask}"
+            dd:DragDropBehavior.DragSourceIgnore="True"
+            Command="{Binding DataContext.Board.CompleteCommand, RelativeSource={RelativeSource AncestorType=views:ColumnView}}"
+            CommandParameter="{Binding}">
+      <Button.Style>
+        <!-- 既定は Hidden（Collapsed だと場所ごと消えて、ホバーのたびに中身が横へずれる）。
+             完了列のカードと削除済みのカードでは、ホバーしても出さない。 -->
+        <Style TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
+          <Setter Property="Visibility" Value="Hidden" />
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListBoxItem}}" Value="True" />
+                <Condition Binding="{Binding DataContext.IsDone, RelativeSource={RelativeSource AncestorType=views:ColumnView}}" Value="False" />
+                <Condition Binding="{Binding IsDeleted}" Value="False" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </Button.Style>
+    </Button>
+  </Grid>
 </UserControl>
