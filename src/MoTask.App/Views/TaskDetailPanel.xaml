@@ -24,6 +24,11 @@
       </DockPanel>
 
       <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
+        <!-- 完了列に入るまでの片道。入ったら消える（戻すときは下の「列」で選ぶ）。
+             「復元」と同じ Btn.Primary だが、CanComplete と IsDeleted は同時に立たないので並ばない。 -->
+        <Button Content="{x:Static res:Strings.CompleteTask}" Style="{StaticResource Btn.Primary}"
+                Command="{Binding CompleteCommand}" Margin="{StaticResource Gap.Right.4}"
+                Visibility="{Binding CanComplete, Converter={StaticResource BoolToVisibility}}" />
         <Button Content="{x:Static res:Strings.Delete}" Command="{Binding DeleteCommand}"
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibilityInverse}}" />
         <Button Content="{x:Static res:Strings.Restore}" Style="{StaticResource Btn.Primary}" Command="{Binding RestoreCommand}"

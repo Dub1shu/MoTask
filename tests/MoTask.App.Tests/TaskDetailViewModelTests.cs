@@ -160,6 +160,59 @@ public class TaskDetailViewModelTests
         detail.History[0].Should().EndWith("未着手 → 完了");
     }
 
+    // ---------- 「完了にする」ボタン ----------
+
+    /// <summary>ボタンは列の ComboBox を触らせずに完了列へ移す。</summary>
+    [Fact]
+    public async Task Complete_MovesTheTaskToTheDoneColumn()
+    {
+        MoveToDoneOnRequest();
+        var detail = await OpenAsync(10);
+
+        await detail.CompleteCommand.ExecuteAsync(null);
+        await detail.PendingSave;
+
+        _service.MoveTaskCalls.Should().ContainSingle().Which.Should().Be(new MoveTaskCall(10, 3, 0));
+        detail.SelectedColumn!.Id.Should().Be(3);
+    }
+
+    /// <summary>完了列に入ったらボタンを消す（CanComplete が表示条件）。</summary>
+    [Fact]
+    public async Task CanComplete_TurnsFalse_OnceTheTaskIsDone()
+    {
+        MoveToDoneOnRequest();
+        var detail = await OpenAsync(10);
+        detail.CanComplete.Should().BeTrue();
+
+        await detail.CompleteCommand.ExecuteAsync(null);
+        await detail.PendingSave;
+
+        detail.CanComplete.Should().BeFalse();
+    }
+
+    /// <summary>削除済みのタスクでは「削除」が「復元」に変わる段なので、完了も出さない。</summary>
+    [Fact]
+    public async Task CanComplete_IsFalse_ForADeletedTask()
+    {
+        TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
+        var detail = await OpenAsync(11);
+
+        detail.IsDeleted.Should().BeTrue();
+        detail.CanComplete.Should().BeFalse();
+    }
+
+    /// <summary>タスク 10 を完了列へ移す要求が来たら、実サービスと同じ副作用をモデルへ写す。</summary>
+    private void MoveToDoneOnRequest()
+    {
+        var backlog = _board.Columns[0];
+        var done = _board.Columns[2];
+        _service.OnMoveTask = call =>
+        {
+            if (call is { TaskId: 10, ToColumnId: 3 }) TestBoards.Move(backlog, done, taskId: 10, position: call.Position);
+            return Task.FromResult(Result.Ok());
+        };
+    }
+
     /// <summary>完了列に入るまでは完了日時の行を出さない。</summary>
     [Fact]
     public async Task CompletedAtText_IsNull_WhileTheTaskIsNotDone()

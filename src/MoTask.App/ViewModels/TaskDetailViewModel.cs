@@ -30,6 +30,7 @@ public sealed partial class TaskDetailViewModel : ObservableObject
     [ObservableProperty] private string _newLabelName = "";
     [ObservableProperty] private string? _projectWorkingDirectory;
     [ObservableProperty] private bool _hasProject;
+    [ObservableProperty] private bool _canComplete;
 
     /// <summary>AI セクション。仕様 §10: 詳細パネルが子として持つ。</summary>
     public TaskAiPanelViewModel Ai { get; }
@@ -73,6 +74,8 @@ public sealed partial class TaskDetailViewModel : ObservableObject
             DueDate = m.DueDate?.ToDateTime(TimeOnly.MinValue);
             SelectedColumn = _board.Columns.FirstOrDefault(c => c.Id == m.ColumnId);
             IsDeleted = m.IsDeleted;
+            // 「完了にする」は完了列に入るまでの片道。削除済みは「復元」を出す段なので、そこでも消す。
+            CanComplete = !IsDeleted && SelectedColumn?.IsDone != true;
             // 完了列を出ると CompletedAt は null に戻るので、行ごと消える
             CompletedAtText = m.CompletedAt is DateTime completed ? HistoryFormatter.Timestamp(completed) : null;
 
@@ -175,6 +178,13 @@ public sealed partial class TaskDetailViewModel : ObservableObject
     private async Task SaveLabelsAsync(IReadOnlyCollection<int> ids)
     {
         if (await _board.SetTaskLabelsAsync(Card, ids)) await LoadHistoryAsync();
+    }
+
+    /// <summary>完了列の末尾へ移す。列の ComboBox 経由と同じく、移動後に履歴を読み直す。</summary>
+    [RelayCommand]
+    private async Task CompleteAsync()
+    {
+        if (await _board.CompleteCardAsync(Card)) await LoadHistoryAsync();
     }
 
     [RelayCommand]
