@@ -681,7 +681,7 @@ dotnet test MoTask.sln
 計画づくりの実行ログと同居している（`tests/MoTask.Data.Tests/MigrationTests.cs`）。削除すると
 利用者のカンバン全部を消すことになるので、代わりにその場で SQL 移行する（仕様 §6）。
 
-0. `%USERPROFILE%\MoTask\settings.json` を開き、`MorningInstruction` に値があれば控えておく。
+0. `%LOCALAPPDATA%\MoTask\settings.json` を開き、`MorningInstruction` に値があれば控えておく。
    新しい設定 DTO にはこのキーが無く、`JsonAiSettingsStore.Load` は未知のキーを黙って捨て、
    `Save` はそのキーを持たない形でファイルを丸ごと書き直すので、**AI 設定を一度でも保存すると
    このキーはファイルから消えて戻せない。**

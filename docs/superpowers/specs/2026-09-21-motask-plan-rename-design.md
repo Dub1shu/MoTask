@@ -188,7 +188,7 @@
   作った DB にサンプル行を入れ、実際に実行して `dotnet ef database update` が
   「すでに最新です」と報告し、`PlanningRuns` と `PlanningRunId` で結合したクエリが
   元のデータをそのまま返すところまで確認済み。
-- 設定 JSON（`%USERPROFILE%\MoTask\`）の旧キー `MorningInstruction` は読まない。
+- 設定 JSON（`%LOCALAPPDATA%\MoTask\`。DB と同じフォルダ。`%USERPROFILE%\MoTask` は既定のワークフォルダで別物）の旧キー `MorningInstruction` は読まない。
   カスタム指示文を書いていた場合は既定テンプレートに戻る。書いていた指示文を残したい
   場合の手順は §7 の手動確認 0 を参照
 - 既定ワークフォルダ下の旧 `morning/` ジョブフォルダは放置する。新しい実行は `planning/` の下に作る。
@@ -218,7 +218,7 @@
 
 ### 手動確認
 
-0. `%USERPROFILE%\MoTask\settings.json` を開き、`MorningInstruction` に値があれば控えておく。
+0. `%LOCALAPPDATA%\MoTask\settings.json` を開き、`MorningInstruction` に値があれば控えておく。
    MoTask を起動したあと、設定画面の「計画づくりの指示文」へ貼り直す。**AI 設定を一度でも
    保存すると、このキーはファイルから消えて戻せない。** 新しい設定 DTO にこのキーは無く、
    読み込み時は未知のキーを黙って捨て、保存時はそのキーを持たない形でファイルを丸ごと
