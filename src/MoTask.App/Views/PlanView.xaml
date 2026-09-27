@@ -32,7 +32,7 @@
       <TextBlock Text="{Binding LastRunText}" Style="{StaticResource Text.Caption}" />
     </StackPanel>
 
-    <!-- 実行のボタン -->
+    <!-- 上部は計画そのものの主操作だけ（仕様 §5）。 -->
     <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
       <Button Content="{x:Static res:Strings.PlanStart}" Style="{StaticResource Btn.Primary}"
               Command="{Binding StartCommand}"
@@ -42,16 +42,34 @@
       <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Text.Caption}"
                  VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}"
                  Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
-      <Button Content="{x:Static res:Strings.PlanComplete}" Style="{StaticResource Btn.Ghost}"
-              Command="{Binding CompleteCommand}" Margin="{StaticResource Gap.Left.2}"
-              Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
-      <Button Content="{x:Static res:Strings.PlanStopTracking}" Style="{StaticResource Btn.Ghost}"
-              Command="{Binding StopTrackingCommand}"
-              Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}" />
-      <Button Content="{x:Static res:Strings.PlanOpenJobFolder}" Style="{StaticResource Btn.Ghost}"
-              Command="{Binding OpenJobFolderCommand}"
-              Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisibility}}" />
     </StackPanel>
+
+    <!--
+      端末セッションの後始末（仕様 §5）。計画そのものの操作ではないので計画本体より下に退け、
+      控えめな見た目にする。Btn.Ghost は既に Brush.TextMuted なので、字の大きさだけ
+      Text.Caption に合わせる。
+      CanControl（= IsRunning）と IsFailed は排他なので、行を 2 本に分けても同時には出ない。
+      どちらの条件も満たさないときは Border ごと消えるため、空の行は残らない。
+    -->
+    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,1,0,0"
+            Padding="{StaticResource Pad.SectionHeader}" Margin="{StaticResource Gap.Top.4}"
+            Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel Orientation="Horizontal">
+        <Button Content="{x:Static res:Strings.PlanComplete}" Style="{StaticResource Btn.Ghost}"
+                FontSize="{StaticResource FontSize.Caption}"
+                Command="{Binding CompleteCommand}" />
+        <Button Content="{x:Static res:Strings.PlanStopTracking}" Style="{StaticResource Btn.Ghost}"
+                FontSize="{StaticResource FontSize.Caption}"
+                Command="{Binding StopTrackingCommand}" Margin="{StaticResource Gap.Left.2}" />
+      </StackPanel>
+    </Border>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,1,0,0"
+            Padding="{StaticResource Pad.SectionHeader}" Margin="{StaticResource Gap.Top.4}"
+            Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisibility}}">
+      <Button Content="{x:Static res:Strings.PlanOpenJobFolder}" Style="{StaticResource Btn.Ghost}"
+              FontSize="{StaticResource FontSize.Caption}"
+              Command="{Binding OpenJobFolderCommand}" HorizontalAlignment="Left" />
+    </Border>
 
     <Grid Margin="{StaticResource Gap.Top.4}">
       <Grid.ColumnDefinitions>
