@@ -164,6 +164,7 @@ public static class Strings
     public static string McpDueFilterInvalidFormat => Get(nameof(McpDueFilterInvalidFormat));
     public static string McpBoardHasNoColumn => Get(nameof(McpBoardHasNoColumn));
     public static string SettingsPlanningInstruction => Get(nameof(SettingsPlanningInstruction));
+    public static string SettingsPlanningInstructionReset => Get(nameof(SettingsPlanningInstructionReset));
     public static string ViewPlan => Get(nameof(ViewPlan));
     public static string PlanStart => Get(nameof(PlanStart));
     public static string PlanNoRun => Get(nameof(PlanNoRun));

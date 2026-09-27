@@ -3,6 +3,7 @@ using MoTask.App.Resources;
 using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core.Ai;
+using MoTask.Core.Planning;
 using Xunit;
 
 namespace MoTask.App.Tests;
@@ -127,6 +128,47 @@ public class AiSettingsViewModelTests
 
         _store.SaveCalls.Should().ContainSingle().Which.Should().Be(new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null, null));
+    }
+
+    /// <summary>既定の文面は隠さずに見せる。人はそれを読んでから書き換える。</summary>
+    [Fact]
+    public void Open_ShowsTheDefaultPlanningInstruction_WhenNoneIsSaved()
+    {
+        var vm = Open();
+
+        vm.PlanningInstruction.Should().Be(PlanningInstruction.DefaultTemplate);
+    }
+
+    [Fact]
+    public void Open_ShowsTheSavedPlanningInstruction()
+    {
+        _store.Settings = new AiSettings(@"C:\work", null, null, AiSettings.DefaultPermissionMode, null, "私の方針");
+
+        Open().PlanningInstruction.Should().Be("私の方針");
+    }
+
+    [Fact]
+    public void ResetPlanningInstruction_PutsTheDefaultBackWithoutSaving()
+    {
+        var vm = Open();
+        vm.PlanningInstruction = "書きかけ";
+
+        vm.ResetPlanningInstructionCommand.Execute(null);
+
+        vm.PlanningInstruction.Should().Be(PlanningInstruction.DefaultTemplate);
+        _store.SaveCalls.Should().BeEmpty();
+    }
+
+    /// <summary>既定と同じなら null のまま。既定の文面が改まったとき、書き換えていない人にも届く。</summary>
+    [Fact]
+    public void Save_StoresNull_WhenThePlanningInstructionIsTheDefault()
+    {
+        var vm = Open();
+        vm.PlanningInstruction = "\n" + PlanningInstruction.DefaultTemplate + "  \n";
+
+        vm.SaveCommand.Execute(null);
+
+        _store.SaveCalls.Should().ContainSingle().Which.PlanningInstruction.Should().BeNull();
     }
 
     [Fact]

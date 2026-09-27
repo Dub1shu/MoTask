@@ -172,7 +172,8 @@
   <data name="McpDueInvalidFormat" xml:space="preserve"><value>due は YYYY-MM-DD 形式で指定してください: {0}</value></data>
   <data name="McpDueFilterInvalidFormat" xml:space="preserve"><value>due には all / today / this_week / overdue のいずれかを指定してください: {0}</value></data>
   <data name="McpBoardHasNoColumn" xml:space="preserve"><value>ボードに列がありません。</value></data>
-  <data name="SettingsPlanningInstruction" xml:space="preserve"><value>計画づくりの指示文（空なら既定の文面。出力先と JSON の形は MoTask が自動で付け足します）</value></data>
+  <data name="SettingsPlanningInstruction" xml:space="preserve"><value>計画づくりの指示文（出力先と JSON の形は MoTask が自動で付け足します）</value></data>
+  <data name="SettingsPlanningInstructionReset" xml:space="preserve"><value>既定に戻す</value></data>
   <data name="ViewPlan" xml:space="preserve"><value>計画</value></data>
   <data name="PlanStart" xml:space="preserve"><value>計画を作る</value></data>
   <data name="PlanNoRun" xml:space="preserve"><value>今日の計画はまだありません</value></data>
