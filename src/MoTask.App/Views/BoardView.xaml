@@ -33,15 +33,10 @@
           <Button Content="{x:Static res:Strings.AddColumn}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
                   Command="{Binding BeginAddColumnCommand}"
                   Visibility="{Binding IsAddingColumn, Converter={StaticResource BoolToVisibilityInverse}}" />
-          <!-- 名前と種別。Enter で確定、Esc で取り消し（どちらの入力欄からでも効くよう親で受ける）。 -->
-          <StackPanel Visibility="{Binding IsAddingColumn, Converter={StaticResource BoolToVisibility}}"
-                      KeyDown="NewColumnEditor_KeyDown">
-            <TextBox Text="{Binding NewColumnName, UpdateSourceTrigger=PropertyChanged}"
-                     IsVisibleChanged="EditBox_IsVisibleChanged" />
-            <!-- 種別は列を追加するときに決める。完了列は1つだけなので選べない（仕様 §5）。 -->
-            <ComboBox Margin="{StaticResource Gap.Top.2}" ItemsSource="{Binding NewColumnRoles}" DisplayMemberPath="Name"
-                      SelectedItem="{Binding NewColumnRole}" />
-          </StackPanel>
+          <!-- 名前だけを聞く（役割は列メニューで変える）。Enter で確定、Esc で取り消し。 -->
+          <TextBox Text="{Binding NewColumnName, UpdateSourceTrigger=PropertyChanged}"
+                   Visibility="{Binding IsAddingColumn, Converter={StaticResource BoolToVisibility}}"
+                   KeyDown="NewColumnEditor_KeyDown" IsVisibleChanged="EditBox_IsVisibleChanged" />
         </Grid>
       </Border>
     </StackPanel>

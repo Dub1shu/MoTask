@@ -9,7 +9,7 @@ using MoTask.Core.Model;
 
 namespace MoTask.App.ViewModels;
 
-/// <summary>列1本。ヘッダーの表示と、その列の中で完結する編集（インライン追加・改名・WIP）を持つ。</summary>
+/// <summary>列1本。ヘッダーの表示と、その列の中で完結する編集（インライン追加・名前の変更・カードの上限）を持つ。</summary>
 public sealed partial class ColumnViewModel : ObservableObject
 {
     private readonly BoardViewModel _board;
@@ -22,6 +22,10 @@ public sealed partial class ColumnViewModel : ObservableObject
     [ObservableProperty] private int? _wipLimit;
     [ObservableProperty] private ColumnRole _role;
     [ObservableProperty] private bool _isDone;
+    // 列メニューで今の役割にチェックを付けるため。
+    [ObservableProperty] private bool _isBacklog;
+    [ObservableProperty] private bool _isActive;
+    [ObservableProperty] private bool _isReview;
     [ObservableProperty] private int _activeCount;
     [ObservableProperty] private bool _isOverWip;
     [ObservableProperty] private string _countText = "";
@@ -53,6 +57,9 @@ public sealed partial class ColumnViewModel : ObservableObject
         WipLimit = Model.WipLimit;
         Role = Model.Role;
         IsDone = Role == ColumnRole.Done;
+        IsBacklog = Role == ColumnRole.Backlog;
+        IsActive = Role == ColumnRole.Active;
+        IsReview = Role == ColumnRole.Review;
         ActiveCount = Model.ActiveCount;
         IsOverWip = Model.IsOverWip;
         CountText = WipLimit is int limit

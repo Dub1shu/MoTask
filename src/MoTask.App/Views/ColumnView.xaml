@@ -18,24 +18,28 @@
               Padding="{StaticResource Pad.Section}" Background="Transparent"
               dd:DragDropBehavior.IsDragSource="True">
         <DockPanel>
-          <!-- ヘッダー内の操作部品の上で押したときは列を掴まない（メニュー・改名・WIP の入力）。 -->
+          <!-- ヘッダー内の操作部品の上で押したときは列を掴まない（メニュー・名前・上限の入力）。 -->
           <Button DockPanel.Dock="Right" Content="⋯" ToolTip="{x:Static res:Strings.ColumnMenu}"
                   Style="{StaticResource Btn.Ghost}" Click="MenuButton_Click"
                   dd:DragDropBehavior.DragSourceIgnore="True">
             <Button.ContextMenu>
               <ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                 <MenuItem Header="{x:Static res:Strings.Rename}" Command="{Binding BeginRenameCommand}" />
-                <MenuItem Header="{x:Static res:Strings.ChangeRole}"
-                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}">
-                  <MenuItem Header="{x:Static res:Strings.RoleBacklog}" Command="{Binding SetRoleCommand}"
-                            CommandParameter="{x:Static model:ColumnRole.Backlog}" />
-                  <MenuItem Header="{x:Static res:Strings.RoleActive}" Command="{Binding SetRoleCommand}"
-                            CommandParameter="{x:Static model:ColumnRole.Active}" />
-                  <MenuItem Header="{x:Static res:Strings.RoleReview}" Command="{Binding SetRoleCommand}"
-                            CommandParameter="{x:Static model:ColumnRole.Review}" />
-                </MenuItem>
                 <MenuItem Header="{x:Static res:Strings.SetWip}" Command="{Binding BeginEditWipCommand}" />
                 <MenuItem Header="{x:Static res:Strings.ClearWip}" Command="{Binding ClearWipCommand}" />
+                <!-- 役割はサブメニューにせず並べ、今の役割にチェックを付ける。完了列は1つだけなので出さない（仕様 §5）。 -->
+                <Separator Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
+                <MenuItem Header="{x:Static res:Strings.ColumnRoleHeading}" IsEnabled="False"
+                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
+                <MenuItem Header="{x:Static res:Strings.RoleBacklog}" IsChecked="{Binding IsBacklog, Mode=OneWay}"
+                          Command="{Binding SetRoleCommand}" CommandParameter="{x:Static model:ColumnRole.Backlog}"
+                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
+                <MenuItem Header="{x:Static res:Strings.RoleActive}" IsChecked="{Binding IsActive, Mode=OneWay}"
+                          Command="{Binding SetRoleCommand}" CommandParameter="{x:Static model:ColumnRole.Active}"
+                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
+                <MenuItem Header="{x:Static res:Strings.RoleReview}" IsChecked="{Binding IsReview, Mode=OneWay}"
+                          Command="{Binding SetRoleCommand}" CommandParameter="{x:Static model:ColumnRole.Review}"
+                          Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
                 <Separator Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />
                 <MenuItem Header="{x:Static res:Strings.DeleteColumn}" Command="{Binding DeleteColumnCommand}"
                           Visibility="{Binding IsDone, Converter={StaticResource BoolToVisibilityInverse}}" />

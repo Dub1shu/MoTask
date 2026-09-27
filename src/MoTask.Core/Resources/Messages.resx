@@ -13,15 +13,15 @@
   <data name="TaskAlreadyDeleted" xml:space="preserve"><value>このタスクはすでに削除されています</value></data>
   <data name="TaskNotDeleted" xml:space="preserve"><value>このタスクは削除されていません</value></data>
   <data name="ColumnNameRequired" xml:space="preserve"><value>列の名前を入力してください</value></data>
-  <data name="DoneColumnCannotChangeRole" xml:space="preserve"><value>完了の列の種別は変更できません</value></data>
-  <data name="CannotAssignDoneRole" xml:space="preserve"><value>完了の種別は他の列に設定できません</value></data>
+  <data name="DoneColumnCannotChangeRole" xml:space="preserve"><value>完了の列の役割は変更できません</value></data>
+  <data name="CannotAssignDoneRole" xml:space="preserve"><value>完了の役割は他の列に設定できません</value></data>
   <data name="DoneColumnCannotBeDeleted" xml:space="preserve"><value>完了の列は削除できません</value></data>
   <data name="ColumnHasTasks" xml:space="preserve"><value>タスクが残っている列は削除できません（削除済みのタスクも含みます）</value></data>
   <data name="ReorderMustIncludeAllColumns" xml:space="preserve"><value>並び替えにはすべての列を含めてください</value></data>
-  <data name="WipLimitMustBePositive" xml:space="preserve"><value>WIP 制限は 1 以上の整数にしてください</value></data>
+  <data name="WipLimitMustBePositive" xml:space="preserve"><value>カードの上限は 1 以上の整数にしてください</value></data>
   <data name="ProjectNameRequired" xml:space="preserve"><value>プロジェクト名を入力してください</value></data>
   <data name="LabelNameRequired" xml:space="preserve"><value>ラベル名を入力してください</value></data>
-  <data name="WipExceededFormat" xml:space="preserve"><value>{0} の WIP 制限 {1} を超えています</value></data>
+  <data name="WipExceededFormat" xml:space="preserve"><value>{0} のカードが上限 {1} 枚を超えています</value></data>
   <data name="SaveFailed" xml:space="preserve"><value>保存に失敗しました</value></data>
   <data name="DefaultBoardName" xml:space="preserve"><value>マイボード</value></data>
   <data name="DefaultColumnBacklog" xml:space="preserve"><value>未着手</value></data>

@@ -45,16 +45,7 @@ public sealed partial class BoardViewModel : ObservableObject
     [ObservableProperty] private string? _bannerMessage;
     [ObservableProperty] private bool _isAddingColumn;
     [ObservableProperty] private string _newColumnName = "";
-    [ObservableProperty] private ColumnRoleOption _newColumnRole;
     [ObservableProperty] private bool _isLoaded;
-
-    /// <summary>列を追加するときに選べる種別。Done 列は1つだけなので選ばせない（仕様 §5）。</summary>
-    public IReadOnlyList<ColumnRoleOption> NewColumnRoles { get; } = new[]
-    {
-        new ColumnRoleOption(ColumnRole.Backlog, Strings.RoleBacklog),
-        new ColumnRoleOption(ColumnRole.Active, Strings.RoleActive),
-        new ColumnRoleOption(ColumnRole.Review, Strings.RoleReview),
-    };
 
     public BoardViewModel(IBoardService service, IClock clock, IAiJobService aiJobs, IBoardChangeSource externalChanges)
     {
@@ -67,7 +58,6 @@ public sealed partial class BoardViewModel : ObservableObject
         // JobChanged がワーカースレッドのまま UI を触ることになる。起動時に気付けるようにする。
         Debug.Assert(_ui is not null || Application.Current is null,
             "BoardViewModel は UI スレッドで生成すること（SynchronizationContext.Current が null）。");
-        _newColumnRole = DefaultColumnRole();
         Filter.Changed += (_, _) => ApplyFilter();
         aiJobs.JobChanged += (_, e) => Post(() => OnJobChanged(e));
         // MCP 経由の書き込みはこの ViewModel を通らないので、丸ごと読み直す。
@@ -79,10 +69,6 @@ public sealed partial class BoardViewModel : ObservableObject
         if (_ui is null) action();
         else _ui.Post(_ => action(), null);
     }
-
-    /// <summary>追加する列の既定の種別は「進行中」。</summary>
-    private ColumnRoleOption DefaultColumnRole()
-        => NewColumnRoles.First(r => r.Value == ColumnRole.Active);
 
     public DateOnly Today => _clock.Today;
 
@@ -330,15 +316,15 @@ public sealed partial class BoardViewModel : ObservableObject
     private void BeginAddColumn()
     {
         NewColumnName = "";
-        NewColumnRole = DefaultColumnRole();
         IsAddingColumn = true;
     }
 
+    /// <summary>追加時に聞くのは名前だけ。役割は「未着手」で始め、変えたければ列メニューから選ぶ。</summary>
     [RelayCommand]
     private async Task CommitAddColumnAsync()
     {
         if (string.IsNullOrWhiteSpace(NewColumnName)) return;
-        var result = await GuardAsync(() => _service.AddColumnAsync(NewColumnName, NewColumnRole.Value));
+        var result = await GuardAsync(() => _service.AddColumnAsync(NewColumnName, ColumnRole.Backlog));
         if (!await HandleAsync(result)) return;
         IsAddingColumn = false;
         NewColumnName = "";
@@ -565,7 +551,7 @@ public sealed partial class BoardViewModel : ObservableObject
     /// <summary>
     /// 失敗ならバナーを出す。保存に失敗したときだけ全体を読み直す。検証で却下されただけなら
     /// 入力途中の編集も列 VM もそのまま残す（仕様 §8: GetBoard は起動時と復帰時だけ）。
-    /// WIP 超過は Warnings で来る成功なので、バナーには出さない。
+    /// 上限超過は Warnings で来る成功なので、バナーには出さない。
     /// </summary>
     private async Task<bool> HandleAsync(Result result)
     {
