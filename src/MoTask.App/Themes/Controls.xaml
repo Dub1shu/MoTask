@@ -205,7 +205,7 @@
     </Style.Triggers>
   </Style>
 
-  <!-- TextBox -->
+  <!-- TextBox。Tag に文字列を渡すと、空の間だけ透かし文字として出す（説明の行を別に置かずに済む）。 -->
   <Style TargetType="TextBox">
     <Setter Property="Background" Value="{StaticResource Brush.Input}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
@@ -222,9 +222,16 @@
           <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                   BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
                   CornerRadius="6" SnapsToDevicePixels="True">
-            <ScrollViewer x:Name="PART_ContentHost" />
+            <Grid>
+              <TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}" Foreground="{StaticResource Brush.TextMuted}"
+                         IsHitTestVisible="False" Margin="2,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
+              <ScrollViewer x:Name="PART_ContentHost" />
+            </Grid>
           </Border>
           <ControlTemplate.Triggers>
+            <Trigger Property="Text" Value="">
+              <Setter TargetName="Watermark" Property="Visibility" Value="Visible" />
+            </Trigger>
             <Trigger Property="IsMouseOver" Value="True">
               <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Neutral.600}" />
             </Trigger>

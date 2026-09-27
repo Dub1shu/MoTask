@@ -28,6 +28,8 @@ public sealed partial class TaskDetailViewModel : ObservableObject
     [ObservableProperty] private bool _hasTitleError;
     [ObservableProperty] private string _newProjectName = "";
     [ObservableProperty] private string _newLabelName = "";
+    [ObservableProperty] private bool _isAddingProject;
+    [ObservableProperty] private bool _isAddingLabel;
     [ObservableProperty] private string? _projectWorkingDirectory;
     [ObservableProperty] private bool _hasProject;
     [ObservableProperty] private bool _canComplete;
@@ -202,6 +204,23 @@ public sealed partial class TaskDetailViewModel : ObservableObject
     [RelayCommand]
     private void Close() => _board.CloseDetailCommand.Execute(null);
 
+    // 新しいプロジェクト／ラベルの入力欄は、使うときだけ「＋」で開く。
+    // 列の「＋ 追加」と同じく、空の Enter は拒否して開いたまま、作れなかったときも入力を残す。
+
+    [RelayCommand]
+    private void BeginAddProject()
+    {
+        NewProjectName = "";
+        IsAddingProject = true;
+    }
+
+    [RelayCommand]
+    private void CancelAddProject()
+    {
+        NewProjectName = "";
+        IsAddingProject = false;
+    }
+
     [RelayCommand]
     private async Task CreateProjectAsync()
     {
@@ -210,8 +229,23 @@ public sealed partial class TaskDetailViewModel : ObservableObject
         var project = await _board.CreateProjectAsync(name);
         if (project is null) return;
         NewProjectName = "";
+        IsAddingProject = false;
         Refresh();
         SelectedProject = Projects.First(o => o.Id == project.Id); // 変更として保存される
+    }
+
+    [RelayCommand]
+    private void BeginAddLabel()
+    {
+        NewLabelName = "";
+        IsAddingLabel = true;
+    }
+
+    [RelayCommand]
+    private void CancelAddLabel()
+    {
+        NewLabelName = "";
+        IsAddingLabel = false;
     }
 
     [RelayCommand]
@@ -222,6 +256,7 @@ public sealed partial class TaskDetailViewModel : ObservableObject
         var label = await _board.CreateLabelAsync(name);
         if (label is null) return;
         NewLabelName = "";
+        IsAddingLabel = false;
         var ids = Card.Model.Labels.Select(l => l.Id).Append(label.Id).ToList();
         if (await _board.SetTaskLabelsAsync(Card, ids)) await LoadHistoryAsync();
     }

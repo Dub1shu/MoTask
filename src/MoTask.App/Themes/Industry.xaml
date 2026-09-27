@@ -117,10 +117,6 @@
   <Thickness x:Key="Gap.Chip" Right="{StaticResource Space.1}" Bottom="{StaticResource Space.1}" />
   <!-- 詳細パネルのフィールドラベル: 前の項目との間を広め、直後の入力欄との間を詰める。 -->
   <Thickness x:Key="Gap.FieldLabel" Top="{StaticResource Space.4}" Bottom="{StaticResource Space.1}" />
-  <!-- ヒント文（「新規〜を入力して Enter」）の間隔。下の 2 は実寸: Pad.Chip 同様、
-       Space 刻みだと直後の入力欄まで開きすぎるため。 -->
-  <Thickness x:Key="Gap.ProjectHint" Top="{StaticResource Space.2}" Bottom="2" />
-  <Thickness x:Key="Gap.LabelHint" Top="{StaticResource Space.1}" Bottom="2" />
   <!-- 詳細パネルのセクション見出し: 前のセクションとの間を大きく開け、区切り線と文字の間を詰める。 -->
   <Thickness x:Key="Gap.Section" Top="{StaticResource Space.6}" />
   <Thickness x:Key="Pad.SectionHeader" Top="{StaticResource Space.3}" Bottom="{StaticResource Space.1}" />

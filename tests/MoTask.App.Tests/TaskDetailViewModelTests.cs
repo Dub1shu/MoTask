@@ -304,4 +304,118 @@ public class TaskDetailViewModelTests
         var detail = await OpenAsync(11);
         detail.HasProject.Should().BeFalse();
     }
+
+    // ---- 新しいプロジェクト／ラベルの入力欄は「＋」で開いたときだけ出す ----
+
+    [Fact]
+    public async Task AddProject_IsClosedUntilBegun()
+    {
+        var detail = await OpenAsync(10);
+        detail.IsAddingProject.Should().BeFalse();
+
+        detail.BeginAddProjectCommand.Execute(null);
+
+        detail.IsAddingProject.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateProject_AssignsTheNewProject_AndCloses()
+    {
+        _service.OnCreateProject = name =>
+        {
+            var created = new Project { Id = 200, Name = name };
+            _service.Projects = _service.Projects.Append(created).ToList();
+            return Task.FromResult(Result.Ok(created));
+        };
+        var detail = await OpenAsync(10);
+        detail.BeginAddProjectCommand.Execute(null);
+        detail.NewProjectName = "新案件";
+
+        await detail.CreateProjectCommand.ExecuteAsync(null);
+        await detail.PendingSave;
+
+        detail.IsAddingProject.Should().BeFalse();
+        detail.NewProjectName.Should().BeEmpty();
+        _service.UpdateTaskCalls.Should().ContainSingle().Which.Update.ProjectId.Should().Be(200);
+    }
+
+    [Fact]
+    public async Task CreateProject_WithEmptyName_StaysOpen()
+    {
+        var detail = await OpenAsync(10);
+        detail.BeginAddProjectCommand.Execute(null);
+
+        await detail.CreateProjectCommand.ExecuteAsync(null);
+
+        detail.IsAddingProject.Should().BeTrue();
+        _service.CreateProjectCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateProject_WhenRejected_StaysOpenWithTheInput()
+    {
+        _service.OnCreateProject = _ => Task.FromResult(Result.Fail<Project>("同名のプロジェクトがあります"));
+        var detail = await OpenAsync(10);
+        detail.BeginAddProjectCommand.Execute(null);
+        detail.NewProjectName = "顧客A対応";
+
+        await detail.CreateProjectCommand.ExecuteAsync(null);
+
+        detail.IsAddingProject.Should().BeTrue();
+        detail.NewProjectName.Should().Be("顧客A対応");
+    }
+
+    [Fact]
+    public async Task CancelAddProject_DiscardsTheInput_AndCloses()
+    {
+        var detail = await OpenAsync(10);
+        detail.BeginAddProjectCommand.Execute(null);
+        detail.NewProjectName = "書きかけ";
+
+        detail.CancelAddProjectCommand.Execute(null);
+
+        detail.IsAddingProject.Should().BeFalse();
+        detail.NewProjectName.Should().BeEmpty();
+        _service.CreateProjectCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddLabel_IsClosedUntilBegun()
+    {
+        var detail = await OpenAsync(10);
+        detail.IsAddingLabel.Should().BeFalse();
+
+        detail.BeginAddLabelCommand.Execute(null);
+
+        detail.IsAddingLabel.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CreateLabel_AttachesTheNewLabel_AndCloses()
+    {
+        _service.OnCreateLabel = call => Task.FromResult(Result.Ok(new Label { Id = 300, Name = call.Name, Color = call.Color }));
+        var detail = await OpenAsync(10);
+        detail.BeginAddLabelCommand.Execute(null);
+        detail.NewLabelName = "定例";
+
+        await detail.CreateLabelCommand.ExecuteAsync(null);
+
+        detail.IsAddingLabel.Should().BeFalse();
+        detail.NewLabelName.Should().BeEmpty();
+        _service.SetTaskLabelsCalls.Should().ContainSingle().Which.LabelIds.Should().Contain(300);
+    }
+
+    [Fact]
+    public async Task CancelAddLabel_DiscardsTheInput_AndCloses()
+    {
+        var detail = await OpenAsync(10);
+        detail.BeginAddLabelCommand.Execute(null);
+        detail.NewLabelName = "書きかけ";
+
+        detail.CancelAddLabelCommand.Execute(null);
+
+        detail.IsAddingLabel.Should().BeFalse();
+        detail.NewLabelName.Should().BeEmpty();
+        _service.CreateLabelCalls.Should().BeEmpty();
+    }
 }
