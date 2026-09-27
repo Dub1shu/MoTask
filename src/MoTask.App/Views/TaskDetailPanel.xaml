@@ -77,14 +77,15 @@
           </StackPanel>
 
           <!-- 末尾に「＋ 追加」を並べるため、チップと同じ WrapPanel に入れる（CompositeCollection）。
-               CollectionContainer は DataContext を継がないので、Labels はコードビハインドで渡す。
+               CompositeCollection の中身はパネルの DataContext を継がないので、Labels と
+               「＋ 追加」の DataContext はコードビハインドで渡す。
                「＋ 追加」は UIElement のままなので ItemTemplate を通らず、そのまま並ぶ。 -->
           <TextBlock Text="{x:Static res:Strings.Labels}" Style="{StaticResource Field.Label}" />
           <ItemsControl>
             <ItemsControl.ItemsSource>
               <CompositeCollection>
                 <CollectionContainer x:Name="LabelChips" />
-                <Grid Margin="{StaticResource Gap.Chip}">
+                <Grid x:Name="AddLabelSlot" Margin="{StaticResource Gap.Chip}">
                   <Button Content="{x:Static res:Strings.AddTaskInline}" Style="{StaticResource Btn.Ghost}" Padding="6.8,2"
                           FontSize="{StaticResource FontSize.Small}" Command="{Binding BeginAddLabelCommand}"
                           Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />

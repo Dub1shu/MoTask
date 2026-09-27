@@ -11,7 +11,11 @@ public partial class TaskDetailPanel : UserControl
     public TaskDetailPanel()
     {
         InitializeComponent();
-        DataContextChanged += (_, _) => LabelChips.Collection = Vm?.Labels;
+        DataContextChanged += (_, _) =>
+        {
+            LabelChips.Collection = Vm?.Labels;
+            AddLabelSlot.DataContext = Vm;
+        };
     }
 
     private TaskDetailViewModel? Vm => DataContext as TaskDetailViewModel;
