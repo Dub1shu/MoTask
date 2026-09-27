@@ -24,7 +24,7 @@ public static class Strings
     public static string AddColumn => Get(nameof(AddColumn));
     public static string AddTaskInline => Get(nameof(AddTaskInline));
     public static string Rename => Get(nameof(Rename));
-    public static string ChangeRole => Get(nameof(ChangeRole));
+    public static string ColumnRoleHeading => Get(nameof(ColumnRoleHeading));
     public static string SetWip => Get(nameof(SetWip));
     public static string ClearWip => Get(nameof(ClearWip));
     public static string DeleteColumn => Get(nameof(DeleteColumn));

@@ -692,13 +692,12 @@ public class BoardViewModelTests
     [Fact]
     public async Task CommitAddColumn_WhenServiceThrows_ShowsBannerInsteadOfCrashing()
     {
-        _service.OnAddColumn = call => call is { Name: "確認待ち", Role: ColumnRole.Review }
+        _service.OnAddColumn = call => call is { Name: "確認待ち" }
             ? Task.FromException<Result<Column>>(new InvalidOperationException("disk I/O error"))
             : Task.FromResult(Result.Ok(new Column { Name = call.Name, Role = call.Role }));
         await _vm.LoadAsync();
         _vm.BeginAddColumnCommand.Execute(null);
         _vm.NewColumnName = "確認待ち";
-        _vm.NewColumnRole = _vm.NewColumnRoles.Single(r => r.Value == ColumnRole.Review);
 
         await _vm.CommitAddColumnCommand.ExecuteAsync(null);
 
@@ -886,50 +885,58 @@ public class BoardViewModelTests
         _vm.Columns[0].CountText.Should().Be("1");
     }
 
-    // ---- 列の追加（種別は追加するときに選ぶ） ----
-
-    /// <summary>Done 列は1つだけなので、追加時の種別には出さない。</summary>
-    [Fact]
-    public void NewColumnRoles_OfferBacklogActiveAndReview_ButNeverDone()
-    {
-        _vm.NewColumnRoles.Select(r => r.Value)
-            .Should().Equal(ColumnRole.Backlog, ColumnRole.Active, ColumnRole.Review);
-        _vm.NewColumnRoles.Select(r => r.Name)
-            .Should().Equal(Strings.RoleBacklog, Strings.RoleActive, Strings.RoleReview);
-        _vm.NewColumnRole.Value.Should().Be(ColumnRole.Active, "既定は進行中");
-    }
+    // ---- 列の追加（名前だけを聞き、役割は既定の「進行中」） ----
 
     [Fact]
-    public async Task CommitAddColumn_PassesSelectedRoleAndAppendsColumn()
+    public async Task CommitAddColumn_AddsAnActiveColumnAndAppendsIt()
     {
-        _service.OnAddColumn = call => call is { Name: "確認待ち", Role: ColumnRole.Review }
+        _service.OnAddColumn = call => call is { Name: "調査", Role: ColumnRole.Active }
             ? Task.FromResult(Result.Ok(
-                new Column { Id = 4, BoardId = 1, Name = "確認待ち", Order = 3, Role = ColumnRole.Review }))
+                new Column { Id = 4, BoardId = 1, Name = "調査", Order = 3, Role = ColumnRole.Active }))
             : Task.FromResult(Result.Ok(new Column { Name = call.Name, Role = call.Role }));
         await _vm.LoadAsync();
         _vm.BeginAddColumnCommand.Execute(null);
-        _vm.NewColumnName = "確認待ち";
-        _vm.NewColumnRole = _vm.NewColumnRoles.Single(r => r.Value == ColumnRole.Review);
+        _vm.NewColumnName = "調査";
 
         await _vm.CommitAddColumnCommand.ExecuteAsync(null);
 
         _vm.IsAddingColumn.Should().BeFalse();
-        _vm.Columns.Select(c => c.Name).Should().Equal("未着手", "進行中", "完了", "確認待ち");
-        _vm.Columns[3].Role.Should().Be(ColumnRole.Review);
+        _vm.Columns.Select(c => c.Name).Should().Equal("未着手", "進行中", "完了", "調査");
+        _vm.Columns[3].Role.Should().Be(ColumnRole.Active);
     }
 
-    /// <summary>選び直したあとでも、次に開いたときは名前が空・種別が既定に戻る。</summary>
+    /// <summary>書きかけで閉じても、次に開いたときは名前が空に戻る。</summary>
     [Fact]
-    public void BeginAddColumn_ResetsNameAndRole()
+    public void BeginAddColumn_ResetsName()
     {
         _vm.NewColumnName = "書きかけ";
-        _vm.NewColumnRole = _vm.NewColumnRoles.Single(r => r.Value == ColumnRole.Backlog);
 
         _vm.BeginAddColumnCommand.Execute(null);
 
         _vm.IsAddingColumn.Should().BeTrue();
         _vm.NewColumnName.Should().BeEmpty();
-        _vm.NewColumnRole.Value.Should().Be(ColumnRole.Active);
+    }
+
+    /// <summary>列メニューは今の役割にチェックを付ける。役割を変えたらチェックも移る。</summary>
+    [Fact]
+    public async Task SetRole_MovesTheCheckInTheColumnMenu()
+    {
+        _service.OnSetColumnRole = call =>
+        {
+            if (call is { ColumnId: 1, Role: ColumnRole.Review }) _board.Columns[0].Role = ColumnRole.Review;
+            return Task.FromResult(Result.Ok());
+        };
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];   // 未着手
+        column.IsBacklog.Should().BeTrue();
+        column.IsActive.Should().BeFalse();
+        column.IsReview.Should().BeFalse();
+
+        await column.SetRoleCommand.ExecuteAsync(ColumnRole.Review);
+
+        column.IsBacklog.Should().BeFalse();
+        column.IsActive.Should().BeFalse();
+        column.IsReview.Should().BeTrue();
     }
 
     [Fact]

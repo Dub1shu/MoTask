@@ -63,6 +63,6 @@ public class ModelTests
     public void Messages_ResolveFromResx()
     {
         Messages.TitleRequired.Should().Be("タイトルを入力してください");
-        string.Format(Messages.WipExceededFormat, "進行中", 3).Should().Be("進行中 の WIP 制限 3 を超えています");
+        string.Format(Messages.WipExceededFormat, "進行中", 3).Should().Be("進行中 のカードが上限 3 枚を超えています");
     }
 }

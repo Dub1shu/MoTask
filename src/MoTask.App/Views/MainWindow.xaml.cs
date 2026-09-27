@@ -130,7 +130,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 非編集の ComboBox も文字キーで項目を選ぶ。列追加の種別選択で Esc を奪わないよう、
+        // 非編集の ComboBox も文字キーで項目を選ぶ。選択中に Esc を奪わないよう、
         // IsEditable を問わず ComboBox は「入力中」として扱う。
         var typing = Keyboard.FocusedElement is TextBoxBase or ComboBox or DatePicker;
         if (typing) return; // インライン編集中の Enter/Esc は各入力欄が処理する
