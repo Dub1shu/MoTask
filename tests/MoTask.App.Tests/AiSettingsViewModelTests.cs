@@ -104,10 +104,10 @@ public class AiSettingsViewModelTests
     }
 
     [Fact]
-    public void Save_KeepsTheMorningInstruction()
+    public void Save_KeepsThePlanningInstruction()
     {
         var vm = Open();
-        vm.MorningInstruction = "  私の方針  ";
+        vm.PlanningInstruction = "  私の方針  ";
 
         vm.SaveCommand.Execute(null);
 
@@ -116,12 +116,12 @@ public class AiSettingsViewModelTests
     }
 
     [Fact]
-    public void Save_ClearsTheMorningInstruction_WhenTheBoxIsEmptied()
+    public void Save_ClearsThePlanningInstruction_WhenTheBoxIsEmptied()
     {
         _store.Settings = new AiSettings(@"C:\work", @"C:\tools\claude.exe", "claude-sonnet-5",
             AiSettings.DefaultPermissionMode, null, "前の方針");
         var vm = Open();
-        vm.MorningInstruction = "";
+        vm.PlanningInstruction = "";
 
         vm.SaveCommand.Execute(null);
 
@@ -140,7 +140,7 @@ public class AiSettingsViewModelTests
         vm.TemplateNotice.Should().BeNull();
     }
 
-    /// <summary>朝の実行では使えないテンプレートなので、保存前から画面で知らせる（仕様 §5.2）。</summary>
+    /// <summary>計画づくりでは使えないテンプレートなので、保存前から画面で知らせる（仕様 §5.2）。</summary>
     [Fact]
     public void TemplateNotice_AppearsWhileTypingAWindowsTerminalTemplate()
     {
@@ -150,7 +150,7 @@ public class AiSettingsViewModelTests
 
         vm.TerminalCommandTemplate = "wt.exe -d \"{cwd}\" cmd /k {command}";
 
-        vm.TemplateNotice.Should().Be(Strings.MorningTemplateFallsBackToDefault);
+        vm.TemplateNotice.Should().Be(Strings.PlanTemplateFallsBackToDefault);
         raised.Should().Contain(nameof(AiSettingsViewModel.TemplateNotice));
     }
 }

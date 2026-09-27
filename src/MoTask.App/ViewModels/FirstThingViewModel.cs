@@ -1,12 +1,12 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
-using MoTask.Core.Morning;
+using MoTask.Core.Planning;
 
 namespace MoTask.App.ViewModels;
 
 /// <summary>
-/// 左パネル・状態 2「最初にやる1件」（仕様 §6、ワイヤー 4b）。プランの JSON にあるのは taskId / externalId と
+/// 左パネル・状態 2「最初にやる1件」（仕様 §6、ワイヤー 4b）。計画の JSON にあるのは taskId / externalId と
 /// reason だけなので、出すのもタイトル・選定理由・「ボードで開く」の 3 つだけ（仕様 §3）。
 /// </summary>
 public sealed partial class FirstThingViewModel : ObservableObject
@@ -18,8 +18,8 @@ public sealed partial class FirstThingViewModel : ObservableObject
         _openOnBoard = openOnBoard;
     }
 
-    public string Heading => Strings.MorningFirstThingHeading;
-    public string EmptyText => Strings.MorningNoFirstThing;
+    public string Heading => Strings.PlanFirstThingHeading;
+    public string EmptyText => Strings.PlanNoFirstThing;
 
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private string _reason = "";

@@ -12,7 +12,7 @@ namespace MoTask.App.Tests;
 /// <summary>左パネル・状態 1（仕様 §6）。編集フォームと統合先の選択。</summary>
 public class TriagePanelViewModelTests
 {
-    private readonly FakeMorningService _service = new();
+    private readonly FakePlanningService _service = new();
     private readonly List<Result> _decisions = new();
     private readonly List<string> _opened = new();
     private readonly TriagePanelViewModel _panel;
@@ -20,9 +20,9 @@ public class TriagePanelViewModelTests
     public TriagePanelViewModelTests()
     {
         _service.RegisterResult = Result.Ok(new TaskItem { Id = 99 });
-        // FakeMorningService の 4 アクションは実サービスと同じく Candidates から該当候補を引いて
+        // FakePlanningService の 4 アクションは実サービスと同じく Candidates から該当候補を引いて
         // Status を書き換えるので、Candidate() が指す Id=1 を偽サービス側にも 1 件置く。
-        _service.Candidates.Add(new TriageCandidate { Id = 1, MorningRunId = 1 });
+        _service.Candidates.Add(new TriageCandidate { Id = 1, PlanningRunId = 1 });
         _panel = new TriagePanelViewModel(_service, r => { _decisions.Add(r); return Task.CompletedTask; }, _opened.Add);
         _panel.SetChoices(
             new[] { new ColumnChoice(1, "未着手"), new ColumnChoice(2, "進行中") },
@@ -31,7 +31,7 @@ public class TriagePanelViewModelTests
 
     private static CandidateItemViewModel Candidate(int? mergeTarget = null) => new(new TriageCandidate
     {
-        Id = 1, MorningRunId = 1, ExternalId = "outlook:001", Source = "Outlook", Title = "請求先情報を更新する",
+        Id = 1, PlanningRunId = 1, ExternalId = "outlook:001", Source = "Outlook", Title = "請求先情報を更新する",
         Evidence = "「9月8日までに」", Link = "https://outlook.office.com/x",
         SuggestedDueDate = new DateOnly(2026, 9, 8), SuggestedProject = "顧客A",
         SuggestedAction = mergeTarget is null ? TriageAction.Register : TriageAction.Merge, SuggestedMergeTaskId = mergeTarget,

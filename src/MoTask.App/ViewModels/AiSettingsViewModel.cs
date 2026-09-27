@@ -18,7 +18,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TemplateNotice))]
     private string _terminalCommandTemplate = "";
-    [ObservableProperty] private string _morningInstruction = "";
+    [ObservableProperty] private string _planningInstruction = "";
     [ObservableProperty] private string? _errorMessage;
     [ObservableProperty] private string? _statusMessage;
 
@@ -26,11 +26,11 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public IReadOnlyList<string> PermissionModes => AiSettings.PermissionModes;
 
     /// <summary>
-    /// wt.exe 始まりのテンプレートへの注意（仕様 §5.2）。朝の実行では既定の起動に落ちる。
+    /// wt.exe 始まりのテンプレートへの注意（仕様 §5.2）。計画づくりでは既定の起動に落ちる。
     /// 無ければ null（画面は NullToVisibility で隠す）。
     /// </summary>
     public string? TemplateNotice => TerminalLauncher.IsWindowsTerminalTemplate(TerminalCommandTemplate)
-        ? Strings.MorningTemplateFallsBackToDefault
+        ? Strings.PlanTemplateFallsBackToDefault
         : null;
 
     public AiSettingsViewModel(IAiSettingsStore store)
@@ -43,7 +43,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         _model = s.Model ?? "";
         _permissionMode = s.PermissionMode;
         _terminalCommandTemplate = s.TerminalCommandTemplate ?? "";
-        _morningInstruction = s.MorningInstruction ?? "";
+        _planningInstruction = s.PlanningInstruction ?? "";
     }
 
     [RelayCommand]
@@ -64,7 +64,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
 
         _store.Save(new AiSettings(dir, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model),
-            mode, NullIfBlank(TerminalCommandTemplate), NullIfBlank(MorningInstruction)));
+            mode, NullIfBlank(TerminalCommandTemplate), NullIfBlank(PlanningInstruction)));
         ErrorMessage = null;
         StatusMessage = Strings.SettingsSaved;
     }

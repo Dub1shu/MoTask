@@ -1,7 +1,7 @@
 using System.Text.Json;
 using FluentAssertions;
 using MoTask.Core.Model;
-using MoTask.Core.Morning;
+using MoTask.Core.Planning;
 using Xunit;
 
 namespace MoTask.Core.Tests;
@@ -90,7 +90,7 @@ public class BoardSnapshotTests
     public void Build_MarksTasksThatAlreadyHaveAnAiJob()
         => Build(busy: new[] { 45 }).GetProperty("tasks").EnumerateArray().Single()
             .GetProperty("hasActiveAiJob").GetBoolean().Should()
-            .BeTrue("プランの『AI 準備完了』区分に要る（仕様 §7）");
+            .BeTrue("計画の『AI 準備完了』区分に要る（仕様 §7）");
 
     [Fact]
     public void Build_WritesNullForAMissingProjectAndDueDate()

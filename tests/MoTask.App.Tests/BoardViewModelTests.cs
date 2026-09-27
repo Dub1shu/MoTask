@@ -940,7 +940,7 @@ public class BoardViewModelTests
         _vm.SelectTask(12);
 
         _vm.SelectedCard!.Id.Should().Be(12);
-        _vm.Detail.Should().NotBeNull("朝のプランの『ボードで開く』は詳細パネルまで開く");
+        _vm.Detail.Should().NotBeNull("計画の『ボードで開く』は詳細パネルまで開く");
     }
 
     [Fact]

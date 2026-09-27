@@ -56,8 +56,8 @@ public partial class App : Application
 
             // 前回閉じたあとも端末は走り続けている。未完了ジョブの events.jsonl に追いつく（ターミナル AI 仕様 §8）
             await _host.Services.GetRequiredService<IAiJobService>().RecoverOnStartupAsync();
-            // 前回閉じたあとも朝の実行の端末は走り続けている。events.jsonl に追いつく（仕様 §10）
-            await _host.Services.GetRequiredService<IMorningService>().RecoverOnStartupAsync();
+            // 前回閉じたあとも計画づくりの端末は走り続けている。events.jsonl に追いつく（仕様 §10）
+            await _host.Services.GetRequiredService<IPlanningService>().RecoverOnStartupAsync();
 
             var window = _host.Services.GetRequiredService<MainWindow>();
             MainWindow = window;
@@ -91,13 +91,13 @@ public partial class App : Application
         // MCP の board ツール。BoardToolHost 自身が外部変更の通知元なので、同じインスタンスを両方に配る。
         builder.Services.AddSingleton<Ai.BoardTools.BoardToolHost>();
         builder.Services.AddSingleton<IBoardChangeSource>(sp => sp.GetRequiredService<Ai.BoardTools.BoardToolHost>());
-        // 朝の実行の受け口。IMorningService だけを見るので BoardToolHost とは独立している。
-        builder.Services.AddSingleton<Ai.MorningTools.MorningToolHost>();
+        // 計画づくりの受け口。IPlanningService だけを見るので BoardToolHost とは独立している。
+        builder.Services.AddSingleton<Ai.PlanningTools.PlanningToolHost>();
         builder.Services.AddSingleton<MoTaskMcpServer>();
         builder.Services.AddSingleton<IAiJobService, AiJobService>();
-        builder.Services.AddSingleton<IMorningService, MorningService>();
+        builder.Services.AddSingleton<IPlanningService, PlanningService>();
         builder.Services.AddSingleton<ViewModels.BoardViewModel>();
-        builder.Services.AddSingleton<ViewModels.MorningPlanViewModel>();
+        builder.Services.AddSingleton<ViewModels.PlanViewModel>();
         builder.Services.AddSingleton<MainWindow>();
         return builder.Build();
     }

@@ -289,7 +289,7 @@ public sealed partial class BoardViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 朝のプランの「ボードで開く」とタスク行のクリックから（仕様 §6）。フィルタで隠れていても
+    /// 計画の「ボードで開く」とタスク行のクリックから（仕様 §6）。フィルタで隠れていても
     /// 選択（と詳細パネル）は開く。盤面に無ければ何もしない（仕様 §8）。
     /// </summary>
     public void SelectTask(int taskId)

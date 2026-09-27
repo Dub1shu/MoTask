@@ -1,0 +1,314 @@
+<UserControl x:Class="MoTask.App.Views.PlanView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:res="clr-namespace:MoTask.App.Resources"
+             xmlns:vm="clr-namespace:MoTask.App.ViewModels"
+             mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:PlanViewModel}">
+  <DockPanel Margin="{StaticResource Pad.Board}">
+
+    <!-- バナー -->
+    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.AccentSubtle}"
+            BorderBrush="{StaticResource Brush.Danger}" BorderThickness="0,0,0,1"
+            Padding="{StaticResource Pad.BarTight}"
+            Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource Btn.Ghost}"
+                Command="{Binding DismissBannerCommand}" />
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}"
+                   VerticalAlignment="Center" TextWrapping="Wrap" />
+      </DockPanel>
+    </Border>
+    <TextBlock DockPanel.Dock="Top" Text="{Binding WarningMessage}" Style="{StaticResource Text.Caption}"
+               TextWrapping="Wrap" Margin="{StaticResource Gap.Top.4}"
+               Visibility="{Binding WarningMessage, Converter={StaticResource NullToVisibility}}" />
+
+    <!-- 計画未生成（仕様 §4・§11）。取り込み済みで候補 0 件はここに含めない
+         （この計画は存在するので、HasNoPlanYet ではなく HasNoCandidates 側の案内文だけを出す） -->
+    <StackPanel DockPanel.Dock="Top" Margin="{StaticResource Gap.Top.4}"
+                Visibility="{Binding HasNoPlanYet, Converter={StaticResource BoolToVisibility}}">
+      <TextBlock Text="{x:Static res:Strings.PlanNoRun}" />
+      <TextBlock Text="{Binding LastRunText}" Style="{StaticResource Text.Caption}" />
+    </StackPanel>
+
+    <!-- 上部は計画そのものの主操作だけ（仕様 §5）。 -->
+    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
+      <Button Content="{x:Static res:Strings.PlanStart}" Style="{StaticResource Btn.Primary}"
+              Command="{Binding StartCommand}"
+              Visibility="{Binding CanStart, Converter={StaticResource BoolToVisibility}}" />
+      <TextBlock Text="{x:Static res:Strings.PlanRunning}" VerticalAlignment="Center"
+                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+      <TextBlock Text="{Binding ProgressText}" Style="{StaticResource Text.Caption}"
+                 VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}"
+                 Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+    </StackPanel>
+
+    <!--
+      端末セッションの後始末（仕様 §5）。計画そのものの操作ではないので計画本体より下に退け、
+      控えめな見た目にする。Btn.Ghost は既に Brush.TextMuted なので、字の大きさだけ
+      Text.Caption に合わせる。
+      CanControl（= IsRunning）と IsFailed は排他なので、行を 2 本に分けても同時には出ない。
+      どちらの条件も満たさないときは Border ごと消えるため、空の行は残らない。
+    -->
+    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,1,0,0"
+            Padding="{StaticResource Pad.SectionHeader}" Margin="{StaticResource Gap.Top.4}"
+            Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}">
+      <StackPanel Orientation="Horizontal">
+        <Button Content="{x:Static res:Strings.PlanComplete}" Style="{StaticResource Btn.Ghost}"
+                FontSize="{StaticResource FontSize.Caption}"
+                Command="{Binding CompleteCommand}" />
+        <Button Content="{x:Static res:Strings.PlanStopTracking}" Style="{StaticResource Btn.Ghost}"
+                FontSize="{StaticResource FontSize.Caption}"
+                Command="{Binding StopTrackingCommand}" Margin="{StaticResource Gap.Left.2}" />
+      </StackPanel>
+    </Border>
+    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,1,0,0"
+            Padding="{StaticResource Pad.SectionHeader}" Margin="{StaticResource Gap.Top.4}"
+            Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisibility}}">
+      <Button Content="{x:Static res:Strings.PlanOpenJobFolder}" Style="{StaticResource Btn.Ghost}"
+              FontSize="{StaticResource FontSize.Caption}"
+              Command="{Binding OpenJobFolderCommand}" HorizontalAlignment="Left" />
+    </Border>
+
+    <Grid Margin="{StaticResource Gap.Top.4}">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="360" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+
+      <!--
+        左の固定パネル。候補が残っている間は仕分け、片づいたら「最初にやる1件」に、同じ場所が
+        切り替わる（ワイヤー 4a / 4b）。別パネルの表示/非表示ではなく、LeftPanel の型で
+        DataTemplate を選ぶ（仕様 §6）。実行前・実行中・失敗のときは null で、上部バーが案内する。
+      -->
+      <ContentControl Grid.Column="0" Content="{Binding LeftPanel}" VerticalAlignment="Top">
+        <ContentControl.Resources>
+          <DataTemplate DataType="{x:Type vm:TriagePanelViewModel}">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+              <StackPanel>
+                <TextBlock Text="{Binding HeadingText}" Style="{StaticResource Text.Label}" />
+                <TextBlock Text="{Binding PositionText}" Style="{StaticResource Text.Caption}" />
+
+                <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
+                  <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}" CornerRadius="3">
+                    <TextBlock Text="{Binding Selected.Source}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+                  </Border>
+                  <TextBlock Text="{Binding Selected.From}" Style="{StaticResource Text.Caption}"
+                             VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}" />
+                  <TextBlock Text="{Binding Selected.ReceivedText}" Style="{StaticResource Text.Caption}"
+                             VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}" />
+                </StackPanel>
+                <TextBlock Text="{Binding Selected.Title}" Style="{StaticResource Text.Heading}" TextWrapping="Wrap"
+                           Margin="{StaticResource Gap.Top.2}" />
+
+                <TextBlock Text="{x:Static res:Strings.PlanEvidence}" Style="{StaticResource Text.Label}"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBlock Text="{Binding Selected.Evidence}" TextWrapping="Wrap" />
+                <Button Content="{x:Static res:Strings.PlanOpenSource}" Style="{StaticResource Btn.Link}"
+                        HorizontalAlignment="Left" Command="{Binding OpenLinkCommand}"
+                        Visibility="{Binding Selected.HasLink, Converter={StaticResource BoolToVisibility}}" />
+
+                <TextBlock Text="{x:Static res:Strings.PlanReasoning}" Style="{StaticResource Text.Label}"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBlock Text="{Binding Selected.Reasoning}" TextWrapping="Wrap" />
+
+                <TextBlock Text="{x:Static res:Strings.FieldTitle}" Style="{StaticResource Text.Label}"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBox Text="{Binding EditTitle, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Text.Label}" />
+                <DatePicker SelectedDate="{Binding EditDueDate}" />
+
+                <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Text.Label}" />
+                <TextBox Text="{Binding EditProjectName, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Text="{x:Static res:Strings.Column}" Style="{StaticResource Text.Label}" />
+                <ComboBox ItemsSource="{Binding ColumnChoices}" DisplayMemberPath="Name"
+                          SelectedValuePath="Id" SelectedValue="{Binding EditColumnId}" />
+
+                <TextBlock Text="{x:Static res:Strings.PlanMergeTarget}" Style="{StaticResource Text.Label}" />
+                <ComboBox ItemsSource="{Binding MergeTargets}" DisplayMemberPath="Display"
+                          SelectedValuePath="Id" SelectedValue="{Binding EditMergeTargetId}" />
+
+                <Button Content="{x:Static res:Strings.PlanRegister}" Style="{StaticResource Btn.Primary}"
+                        Command="{Binding RegisterCommand}" Margin="{StaticResource Gap.Top.4}" HorizontalAlignment="Stretch" />
+                <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.2}">
+                  <Button Content="{x:Static res:Strings.PlanMerge}" Style="{StaticResource Btn.Ghost}"
+                          Command="{Binding MergeCommand}" />
+                  <Button Content="{x:Static res:Strings.PlanPostpone}" Style="{StaticResource Btn.Ghost}"
+                          Command="{Binding PostponeCommand}" Margin="{StaticResource Gap.Left.2}" />
+                  <Button Content="{x:Static res:Strings.PlanReject}" Style="{StaticResource Btn.Ghost}"
+                          Command="{Binding RejectCommand}" Margin="{StaticResource Gap.Left.2}" />
+                </StackPanel>
+                <TextBlock Text="{Binding KeyHint}" Style="{StaticResource Text.Hint}" Margin="{StaticResource Gap.Top.2}" />
+              </StackPanel>
+            </ScrollViewer>
+          </DataTemplate>
+
+          <DataTemplate DataType="{x:Type vm:FirstThingViewModel}">
+            <StackPanel>
+              <TextBlock Text="{Binding Heading}" Style="{StaticResource Text.Label}" />
+              <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.4}"
+                         Visibility="{Binding HasFirstThing, Converter={StaticResource BoolToVisibilityInverse}}" />
+              <StackPanel Visibility="{Binding HasFirstThing, Converter={StaticResource BoolToVisibility}}">
+                <TextBlock Text="{Binding Title}" Style="{StaticResource Text.Heading}" TextWrapping="Wrap"
+                           Margin="{StaticResource Gap.Top.4}" />
+                <TextBlock Text="{Binding Reason}" TextWrapping="Wrap" Margin="{StaticResource Gap.Top.2}"
+                           Visibility="{Binding Reason, Converter={StaticResource NullToVisibility}}" />
+                <Button Content="{x:Static res:Strings.PlanOpenOnBoard}" Style="{StaticResource Btn.Primary}"
+                        Command="{Binding OpenOnBoardCommand}" Margin="{StaticResource Gap.Top.4}" HorizontalAlignment="Left" />
+              </StackPanel>
+            </StackPanel>
+          </DataTemplate>
+        </ContentControl.Resources>
+      </ContentControl>
+
+      <!-- 右カラム。日付見出し・状況、候補キュー（状態 1）、計画（01 最初にやる1件 ＋ 02〜05）。 -->
+      <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="{StaticResource Gap.Left.4}">
+        <StackPanel Visibility="{Binding HasPlanView, Converter={StaticResource BoolToVisibility}}">
+          <TextBlock Text="{Binding DateHeading}" Style="{StaticResource Text.Section}" />
+          <TextBlock Text="{Binding StatusLine}" Style="{StaticResource Text.Caption}" Margin="{StaticResource Gap.Top.1}" />
+
+          <!-- 一括操作（仕様 §6）。仕分け中のみ出す -->
+          <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.2}"
+                      Visibility="{Binding IsTriaging, Converter={StaticResource BoolToVisibility}}">
+            <Button Content="{x:Static res:Strings.PlanApplySuggestions}" Style="{StaticResource Btn.Ghost}"
+                    Command="{Binding ApplySuggestionsCommand}" />
+            <Button Content="{x:Static res:Strings.PlanPostponeAll}" Style="{StaticResource Btn.Ghost}"
+                    Command="{Binding PostponeAllCommand}" Margin="{StaticResource Gap.Left.2}" />
+          </StackPanel>
+
+          <!-- 候補キュー（状態 1 のみ） -->
+          <StackPanel Visibility="{Binding IsTriaging, Converter={StaticResource BoolToVisibility}}"
+                      Margin="{StaticResource Gap.Top.4}">
+            <TextBlock Text="{x:Static res:Strings.PlanQueueHeading}" Style="{StaticResource Text.Label}" />
+            <!--
+              候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
+              ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
+              白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
+              自分で消し、項目の見た目もここで与える。
+            -->
+            <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
+                     Background="Transparent" BorderThickness="0" Margin="{StaticResource Gap.Top.2}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                  <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
+                  <Setter Property="Padding" Value="0" />
+                  <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                  <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                  <Setter Property="Template">
+                    <Setter.Value>
+                      <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
+                                BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
+                                Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
+                          <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                          </Trigger>
+                          <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Setter.Value>
+                  </Setter>
+                </Style>
+              </ListBox.ItemContainerStyle>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel Margin="0,2">
+                    <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
+                            CornerRadius="3" VerticalAlignment="Top">
+                      <TextBlock Text="{Binding SuggestionText}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+                    </Border>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Source}" Style="{StaticResource Text.Caption}" />
+                      <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
+                      <TextBlock Text="{Binding Caption}" Style="{StaticResource Text.Caption}" />
+                    </StackPanel>
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
+          <TextBlock Text="{x:Static res:Strings.PlanNoCandidates}" Style="{StaticResource Text.Caption}"
+                     Margin="{StaticResource Gap.Top.4}"
+                     Visibility="{Binding HasNoCandidates, Converter={StaticResource BoolToVisibility}}" />
+
+          <!-- 計画: 01 最初にやる1件 ＋ 02〜05 の区分 -->
+          <TextBlock Text="{x:Static res:Strings.PlanHeading}" Style="{StaticResource Text.Label}"
+                     Margin="{StaticResource Gap.Section}" />
+          <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
+                  BorderThickness="1" CornerRadius="8" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
+            <StackPanel>
+              <TextBlock Text="{Binding FirstThingHeadingText}" Style="{StaticResource Text.Caption}" />
+              <TextBlock Text="{Binding FirstThing.Title}" FontWeight="Medium" TextWrapping="Wrap"
+                         Visibility="{Binding FirstThing.HasFirstThing, Converter={StaticResource BoolToVisibility}}" />
+              <TextBlock Text="{Binding FirstThing.EmptyText}" Style="{StaticResource Text.Caption}"
+                         Visibility="{Binding FirstThing.HasFirstThing, Converter={StaticResource BoolToVisibilityInverse}}" />
+            </StackPanel>
+          </Border>
+
+          <ItemsControl ItemsSource="{Binding Sections}" Margin="{StaticResource Gap.Top.2}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="{StaticResource Gap.Top.4}">
+                  <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Text.Caption}" />
+                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Text.Label}" />
+                  </DockPanel>
+                  <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Caption}"
+                             Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />
+                  <ItemsControl ItemsSource="{Binding Rows}">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <!-- 行の境界はカードで示す。Btn.Ghost（透明・枠なし）だと余白しか手がかりが
+                             無く、行が続いて見える。既定の Button スタイルは SurfaceRaised の塗りと
+                             Divider の枠を持つので、候補キューや「01 最初にやる1件」と同じ見た目に揃う。 -->
+                        <Button Command="{Binding OpenCommand}"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
+                          <DockPanel>
+                            <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}"
+                                    Padding="{StaticResource Pad.Chip}" CornerRadius="3" VerticalAlignment="Top"
+                                    Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
+                              <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Text.Caption}"
+                                         Foreground="{StaticResource Brush.Accent}" />
+                            </Border>
+                            <StackPanel>
+                              <TextBlock Text="{Binding Title}" TextWrapping="Wrap">
+                                <TextBlock.Style>
+                                  <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                                    <Style.Triggers>
+                                      <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                                      </DataTrigger>
+                                    </Style.Triggers>
+                                  </Style>
+                                </TextBlock.Style>
+                              </TextBlock>
+                              <TextBlock Text="{Binding Caption}" Style="{StaticResource Text.Caption}"
+                                         Visibility="{Binding Caption, Converter={StaticResource NullToVisibility}}" />
+                            </StackPanel>
+                          </DockPanel>
+                        </Button>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+  </DockPanel>
+</UserControl>

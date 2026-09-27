@@ -10,29 +10,29 @@ namespace MoTask.App.ViewModels;
 /// <summary>統合先の選択肢。完了列と論理削除済みは出さない（仕様 §6）。</summary>
 public sealed record TaskChoice(int Id, string Title, string ColumnName)
 {
-    public string Display => string.Format(Strings.MorningTaskChoiceFormat, Title, ColumnName);
+    public string Display => string.Format(Strings.PlanTaskChoiceFormat, Title, ColumnName);
 }
 
 /// <summary>
 /// 左パネル・状態 1「仕分け中」（仕様 §6、ワイヤー 4a）。編集フォームと 4 アクションを持つ。
-/// 候補キューと実行の状態は画面（MorningPlanViewModel）が持ち、片づいた後の読み直しも
+/// 候補キューと実行の状態は画面（PlanViewModel）が持ち、片づいた後の読み直しも
 /// 画面に任せる（afterDecision）。この VM はキューの中身を知らない。
 /// </summary>
 public sealed partial class TriagePanelViewModel : ObservableObject
 {
-    private readonly IMorningService _service;
+    private readonly IPlanningService _service;
     private readonly Func<Result, Task> _afterDecision;
     private readonly Action<string> _openPath;
 
-    public TriagePanelViewModel(IMorningService service, Func<Result, Task> afterDecision, Action<string> openPath)
+    public TriagePanelViewModel(IPlanningService service, Func<Result, Task> afterDecision, Action<string> openPath)
     {
         _service = service;
         _afterDecision = afterDecision;
         _openPath = openPath;
     }
 
-    public string HeadingText => Strings.MorningTriageHeading;
-    public string KeyHint => Strings.MorningKeyHint;
+    public string HeadingText => Strings.PlanTriageHeading;
+    public string KeyHint => Strings.PlanKeyHint;
 
     /// <summary>登録先に選べる列。完了列は選ばせない（親仕様 §11）。</summary>
     public ObservableCollection<ColumnChoice> ColumnChoices { get; } = new();
@@ -77,7 +77,7 @@ public sealed partial class TriagePanelViewModel : ObservableObject
         EditMergeTargetId = candidate?.SuggestedMergeTaskId is int suggested && MergeTargets.Any(t => t.Id == suggested)
             ? suggested
             : null;
-        PositionText = candidate is null ? "" : string.Format(Strings.MorningPositionFormat, index + 1, count);
+        PositionText = candidate is null ? "" : string.Format(Strings.PlanPositionFormat, index + 1, count);
     }
 
     [RelayCommand]

@@ -5,7 +5,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Text;
 using MoTask.App.Ai.BoardTools;
-using MoTask.App.Ai.MorningTools;
+using MoTask.App.Ai.PlanningTools;
 
 namespace MoTask.App.Ai;
 
@@ -15,7 +15,7 @@ namespace MoTask.App.Ai;
 /// `http://+:port/` への変更も不要）。
 /// 認証はアプリの起動ごとに 1 つ発行する board トークンだけで、endpoint.json 経由でブリッジへ渡す。
 /// 提供するのは <see cref="BoardToolHost"/> の board ツール 6 本と
-/// <see cref="MorningToolHost"/> の morning ツール 4 本。
+/// <see cref="PlanningToolHost"/> の planning ツール 4 本。
 ///
 /// リクエストにサーバ側のタイムアウトは設けない。ツールの実処理（DB 操作）は短く、詰まったときは
 /// 呼び出し側（ブリッジ / Claude Code）が打ち切るのが筋なので、ここで勝手に切ると
@@ -43,8 +43,8 @@ public sealed class MoTaskMcpServer : IDisposable
     private int _disposed;
     private string? _boardToken;
 
-    public MoTaskMcpServer(BoardToolHost boardTools, MorningToolHost morningTools)
-        => _tools = boardTools.Tools.Concat(morningTools.Tools).ToList();
+    public MoTaskMcpServer(BoardToolHost boardTools, PlanningToolHost planningTools)
+        => _tools = boardTools.Tools.Concat(planningTools.Tools).ToList();
 
     public Uri? McpUrl { get; private set; }
 

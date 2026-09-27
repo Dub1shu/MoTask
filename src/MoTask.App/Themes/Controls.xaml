@@ -87,7 +87,7 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="Padding" Value="10.2,5" />
     <!-- 中身の寄せは既定で中央。テンプレート側で固定せずここに置くことで、
-         行全体が押せるボタン（朝プランの各行など）は Stretch に上書きして左端寄せにできる。 -->
+         行全体が押せるボタン（計画の各行など）は Stretch に上書きして左端寄せにできる。 -->
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
@@ -144,7 +144,7 @@
     <Setter Property="Padding" Value="6.8,3.4" />
   </Style>
 
-  <!-- 画面切り替えタブ（ボード / 朝の実行プラン）。既定 Button のテンプレートは角丸 6px なので、
+  <!-- 画面切り替えタブ（ボード / 計画）。既定 Button のテンプレートは角丸 6px なので、
        BorderThickness="0,0,0,2" で下線だけを残すと両端が角丸に沿って反り上がる。タブは角丸を
        持たない専用テンプレートにし、下線は中身とは別の高さ 2px の矩形として底に敷く。
        選択中かどうかは Tag="Active" で渡す（コード側から色を直接当てると局所値になり、

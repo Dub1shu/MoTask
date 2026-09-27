@@ -22,7 +22,7 @@ public interface IJobFolder
     IReadOnlyList<string> ReadTail(string root, int lines);
 
     /// <summary>
-    /// フォルダを作らずにルートのパスだけ決める。指示文がフォルダ内のパスを含む朝の実行で、
+    /// フォルダを作らずにルートのパスだけ決める。指示文がフォルダ内のパスを含む計画づくりで、
     /// Create に渡す前に知る必要がある。
     /// </summary>
     string ResolveRoot(JobFolderRequest request);

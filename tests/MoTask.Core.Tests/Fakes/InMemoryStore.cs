@@ -8,7 +8,7 @@ namespace MoTask.Core.Tests.Fakes;
 /// まとめて実装するテスト用ストア。
 /// 参照は常に同一インスタンスを返す（EF の追跡と同じ契約）。Id は Add 時に即採番する。
 /// </summary>
-public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository, IMorningRepository
+public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitOfWork, IAiJobRepository, IPlanningRepository
 {
     private int _nextId = 1;
     private long _nextHistoryId = 1;
@@ -140,18 +140,18 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public Task<IReadOnlyList<AiJob>> GetByStatusAsync(IReadOnlyCollection<AiJobStatus> statuses, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<AiJob>>(Jobs.Where(j => statuses.Contains(j.Status)).OrderBy(j => j.Id).ToList());
 
-    // ---- IMorningRepository ----
+    // ---- IPlanningRepository ----
     //
     // GetAsync / Add は IAiJobRepository・IHistoryRepository と名前が衝突するので、
     // 衝突する分は名前を変えるか明示的実装にする（既存の GetForTaskAsync と同じ事情）。
 
-    public List<MorningRun> Runs { get; } = new();
+    public List<PlanningRun> Runs { get; } = new();
     public List<TriageCandidate> Candidates { get; } = new();
 
-    public MorningRun SeedRun(DateOnly date, MorningRunStatus status = MorningRunStatus.Pending,
-        string jobFolder = @"C:\work\morning\0001-2026-09-07")
+    public PlanningRun SeedRun(DateOnly date, PlanningRunStatus status = PlanningRunStatus.Pending,
+        string jobFolder = @"C:\work\planning\0001-2026-09-07")
     {
-        var run = new MorningRun
+        var run = new PlanningRun
         {
             Id = _nextId++, Date = date, Status = status, SessionId = Guid.NewGuid(),
             Instruction = "指示", JobFolder = jobFolder,
@@ -160,12 +160,12 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
         return run;
     }
 
-    public TriageCandidate SeedCandidate(MorningRun run, string externalId,
+    public TriageCandidate SeedCandidate(PlanningRun run, string externalId,
         TriageStatus status = TriageStatus.Pending, TriageAction suggested = TriageAction.Register)
     {
         var candidate = new TriageCandidate
         {
-            Id = _nextId++, MorningRunId = run.Id, ExternalId = externalId, Source = "Outlook",
+            Id = _nextId++, PlanningRunId = run.Id, ExternalId = externalId, Source = "Outlook",
             From = "山本さん", Title = "請求先情報を更新する", Evidence = "「9月8日までに」",
             Link = "https://outlook.office.com/x", Reasoning = "依頼が明確",
             SuggestedAction = suggested, Status = status,
@@ -174,19 +174,19 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
         return candidate;
     }
 
-    public void Add(MorningRun run)
+    public void Add(PlanningRun run)
     {
         if (run.Id == 0) run.Id = _nextId++;
         Runs.Add(run);
     }
 
-    public Task<MorningRun?> GetRunAsync(int runId, CancellationToken ct = default)
+    public Task<PlanningRun?> GetRunAsync(int runId, CancellationToken ct = default)
         => Task.FromResult(Runs.FirstOrDefault(r => r.Id == runId));
 
-    public Task<MorningRun?> GetUnfinishedRunAsync(CancellationToken ct = default)
+    public Task<PlanningRun?> GetUnfinishedRunAsync(CancellationToken ct = default)
         => Task.FromResult(Runs.Where(r => r.Status.IsActive()).OrderByDescending(r => r.Id).FirstOrDefault());
 
-    public Task<MorningRun?> GetLatestRunAsync(CancellationToken ct = default)
+    public Task<PlanningRun?> GetLatestRunAsync(CancellationToken ct = default)
         => Task.FromResult(Runs.OrderByDescending(r => r.Id).FirstOrDefault());
 
     public Task<int> CountRunsAsync(CancellationToken ct = default) => Task.FromResult(Runs.Count);
@@ -207,13 +207,13 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
 
     public Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<TriageCandidate>>(Candidates
-            .Where(c => (c.MorningRunId == runId && c.Status == TriageStatus.Pending)
-                        || (c.MorningRunId != runId && c.Status == TriageStatus.Later))
+            .Where(c => (c.PlanningRunId == runId && c.Status == TriageStatus.Pending)
+                        || (c.PlanningRunId != runId && c.Status == TriageStatus.Later))
             .OrderBy(c => c.Id).ToList());
 
     public Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<TriageCandidate>>(
-            Candidates.Where(c => c.MorningRunId == runId).OrderBy(c => c.Id).ToList());
+            Candidates.Where(c => c.PlanningRunId == runId).OrderBy(c => c.Id).ToList());
 
     // ---- IUnitOfWork ----
 

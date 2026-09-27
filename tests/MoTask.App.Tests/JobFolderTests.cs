@@ -192,19 +192,19 @@ public class JobFolderTests : IDisposable
         return root;
     }
 
-    private static JobFolderRequest MorningRequest() =>
+    private static JobFolderRequest PlanningRequest() =>
         new(7, "2026-09-07", "指示")
         {
-            Category = JobFolderPaths.MorningDirectoryName,
+            Category = JobFolderPaths.PlanningDirectoryName,
             OutputDirectoryName = null,
             WithMcpConfig = true,
         };
 
-    /// <summary>朝の実行は利用者の手動 MCP 登録に依存しない（仕様 §5.4）。</summary>
+    /// <summary>計画づくりは利用者の手動 MCP 登録に依存しない（仕様 §5.4）。</summary>
     [Fact]
-    public void Create_ForTheMorning_WritesTheMcpConfig()
+    public void Create_ForPlanning_WritesTheMcpConfig()
     {
-        var root = _folder.Create(MorningRequest()).Value!;
+        var root = _folder.Create(PlanningRequest()).Value!;
 
         var json = File.ReadAllText(JobFolderPaths.For(root).McpJson);
         json.Should().Contain("mcpServers").And.Contain("MoTask.Mcp.exe");
@@ -224,25 +224,25 @@ public class JobFolderTests : IDisposable
     }
 
     [Fact]
-    public void Create_ForTheMorning_StopsWhenTheBridgeExeIsMissing()
+    public void Create_ForPlanning_StopsWhenTheBridgeExeIsMissing()
     {
         File.Delete(_mcpExe);
 
-        var created = _folder.Create(MorningRequest());
+        var created = _folder.Create(PlanningRequest());
 
         created.IsSuccess.Should().BeFalse();
         created.Error.Should().Be(Messages.McpExecutableNotFound);
     }
 
     [Fact]
-    public void Create_ForTheMorning_PutsTheFolderUnderMorningWithNoOutputFolder()
+    public void Create_ForPlanning_PutsTheFolderUnderPlanningWithNoOutputFolder()
     {
-        var root = _folder.Create(MorningRequest());
+        var root = _folder.Create(PlanningRequest());
 
         root.IsSuccess.Should().BeTrue(root.Error);
-        root.Value!.Should().EndWith(Path.Combine("morning", "0007-2026-09-07"));
+        root.Value!.Should().EndWith(Path.Combine("planning", "0007-2026-09-07"));
         var paths = JobFolderPaths.For(root.Value!);
-        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行は成果をファイルに出さない");
+        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("計画づくりは成果をファイルに出さない");
         File.Exists(paths.HooksJson).Should().BeTrue();
         File.Exists(paths.McpJson).Should().BeTrue();
     }
@@ -250,7 +250,7 @@ public class JobFolderTests : IDisposable
     [Fact]
     public void ResolveRoot_GivesTheSamePathWithoutTouchingTheDisk()
     {
-        var request = MorningRequest();
+        var request = PlanningRequest();
 
         var resolved = _folder.ResolveRoot(request);
 
@@ -261,7 +261,7 @@ public class JobFolderTests : IDisposable
     [Fact]
     public void WriteText_AndReadText_RoundTripThroughSubfolders()
     {
-        var root = _folder.Create(MorningRequest()).Value!;
+        var root = _folder.Create(PlanningRequest()).Value!;
 
         _folder.WriteText(root, "notes.json", "{\"date\":\"2026-09-07\"}").IsSuccess.Should().BeTrue();
         _folder.WriteText(root, Path.Combine("sub", "lines.txt"), "1行目\n2行目").IsSuccess.Should().BeTrue();
@@ -273,7 +273,7 @@ public class JobFolderTests : IDisposable
     [Fact]
     public void ReadText_ReturnsNull_WhenTheFileIsNotThereYet()
     {
-        var root = _folder.Create(MorningRequest()).Value!;
+        var root = _folder.Create(PlanningRequest()).Value!;
 
         _folder.ReadText(root, Path.Combine("sub", "not-yet.json")).Should()
             .BeNull("まだ書かれていないだけで、失敗ではない");

@@ -49,7 +49,7 @@ public static class Messages
     public static string JobFolderFailedFormat => Get(nameof(JobFolderFailedFormat));
     public static string TerminalLaunchFailedFormat => Get(nameof(TerminalLaunchFailedFormat));
     public static string TerminalStartPromptFormat => Get(nameof(TerminalStartPromptFormat));
-    public static string MorningStartPromptFormat => Get(nameof(MorningStartPromptFormat));
+    public static string PlanningStartPromptFormat => Get(nameof(PlanningStartPromptFormat));
     public static string EventsFileGoneFormat => Get(nameof(EventsFileGoneFormat));
     public static string EventsWatchFailedFormat => Get(nameof(EventsWatchFailedFormat));
 
@@ -60,14 +60,14 @@ public static class Messages
     public static string McpUnexpectedStatusFormat => Get(nameof(McpUnexpectedStatusFormat));
     public static string McpConnectionLost => Get(nameof(McpConnectionLost));
     public static string McpUnexpectedFailure => Get(nameof(McpUnexpectedFailure));
-    public static string MorningInstructionDefault => Get(nameof(MorningInstructionDefault));
-    public static string MorningInstructionContractFormat => Get(nameof(MorningInstructionContractFormat));
-    public static string MorningRunAlreadyRunning => Get(nameof(MorningRunAlreadyRunning));
-    public static string MorningRunNotFound => Get(nameof(MorningRunNotFound));
-    public static string MorningRunAlreadyFinished => Get(nameof(MorningRunAlreadyFinished));
-    public static string MorningPlanNotSubmitted => Get(nameof(MorningPlanNotSubmitted));
-    public static string MorningCompleteMissing => Get(nameof(MorningCompleteMissing));
-    public static string MorningCompleteWithoutPlan => Get(nameof(MorningCompleteWithoutPlan));
+    public static string PlanningInstructionDefault => Get(nameof(PlanningInstructionDefault));
+    public static string PlanningInstructionContractFormat => Get(nameof(PlanningInstructionContractFormat));
+    public static string PlanningRunAlreadyRunning => Get(nameof(PlanningRunAlreadyRunning));
+    public static string PlanningRunNotFound => Get(nameof(PlanningRunNotFound));
+    public static string PlanningRunAlreadyFinished => Get(nameof(PlanningRunAlreadyFinished));
+    public static string PlanNotSubmitted => Get(nameof(PlanNotSubmitted));
+    public static string PlanningCompleteMissing => Get(nameof(PlanningCompleteMissing));
+    public static string PlanningCompleteWithoutPlan => Get(nameof(PlanningCompleteWithoutPlan));
     public static string CandidateFieldRequiredFormat => Get(nameof(CandidateFieldRequiredFormat));
     public static string CandidateEvidenceRequired => Get(nameof(CandidateEvidenceRequired));
     public static string CandidateActionInvalid => Get(nameof(CandidateActionInvalid));
@@ -79,10 +79,10 @@ public static class Messages
     public static string PlanItemsInvalidFormat => Get(nameof(PlanItemsInvalidFormat));
     public static string PlanItemNeedsIdFormat => Get(nameof(PlanItemNeedsIdFormat));
     public static string PlanFirstThingNeedsId => Get(nameof(PlanFirstThingNeedsId));
-    public static string MorningRunNotRunningFormat => Get(nameof(MorningRunNotRunningFormat));
+    public static string PlanningRunNotRunningFormat => Get(nameof(PlanningRunNotRunningFormat));
     public static string CandidateAlreadyDecidedElsewhere => Get(nameof(CandidateAlreadyDecidedElsewhere));
     public static string CandidateAlreadyInThisRun => Get(nameof(CandidateAlreadyInThisRun));
-    public static string MorningTerminalClosed => Get(nameof(MorningTerminalClosed));
+    public static string PlanningTerminalClosed => Get(nameof(PlanningTerminalClosed));
     public static string CandidateNotFound => Get(nameof(CandidateNotFound));
     public static string CandidateAlreadyDecided => Get(nameof(CandidateAlreadyDecided));
     public static string CandidateNoteHeaderFormat => Get(nameof(CandidateNoteHeaderFormat));

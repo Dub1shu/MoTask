@@ -16,7 +16,7 @@ public sealed class MoTaskDbContext : DbContext
     public DbSet<Label> Labels => Set<Label>();
     public DbSet<HistoryEntry> History => Set<HistoryEntry>();
     public DbSet<AiJob> AiJobs => Set<AiJob>();
-    public DbSet<MorningRun> MorningRuns => Set<MorningRun>();
+    public DbSet<PlanningRun> PlanningRuns => Set<PlanningRun>();
     public DbSet<TriageCandidate> TriageCandidates => Set<TriageCandidate>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -90,9 +90,9 @@ public sealed class MoTaskDbContext : DbContext
             e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.TaskId).OnDelete(DeleteBehavior.Cascade);
         });
 
-        b.Entity<MorningRun>(e =>
+        b.Entity<PlanningRun>(e =>
         {
-            e.ToTable("MorningRuns");
+            e.ToTable("PlanningRuns");
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Instruction).IsRequired().HasDefaultValue("");
             e.Property(x => x.JobFolder).IsRequired().HasDefaultValue("");
@@ -116,11 +116,11 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.SuggestedProject).IsRequired().HasDefaultValue("");
             e.Property(x => x.SuggestedAction).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
-            // 却下した候補を翌朝また拾わないための鍵（仕様 §9）
+            // 却下した候補を次の実行でまた拾わないための鍵（仕様 §9）
             e.HasIndex(x => x.ExternalId).IsUnique();
             e.HasIndex(x => x.Status);
-            e.HasIndex(x => x.MorningRunId);
-            e.HasOne<MorningRun>().WithMany().HasForeignKey(x => x.MorningRunId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.PlanningRunId);
+            e.HasOne<PlanningRun>().WithMany().HasForeignKey(x => x.PlanningRunId).OnDelete(DeleteBehavior.Cascade);
             // タスクが消えても候補の記録は残す
             e.HasOne<TaskItem>().WithMany().HasForeignKey(x => x.ResultTaskId).OnDelete(DeleteBehavior.SetNull);
         });

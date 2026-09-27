@@ -9,9 +9,9 @@ public sealed record AiSettings(
     string? Model,
     string PermissionMode,
     string? TerminalCommandTemplate,
-    // 朝の実行の指示文（仕様 §6）。null なら MorningInstruction.DefaultTemplate。
+    // 計画づくりの指示文（仕様 §6）。null なら PlanningInstruction.DefaultTemplate。
     // XML doc コメントはパラメータリストの中に置けない（CS1587）ので行コメントにする。
-    string? MorningInstruction = null)
+    string? PlanningInstruction = null)
 {
     /// <summary>--permission-mode の既定。既定で止まらず走り、危険な操作は端末で人に聞かれる（仕様 §3）。</summary>
     public const string DefaultPermissionMode = "auto";

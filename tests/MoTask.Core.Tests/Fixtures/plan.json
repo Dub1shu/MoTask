@@ -1,0 +1,6 @@
+{"date":"2026-09-07",
+ "firstThing":{"taskId":45,"reason":"送付前に部長の確認が必要。この実行の候補『数値の差し替え』を統合したため確認範囲が1つ増えた"},
+ "groups":[{"key":"today","items":[{"taskId":45},{"externalId":"outlook:AAMkAD001"}]},
+           {"key":"ifTime","items":[{"taskId":52}]},
+           {"key":"aiReady","items":[{"taskId":61}]},
+           {"key":"waiting","items":[{"taskId":70}]}]}

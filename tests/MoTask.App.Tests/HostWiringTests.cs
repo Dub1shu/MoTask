@@ -30,22 +30,22 @@ public class HostWiringTests : IDisposable
     }
 
     [Fact]
-    public void BuildHost_GivesMorningServiceTheSameOperationGate()
+    public void BuildHost_GivesPlanningServiceTheSameOperationGate()
     {
         Directory.CreateDirectory(_dir);
         using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
 
-        GateOf(host.Services.GetRequiredService<IMorningService>())
+        GateOf(host.Services.GetRequiredService<IPlanningService>())
             .Should().BeSameAs(host.Services.GetRequiredService<OperationGate>());
     }
 
     [Fact]
-    public void BuildHost_ResolvesTheMorningPlanViewModel()
+    public void BuildHost_ResolvesThePlanViewModel()
     {
         Directory.CreateDirectory(_dir);
         using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
 
-        host.Services.GetRequiredService<ViewModels.MorningPlanViewModel>().Should().NotBeNull();
+        host.Services.GetRequiredService<ViewModels.PlanViewModel>().Should().NotBeNull();
     }
 
     /// <summary>ゲートは公開されていないので、この不変条件だけリフレクションで見る。</summary>
