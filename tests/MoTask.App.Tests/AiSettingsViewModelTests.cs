@@ -140,7 +140,7 @@ public class AiSettingsViewModelTests
         vm.TemplateNotice.Should().BeNull();
     }
 
-    /// <summary>朝の実行では使えないテンプレートなので、保存前から画面で知らせる（仕様 §5.2）。</summary>
+    /// <summary>計画づくりでは使えないテンプレートなので、保存前から画面で知らせる（仕様 §5.2）。</summary>
     [Fact]
     public void TemplateNotice_AppearsWhileTypingAWindowsTerminalTemplate()
     {

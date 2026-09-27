@@ -13,7 +13,7 @@ public class PlanningModelTests
 
         run.Status.Should().Be(PlanningRunStatus.Pending);
         run.Status.IsActive().Should().BeTrue();
-        run.PlanJson.Should().BeEmpty("取り込み前のプランは空文字。null にはしない");
+        run.PlanJson.Should().BeEmpty("取り込み前の計画は空文字。null にはしない");
         run.JobFolder.Should().BeEmpty();
         run.Instruction.Should().BeEmpty();
         run.ProcessedLines.Should().Be(0);

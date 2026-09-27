@@ -5,7 +5,7 @@ using MoTask.Core.Model;
 namespace MoTask.Core.Planning;
 
 /// <summary>
-/// planning_get_context が返す盤面のスナップショット（仕様 §6）。統合先の推薦とプラン作成には現在の盤面が要るが、
+/// planning_get_context が返す盤面のスナップショット（仕様 §6）。統合先の推薦と計画作成には現在の盤面が要るが、
 /// SQLite を直接読ませず MoTask がスナップショットを書く。
 /// </summary>
 public static class BoardSnapshot

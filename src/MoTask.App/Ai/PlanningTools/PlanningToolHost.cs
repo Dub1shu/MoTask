@@ -41,8 +41,8 @@ public sealed class PlanningToolHost
     private IReadOnlyList<McpTool> BuildTools() => new[]
     {
         new McpTool(GetContext,
-            "今朝の対象日と現在の盤面（列・未完了タスク・プロジェクト・期日・hasActiveAiJob）を返す。"
-            + "統合先の推薦と今日のプランは、必ずこの結果に基づくこと。",
+            "今日の対象日と現在の盤面（列・未完了タスク・プロジェクト・期日・hasActiveAiJob）を返す。"
+            + "統合先の推薦と今日の計画は、必ずこの結果に基づくこと。",
             new
             {
                 type = "object",
@@ -52,7 +52,7 @@ public sealed class PlanningToolHost
             GetContextAsync),
 
         new McpTool(AddCandidate,
-            "今朝の候補を 1 件積む。1 件ずつ呼ぶこと。accepted が false で返ったら reason を読み、"
+            "この実行の候補を 1 件積む。1 件ずつ呼ぶこと。accepted が false で返ったら reason を読み、"
             + "直せるなら直して呼び直す。直せないなら、その候補は諦めて次へ進んでよい。",
             new
             {
@@ -92,7 +92,7 @@ public sealed class PlanningToolHost
             AddCandidateAsync),
 
         new McpTool(SubmitPlan,
-            "今日のプランを出す。何度でも呼べて、最後に受理されたものが残る。"
+            "今日の計画を出す。何度でも呼べて、最後に受理されたものが残る。"
             + "accepted が false なら reason を読んで直し、呼び直すこと。",
             new
             {
@@ -113,8 +113,8 @@ public sealed class PlanningToolHost
             SubmitPlanAsync),
 
         new McpTool(Complete,
-            "今朝の実行はこれで終わり、と宣言する。先に planning_submit_plan を通しておくこと。"
-            + "呼ぶとこの端末は閉じる。候補が 0 件の朝でも必ず呼ぶこと（0 件は失敗ではない）。",
+            "この計画づくりはこれで終わり、と宣言する。先に planning_submit_plan を通しておくこと。"
+            + "呼ぶとこの端末は閉じる。候補が 0 件の日でも必ず呼ぶこと（0 件は失敗ではない）。",
             new
             {
                 type = "object",
@@ -127,7 +127,7 @@ public sealed class PlanningToolHost
     private static object RunId() => new
     {
         type = "integer",
-        description = "この朝の実行の runId。instruction.md に書いてある値をそのまま渡すこと。",
+        description = "この計画づくりの runId。instruction.md に書いてある値をそのまま渡すこと。",
     };
 
     // ---------- ハンドラ ----------

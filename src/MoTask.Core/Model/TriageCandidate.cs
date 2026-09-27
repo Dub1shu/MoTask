@@ -2,7 +2,7 @@ namespace MoTask.Core.Model;
 
 /// <summary>
 /// 受信箱から拾ったタスク候補1件（仕様 §9）。ExternalId が一意なので、
-/// 一度片づけた候補は翌朝 Claude が再提出しても取り込み時に黙って捨てられる。
+/// 一度片づけた候補は次の実行で Claude が再提出しても取り込み時に黙って捨てられる。
 /// </summary>
 public sealed class TriageCandidate
 {

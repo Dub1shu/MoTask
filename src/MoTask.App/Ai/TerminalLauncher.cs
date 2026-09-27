@@ -9,7 +9,7 @@ using MoTask.Core.Ai;
 namespace MoTask.App.Ai;
 
 /// <summary>
-/// 端末で claude を起こす（ターミナル AI 仕様 §7）。AI 遂行は起こして手放し、朝の実行は
+/// 端末で claude を起こす（ターミナル AI 仕様 §7）。AI 遂行は起こして手放し、計画づくりは
 /// Process ハンドルごと所有する（MCP 受け渡し仕様 §5）。Process を触るのはこのクラスだけ。
 /// </summary>
 public sealed class TerminalLauncher : ISessionLauncher, IDisposable
@@ -31,12 +31,12 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
     /// <summary>AI 遂行の既定。claude が終わってもシェルを残す（続けて打てる）。</summary>
     internal const string DefaultTemplate = "cmd.exe /s /k \"{command}\"";
 
-    /// <summary>朝の実行の既定。claude が終われば窓も畳む（仕様 §5.2）。</summary>
+    /// <summary>計画づくりの既定。claude が終われば窓も畳む（仕様 §5.2）。</summary>
     internal const string PlanningTemplate = "cmd.exe /s /c \"{command}\"";
 
     /// <summary>
     /// 起動テンプレートの先頭トークンのファイル名が wt.exe か（フルパスも同じ扱い・大文字小文字は無視）。
-    /// 朝の実行はこのテンプレートを使えないので既定に落とし、AI 設定画面に注意を出す（仕様 §5.2）。
+    /// 計画づくりはこのテンプレートを使えないので既定に落とし、AI 設定画面に注意を出す（仕様 §5.2）。
     /// </summary>
     internal static bool IsWindowsTerminalTemplate(string? template)
     {
@@ -108,14 +108,14 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         // （端末は開くが何も始まらない。Claude Code 2.1.261 で確認）。
         parts.Add("--");
         // 指示文そのものは渡さない。長文の引用符・改行をコマンドラインに持ち込まないため（仕様 §7）。
-        // 成果物の出し先は AI 遂行だけが伝える。朝の実行は MCP で渡すので、伝えるものが無い（仕様 §5.4）。
+        // 成果物の出し先は AI 遂行だけが伝える。計画づくりは MCP で渡すので、伝えるものが無い（仕様 §5.4）。
         parts.Add(request.OutputDirectoryName is { Length: > 0 } output
             ? string.Format(Messages.TerminalStartPromptFormat,
                 paths.InstructionMarkdown, Path.Combine(paths.Root, output))
             : string.Format(Messages.PlanningStartPromptFormat, paths.InstructionMarkdown));
 
         var inner = string.Join(" ", parts.Select(CommandLine.Quote));
-        // 利用者定義のテンプレートは AI 遂行でも朝の実行でも効く。ただし朝の実行で wt を挟むと
+        // 利用者定義のテンプレートは AI 遂行でも計画づくりでも効く。ただし計画づくりで wt を挟むと
         // 掴めるのが起動役の pid になり、完了時に閉じられない。そこだけ既定に落とす（仕様 §5.2）。
         var configured = settings.TerminalCommandTemplate is { Length: > 0 } text
                          && !(request.CloseOnExit && IsWindowsTerminalTemplate(text))

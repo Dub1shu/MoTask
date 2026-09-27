@@ -77,6 +77,6 @@ public class PlanningInstructionTests
     [Fact]
     public void Build_TellsThatAnEmptyDayIsNotAFailure()
     {
-        Build().Should().Contain("候補が 0 件の朝もある");
+        Build().Should().Contain("候補が 0 件の日もある");
     }
 }

@@ -26,7 +26,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     public IReadOnlyList<string> PermissionModes => AiSettings.PermissionModes;
 
     /// <summary>
-    /// wt.exe 始まりのテンプレートへの注意（仕様 §5.2）。朝の実行では既定の起動に落ちる。
+    /// wt.exe 始まりのテンプレートへの注意（仕様 §5.2）。計画づくりでは既定の起動に落ちる。
     /// 無ければ null（画面は NullToVisibility で隠す）。
     /// </summary>
     public string? TemplateNotice => TerminalLauncher.IsWindowsTerminalTemplate(TerminalCommandTemplate)

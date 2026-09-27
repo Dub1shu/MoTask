@@ -14,7 +14,7 @@ using MoTask.Core.Services;
 namespace MoTask.App.ViewModels;
 
 /// <summary>
-/// 朝の実行プラン画面（仕様 §6・§7）。実行の状態と候補キューを持ち、左パネル（LeftPanel）を
+/// 計画画面（仕様 §6・§7）。実行の状態と候補キューを持ち、左パネル（LeftPanel）を
 /// 状態で切り替える。編集フォームと 4 アクションは TriagePanelViewModel（Triage）が持つ。
 /// RunChanged はワーカースレッドから来るので UI スレッドへ載せ替える（BoardViewModel と同じ）。
 /// </summary>
@@ -102,18 +102,18 @@ public sealed partial class PlanViewModel : ObservableObject
     /// <summary>タブのバッジを出すか。0 件のときは出さない。</summary>
     [ObservableProperty] private bool _hasPendingCandidates;
     /// <summary>
-    /// 「今日のプランはまだありません」を出すべきか。取り込み済み(Ingested)なら候補が 0 件でも
-    /// この朝のプランは存在するので出さない(仕様 §4・§11)。CanStart とは目的が違う値なので
+    /// 「今日の計画はまだありません」を出すべきか。取り込み済み(Ingested)なら候補が 0 件でも
+    /// この計画は存在するので出さない(仕様 §4・§11)。CanStart とは目的が違う値なので
     /// 分けている(CanStart はボタンの活性、こちらは案内文の要否)。
     /// </summary>
     [ObservableProperty] private bool _hasNoPlanYet;
     /// <summary>
-    /// 右カラム(候補キュー＋プラン)を出すか。仕様 §7: 実行前・実行中・失敗のときは右カラムを空にする。
+    /// 右カラム(候補キュー＋計画)を出すか。仕様 §7: 実行前・実行中・失敗のときは右カラムを空にする。
     /// HasNoPlanYet は取り込み済みなら候補 0 件でも false になる値なので、実行中はそれだけでは
     /// 右カラムを隠せない(finding I3)。ここは「見せる」側の値として持つ。
     /// </summary>
     [ObservableProperty] private bool _hasPlanView;
-    /// <summary>プラン未生成のときの「前回: 9/5」（仕様 §11）。無ければ空文字。</summary>
+    /// <summary>計画未生成のときの「前回: 9/5」（仕様 §11）。無ければ空文字。</summary>
     [ObservableProperty] private string _lastRunText = "";
     /// <summary>実行中の進捗。ターン数と直近のツール使用（仕様 §11）。</summary>
     [ObservableProperty] private string _progressText = "";
@@ -180,7 +180,7 @@ public sealed partial class PlanViewModel : ObservableObject
         => projectId is int id ? _projects.FirstOrDefault(p => p.Id == id)?.Name : null;
 
     /// <summary>
-    /// 候補キューとプランの読み直し。AfterDecisionAsync の読み直しと、PlanningService.RunChanged
+    /// 候補キューと計画の読み直し。AfterDecisionAsync の読み直しと、PlanningService.RunChanged
     /// (candidatesChanged) 経由の読み直し(OnRunChanged→RefreshAsync)が同じ 1 件の仕分けの後に
     /// どちらも走り、FIFO の OperationGate 上で重なりうる。素朴に Clear() してから
     /// await で問い合わせると、2 つの読み直しの Clear と Add が入り乱れて候補が二重に積まれるので、
@@ -210,7 +210,7 @@ public sealed partial class PlanViewModel : ObservableObject
 
     /// <summary>
     /// PlanJson を行に解決する（仕様 §4・§6）。仕分けの 1 件ごとに呼ばれるので、登録した候補の行は
-    /// その場で実タスクに変わり、却下した行は消える。取り込み前は空のプラン。generation の扱いは
+    /// その場で実タスクに変わり、却下した行は消える。取り込み前は空の計画。generation の扱いは
     /// LoadBoardAsync と同じ(ReloadQueueAsync からしか呼ばない)。
     /// </summary>
     private async Task ResolvePlanAsync(int generation)
@@ -264,8 +264,8 @@ public sealed partial class PlanViewModel : ObservableObject
         IsFailed = _run is { Status: PlanningRunStatus.Failed };
         CanControl = IsRunning;
         ProgressText = IsRunning ? string.Format(Strings.PlanTurnsFormat, _service.TurnCountOf(_run!.Id)) : "";
-        // 「今日のプランはまだありません（前回: 9/5）」（仕様 §11）。取り込み済み(Ingested)なら
-        // 候補が 0 件でもこの朝のプランは存在するので出さない（仕様 §4）。実行中も
+        // 「今日の計画はまだありません（前回: 9/5）」（仕様 §11）。取り込み済み(Ingested)なら
+        // 候補が 0 件でもこの計画は存在するので出さない（仕様 §4）。実行中も
         // 「実行中」表示と重ねて出さない。
         HasNoPlanYet = !IsRunning && _run is not { HasPlan: true };
         LastRunText = _run is null || !CanStart

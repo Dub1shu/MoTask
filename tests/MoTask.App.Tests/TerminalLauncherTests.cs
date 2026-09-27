@@ -76,7 +76,7 @@ public class TerminalLauncherTests : IDisposable
         command.WorkingDirectory.Should().Be(@"D:\repo\sample");
     }
 
-    /// <summary>朝の実行は cmd.exe /s /c。claude が終われば窓も畳む（仕様 §5.2）。</summary>
+    /// <summary>計画づくりは cmd.exe /s /c。claude が終われば窓も畳む（仕様 §5.2）。</summary>
     [Fact]
     public void BuildCommand_UsesCmdWithSlashC_ForAPlanningRun()
     {
@@ -107,8 +107,8 @@ public class TerminalLauncherTests : IDisposable
     /// </summary>
     [Theory]
     [InlineData(false, false)] // AI 遂行（/s /k）
-    [InlineData(true, false)]  // 朝の実行（/s /c）、mcp.json 無し
-    // 朝の実行の実物の形。--mcp-config で引用符が 2 個増え、OutputDirectoryName は無い
+    [InlineData(true, false)]  // 計画づくり（/s /c）、mcp.json 無し
+    // 計画づくりの実物の形。--mcp-config で引用符が 2 個増え、OutputDirectoryName は無い
     // （仕様 §5.4）。空白と日本語を含むパスも通す。
     [InlineData(true, true)]
     public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit, bool planningShape)
@@ -190,7 +190,7 @@ public class TerminalLauncherTests : IDisposable
     }
 
     /// <summary>
-    /// 朝の実行は成果をファイルに出さないので、起動プロンプトに出し先を書かない（仕様 §5.4）。
+    /// 計画づくりは成果をファイルに出さないので、起動プロンプトに出し先を書かない（仕様 §5.4）。
     /// </summary>
     [Fact]
     public void BuildCommand_PointsThePromptOnlyAtTheInstruction_ForAPlanningRun()
@@ -295,7 +295,7 @@ public class TerminalLauncherTests : IDisposable
 
     /// <summary>
     /// wt を経由すると Process.Start が返すのは即座に終了する起動役の pid で、完了時に
-    /// 端末を閉じられない。朝の実行のときだけ既定に落とす（仕様 §5.2）。
+    /// 端末を閉じられない。計画づくりのときだけ既定に落とす（仕様 §5.2）。
     /// </summary>
     [Theory]
     [InlineData("wt.exe -d \"{cwd}\" cmd /k {command}")]
@@ -321,7 +321,7 @@ public class TerminalLauncherTests : IDisposable
         Launcher().BuildCommand(_request).Value!.FileName.Should().Be("wt.exe");
     }
 
-    /// <summary>先頭プロセスがウィンドウの持ち主なら、朝の実行でもそのまま使える（仕様 §5.2）。</summary>
+    /// <summary>先頭プロセスがウィンドウの持ち主なら、計画づくりでもそのまま使える（仕様 §5.2）。</summary>
     [Fact]
     public void BuildCommand_KeepsAPowerShellTemplate_ForAPlanningRun()
     {

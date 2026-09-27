@@ -171,10 +171,10 @@
   <data name="McpDueInvalidFormat" xml:space="preserve"><value>due は YYYY-MM-DD 形式で指定してください: {0}</value></data>
   <data name="McpDueFilterInvalidFormat" xml:space="preserve"><value>due には all / today / this_week / overdue のいずれかを指定してください: {0}</value></data>
   <data name="McpBoardHasNoColumn" xml:space="preserve"><value>ボードに列がありません。</value></data>
-  <data name="SettingsPlanningInstruction" xml:space="preserve"><value>朝の実行の指示文（空なら既定の文面。出力先と JSON の形は MoTask が自動で付け足します）</value></data>
-  <data name="ViewPlan" xml:space="preserve"><value>朝の実行プラン</value></data>
-  <data name="PlanStart" xml:space="preserve"><value>朝のプランを作る</value></data>
-  <data name="PlanNoRun" xml:space="preserve"><value>今日のプランはまだありません</value></data>
+  <data name="SettingsPlanningInstruction" xml:space="preserve"><value>計画づくりの指示文（空なら既定の文面。出力先と JSON の形は MoTask が自動で付け足します）</value></data>
+  <data name="ViewPlan" xml:space="preserve"><value>計画</value></data>
+  <data name="PlanStart" xml:space="preserve"><value>計画を作る</value></data>
+  <data name="PlanNoRun" xml:space="preserve"><value>今日の計画はまだありません</value></data>
   <data name="PlanLastRunFormat" xml:space="preserve"><value>前回: {0}</value></data>
   <data name="PlanRunning" xml:space="preserve"><value>Claude が受信箱を見ています</value></data>
   <data name="PlanTurnsFormat" xml:space="preserve"><value>{0} ターン</value></data>
@@ -199,11 +199,11 @@
   <data name="PlanFirstThingProvisional" xml:space="preserve"><value>（暫定）</value></data>
   <data name="PlanNoFirstThing" xml:space="preserve"><value>最初にやる1件はありません</value></data>
   <data name="PlanOpenOnBoard" xml:space="preserve"><value>ボードで開く</value></data>
-  <data name="PlanDateHeadingFormat" xml:space="preserve"><value>{0} の実行プラン</value></data>
-  <data name="PlanTriagingFormat" xml:space="preserve"><value>候補 {0} 件を仕分け中 — 終わるとプランが確定します</value></data>
+  <data name="PlanDateHeadingFormat" xml:space="preserve"><value>{0} の計画</value></data>
+  <data name="PlanTriagingFormat" xml:space="preserve"><value>候補 {0} 件を仕分け中 — 終わると計画が確定します</value></data>
   <data name="PlanTriageDoneFormat" xml:space="preserve"><value>仕分け完了　候補 {0} 件 → 登録 {1}・統合 {2}・却下 {3}・あとで {4}</value></data>
   <data name="PlanQueueHeading" xml:space="preserve"><value>候補キュー</value></data>
-  <data name="PlanHeading" xml:space="preserve"><value>プラン</value></data>
+  <data name="PlanHeading" xml:space="preserve"><value>計画</value></data>
   <data name="PlanGroupToday" xml:space="preserve"><value>02 ／ 今日中</value></data>
   <data name="PlanGroupIfTime" xml:space="preserve"><value>03 ／ 余裕があれば</value></data>
   <data name="PlanGroupAiReady" xml:space="preserve"><value>04 ／ AI 準備完了</value></data>
@@ -224,7 +224,7 @@
   <data name="PlanBulkAppliedFormat" xml:space="preserve"><value>{0} 件を処理しました</value></data>
   <data name="PlanBulkResultFormat" xml:space="preserve"><value>{0} 件を処理、{1} 件を見送り: {2}</value></data>
   <data name="PlanBulkNoColumn" xml:space="preserve"><value>登録先の列がありません</value></data>
-  <data name="PlanTemplateFallsBackToDefault" xml:space="preserve"><value>wt.exe を経由すると完了時に端末を閉じられないので、朝の実行では既定の起動（cmd.exe /s /c）を使います。AI 遂行にはこのテンプレートがそのまま効きます。</value></data>
+  <data name="PlanTemplateFallsBackToDefault" xml:space="preserve"><value>wt.exe を経由すると完了時に端末を閉じられないので、計画づくりでは既定の起動（cmd.exe /s /c）を使います。AI 遂行にはこのテンプレートがそのまま効きます。</value></data>
   <data name="McpPlanningRunIdRequired" xml:space="preserve"><value>runId（整数）を渡してください。instruction.md に書いてある値です</value></data>
   <data name="McpPlanningPlanRequired" xml:space="preserve"><value>plan（JSON オブジェクト）を渡してください</value></data>
   <data name="McpPlanningSuggestedDueDateInvalid" xml:space="preserve"><value>suggestedDueDate が日付として読めません。YYYY-MM-DD で書いてください</value></data>

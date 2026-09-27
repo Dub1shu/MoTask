@@ -200,7 +200,7 @@ public class JobFolderTests : IDisposable
             WithMcpConfig = true,
         };
 
-    /// <summary>朝の実行は利用者の手動 MCP 登録に依存しない（仕様 §5.4）。</summary>
+    /// <summary>計画づくりは利用者の手動 MCP 登録に依存しない（仕様 §5.4）。</summary>
     [Fact]
     public void Create_ForPlanning_WritesTheMcpConfig()
     {
@@ -242,7 +242,7 @@ public class JobFolderTests : IDisposable
         root.IsSuccess.Should().BeTrue(root.Error);
         root.Value!.Should().EndWith(Path.Combine("planning", "0007-2026-09-07"));
         var paths = JobFolderPaths.For(root.Value!);
-        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("朝の実行は成果をファイルに出さない");
+        Directory.Exists(paths.ArtifactsDirectory).Should().BeFalse("計画づくりは成果をファイルに出さない");
         File.Exists(paths.HooksJson).Should().BeTrue();
         File.Exists(paths.McpJson).Should().BeTrue();
     }

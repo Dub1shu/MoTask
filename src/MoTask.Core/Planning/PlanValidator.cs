@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace MoTask.Core.Planning;
 
 /// <summary>
-/// プラン 1 本の検証（仕様 §6）。妥当なら原文をそのまま返す（生 JSON を 1 カラムに持つ・親仕様 §9）ので、
+/// 計画 1 本の検証（仕様 §6）。妥当なら原文をそのまま返す（生 JSON を 1 カラムに持つ・親仕様 §9）ので、
 /// PlanResolver が読む文字列の形は今までと変わらない。
 /// </summary>
 public static class PlanValidator
@@ -56,7 +56,7 @@ public static class PlanValidator
                 groupIndex++;
             }
 
-            // firstThing は無くてもよい（最初の 1 件を決められない朝もある）。あるなら items と同じ形。
+            // firstThing は無くてもよい（最初の 1 件を決められない日もある）。あるなら items と同じ形。
             if (root.TryGetProperty("firstThing", out var first)
                 && first.ValueKind != JsonValueKind.Null
                 && !HasIdentity(first))

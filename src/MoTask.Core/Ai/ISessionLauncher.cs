@@ -12,7 +12,7 @@ public interface ISessionLauncher
     /// <summary>所有しない起動。ハンドルはその場で捨てる（AI 遂行）。</summary>
     Result Launch(TerminalCommand command);
 
-    /// <summary>所有する起動。ownerId に紐づけて Process を保持する（朝の実行）。</summary>
+    /// <summary>所有する起動。ownerId に紐づけて Process を保持する（計画づくり）。</summary>
     Result<OwnedSession> LaunchOwned(int ownerId, TerminalCommand command);
 
     /// <summary>プロセスツリーごと終了させる。知らない ownerId は黙って無視する。</summary>

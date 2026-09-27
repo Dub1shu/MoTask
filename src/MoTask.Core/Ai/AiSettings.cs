@@ -9,7 +9,7 @@ public sealed record AiSettings(
     string? Model,
     string PermissionMode,
     string? TerminalCommandTemplate,
-    // 朝の実行の指示文（仕様 §6）。null なら PlanningInstruction.DefaultTemplate。
+    // 計画づくりの指示文（仕様 §6）。null なら PlanningInstruction.DefaultTemplate。
     // XML doc コメントはパラメータリストの中に置けない（CS1587）ので行コメントにする。
     string? PlanningInstruction = null)
 {

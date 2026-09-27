@@ -19,7 +19,7 @@ public interface IPlanningService
     Task<PlanningRun?> GetCurrentRunAsync(CancellationToken ct = default);
     Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default);
 
-    /// <summary>この実行の候補を状態を問わず。プランの解決に使う（仕様 §5）。</summary>
+    /// <summary>この実行の候補を状態を問わず。計画の解決に使う（仕様 §5）。</summary>
     Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default);
 
     /// <summary>events.jsonl の末尾。進行の表示に使う(DB には持たない)。</summary>
@@ -31,7 +31,7 @@ public interface IPlanningService
     Task<Result<PlanningRun>> StartAsync(CancellationToken ct = default);
     /// <summary>
     /// 人の「完了にする」。planning_complete と同じ状態遷移を共有し、閉じ方だけが違う(その場で閉じる)。
-    /// プランが未提出なら受理せず理由を返す。
+    /// 計画が未提出なら受理せず理由を返す。
     /// </summary>
     Task<Result> CompleteAsync(int runId, CancellationToken ct = default);
     /// <summary>追跡をやめる。端末は殺さない。</summary>
@@ -47,11 +47,11 @@ public interface IPlanningService
     Task<Result<CandidateOutcome>> AddCandidateAsync(
         int runId, CandidateInput input, CancellationToken ct = default);
 
-    /// <summary>プランを出す。何度でも呼べて、最後に受理されたものが残る。</summary>
+    /// <summary>計画を出す。何度でも呼べて、最後に受理されたものが残る。</summary>
     Task<Result<PlanningOutcome>> SubmitPlanAsync(int runId, string planJson, CancellationToken ct = default);
 
     /// <summary>
-    /// この朝の実行を終える。closeNow が false なら閉じるのを予約し、次の Stop(か 60 秒の保険)で
+    /// この計画づくりを終える。closeNow が false なら閉じるのを予約し、次の Stop(か 60 秒の保険)で
     /// 端末を閉じる。true ならその場で閉じる(仕様 §7)。
     /// </summary>
     Task<Result<PlanningOutcome>> CompleteRunAsync(

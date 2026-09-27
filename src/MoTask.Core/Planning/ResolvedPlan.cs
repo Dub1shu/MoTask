@@ -11,7 +11,7 @@ public enum PlanGroupKey
     Waiting = 3,
 }
 
-/// <summary>タスク行が今朝の候補から生まれたものかどうか。「新規」「統合」の印に使う。</summary>
+/// <summary>タスク行がこの実行の候補から生まれたものかどうか。「新規」「統合」の印に使う。</summary>
 public enum TaskRowOrigin
 {
     None = 0,
@@ -19,7 +19,7 @@ public enum TaskRowOrigin
     MergedThisRun = 2,
 }
 
-/// <summary>プランの 1 行。実タスクか、まだ仕分けていない候補かのどちらか。</summary>
+/// <summary>計画の 1 行。実タスクか、まだ仕分けていない候補かのどちらか。</summary>
 public abstract record PlanRow(string Title);
 
 public sealed record TaskRow(

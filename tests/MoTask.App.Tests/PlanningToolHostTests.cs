@@ -63,12 +63,12 @@ public class PlanningToolHostTests
     [Fact]
     public async Task GetContext_ReturnsAToolError_WhenTheRunIsNotRunning()
     {
-        _service.ContextResult = Result.Fail<string>("runId 9999 の朝の実行は動いていません");
+        _service.ContextResult = Result.Fail<string>("runId 9999 の計画づくりは動いていません");
 
         var (_, isError, text) = await CallAsync(PlanningToolHost.GetContext, """{"runId":9999}""");
 
         isError.Should().BeTrue();
-        text.Should().Be("runId 9999 の朝の実行は動いていません");
+        text.Should().Be("runId 9999 の計画づくりは動いていません");
         _service.GetContextCalls.Should().Equal(9999);
     }
 

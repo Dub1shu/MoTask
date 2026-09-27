@@ -27,6 +27,6 @@ public interface IPlanningRepository
     /// <summary>候補キュー: この実行の Pending ＋ 過去の実行の Later（Id 昇順・仕様 §9）。</summary>
     Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default);
 
-    /// <summary>この実行の候補を状態を問わず Id 昇順で。プランの解決に使う（仕様 §5）。</summary>
+    /// <summary>この実行の候補を状態を問わず Id 昇順で。計画の解決に使う（仕様 §5）。</summary>
     Task<IReadOnlyList<TriageCandidate>> GetCandidatesOfRunAsync(int runId, CancellationToken ct = default);
 }

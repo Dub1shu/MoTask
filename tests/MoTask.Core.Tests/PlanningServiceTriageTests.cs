@@ -312,7 +312,7 @@ public class PlanningServiceTriageTests
         await WithinLimitAsync(_service.PostponeAsync(candidate.Id));
 
         (await _service.GetQueueAsync(_run.Id)).Should()
-            .BeEmpty("『あとで』にした候補は今日のキューから消え、翌朝の実行で戻ってくる(仕様 §9)");
+            .BeEmpty("『あとで』にした候補は今日のキューから消え、次の計画づくりで戻ってくる(仕様 §9)");
     }
 
     [Fact]

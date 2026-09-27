@@ -7,7 +7,7 @@ namespace MoTask.Core.Tests;
 
 /// <summary>
 /// 候補 1 件の検証（仕様 §6）。MoTask と Claude の接点なので、通る形と落ちる理由を固定する。
-/// PlanningResultReaderTests の候補まわりをここへ移植したもの（JSON Lines 読みの分だけ落ちている）。
+/// 候補 1 件の検証（JSON Lines 読みはもう無い）。
 /// </summary>
 public class CandidateValidatorTests
 {

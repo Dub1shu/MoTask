@@ -1,7 +1,7 @@
 namespace MoTask.Core.Model;
 
 /// <summary>
-/// 朝の実行1回（仕様 §9）。AiJob には相乗りしない（AiJob.TaskId は必須で、朝の実行には対象タスクが無い）。
+/// 計画づくり 1 回（仕様 §9）。AiJob には相乗りしない（AiJob.TaskId は必須で、計画づくりには対象タスクが無い）。
 /// イベントは DB に持たず、events.jsonl と ProcessedLines だけで足りるようにする。
 /// </summary>
 public sealed class PlanningRun

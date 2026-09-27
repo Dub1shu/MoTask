@@ -85,7 +85,7 @@ public class PlanningServiceMcpTests
 
     /// <summary>
     /// 利用者が普段使っている Claude Code も同じ MCP サーバに繋がる。宛先違いはツールエラーにして、
-    /// そちらが誤って朝の実行を動かす事故を防ぐ（仕様 §6）。
+    /// そちらが誤って計画づくりを動かす事故を防ぐ（仕様 §6）。
     /// </summary>
     [Fact]
     public async Task GetContext_FailsForARunIdThatIsNotRunning()
@@ -262,7 +262,7 @@ public class PlanningServiceMcpTests
         result.IsSuccess.Should().BeTrue("ツールエラーではない");
         result.Value!.Accepted.Should().BeFalse();
         result.Value.Reason.Should().Be(string.Format(Messages.PlanGroupKeyInvalidFormat, 0, "someday"));
-        run.PlanJson.Should().Be(Plan, "受理しなかったプランで上書きしない");
+        run.PlanJson.Should().Be(Plan, "受理しなかった計画で上書きしない");
     }
 
     [Fact]
@@ -290,7 +290,7 @@ public class PlanningServiceMcpTests
         _launcher.Closed.Should().BeEmpty();
     }
 
-    /// <summary>候補 0 件の朝は失敗ではない(親仕様 §8 の約束を引き継ぐ)。</summary>
+    /// <summary>候補 0 件の日は失敗ではない(親仕様 §8 の約束を引き継ぐ)。</summary>
     [Fact]
     public async Task Complete_AcceptsARunWithNoCandidates()
     {
@@ -384,7 +384,7 @@ public class PlanningServiceMcpTests
         run.Status.Should().Be(PlanningRunStatus.Pending);
     }
 
-    /// <summary>候補もプランも MCP から来たものがそのまま画面へ回る。</summary>
+    /// <summary>候補も計画も MCP から来たものがそのまま画面へ回る。</summary>
     [Fact]
     public async Task AFullPlanning_EndsWithThePlanAndTheCandidatesInPlace()
     {

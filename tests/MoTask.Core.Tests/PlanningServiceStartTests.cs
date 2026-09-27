@@ -11,7 +11,7 @@ using Xunit;
 namespace MoTask.Core.Tests;
 
 /// <summary>
-/// 朝の実行の開始（仕様 §6・§12）。フォルダを先に作り、パスが確定してから DB に保存する。
+/// 計画づくりの開始（仕様 §6・§12）。フォルダを先に作り、パスが確定してから DB に保存する。
 /// </summary>
 public class PlanningServiceStartTests
 {
@@ -46,7 +46,7 @@ public class PlanningServiceStartTests
         started.IsSuccess.Should().BeTrue(started.Error);
         _folder.Created.Should().ContainSingle();
         _folder.Created[0].Category.Should().Be(JobFolderPaths.PlanningDirectoryName);
-        _folder.Created[0].OutputDirectoryName.Should().BeNull("朝の実行に出力フォルダは要らない");
+        _folder.Created[0].OutputDirectoryName.Should().BeNull("計画づくりに出力フォルダは要らない");
         _folder.Created[0].TaskTitle.Should().Be("2026-09-07");
         started.Value!.JobFolder.Should().Be(@"C:\work\planning\0001-2026-09-07");
     }
@@ -57,7 +57,7 @@ public class PlanningServiceStartTests
         await _service.StartAsync();
 
         var request = _launcher.Requests.Should().ContainSingle().Subject;
-        request.WorkingDirectory.Should().Be(request.JobFolder, "朝の実行はソースツリーに用が無い（仕様 §6）");
+        request.WorkingDirectory.Should().Be(request.JobFolder, "計画づくりはソースツリーに用が無い（仕様 §6）");
         request.Resume.Should().BeFalse();
     }
 
@@ -96,7 +96,7 @@ public class PlanningServiceStartTests
         root.GetProperty("launchCommand").GetString().Should().StartWith("cmd.exe /c ");
     }
 
-    /// <summary>朝の実行は claude が終われば窓も畳む形で頼む（仕様 §5.2）。</summary>
+    /// <summary>計画づくりは claude が終われば窓も畳む形で頼む（仕様 §5.2）。</summary>
     [Fact]
     public async Task Start_AsksForATerminalThatClosesWhenClaudeExits()
     {
@@ -220,7 +220,7 @@ public class PlanningServiceStartTests
     /// <summary>
     /// 1 回目の保存（Add）は通って Id が採番された後、2 回目（指示文の書き戻し）だけが
     /// 落ちた場合。行を Pending のまま残すと、次の StartAsync が二重起動防止に引っかかって
-    /// 朝の実行が永久に始められなくなる（仕様 §12）。ベストエフォートで Failed に倒す。
+    /// 計画づくりが永久に始められなくなる（仕様 §12）。ベストエフォートで Failed に倒す。
     /// </summary>
     [Fact]
     public async Task Start_MarksTheRunFailed_WhenOnlyTheSecondSaveFails()
@@ -251,7 +251,7 @@ public class PlanningServiceStartTests
 
         var started = await _service.StartAsync();
 
-        started.IsSuccess.Should().BeTrue("端末はもう走っている。JSON 1 本の書き損じで朝の仕事を潰さない");
+        started.IsSuccess.Should().BeTrue("端末はもう走っている。JSON 1 本の書き損じで計画づくりを潰さない");
         var run = started.Value!;
         _events.IsFollowing(run.Id).Should().BeTrue();
         _changes.Should().ContainSingle();

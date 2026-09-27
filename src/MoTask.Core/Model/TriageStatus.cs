@@ -6,7 +6,7 @@ public enum TriageStatus
     Pending = 0,
     Registered = 1,
     Merged = 2,
-    /// <summary>翌朝の候補キューに残る唯一の状態。</summary>
+    /// <summary>次の実行の候補キューに残る唯一の状態。</summary>
     Later = 3,
     Rejected = 4,
 }

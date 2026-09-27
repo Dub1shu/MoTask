@@ -1,12 +1,12 @@
 namespace MoTask.Core.Model;
 
-/// <summary>朝の実行1回の状態（仕様 §9）。</summary>
+/// <summary>計画づくり 1 回の状態（仕様 §9）。</summary>
 public enum PlanningRunStatus
 {
     /// <summary>行は作ったが、まだ SessionStart フックが来ていない。</summary>
     Pending = 0,
     Running = 1,
-    /// <summary>Claude が planning_complete を呼び、候補とプランが揃った。</summary>
+    /// <summary>Claude が planning_complete を呼び、候補と計画が揃った。</summary>
     Ingested = 2,
     Failed = 3,
     Cancelled = 4,

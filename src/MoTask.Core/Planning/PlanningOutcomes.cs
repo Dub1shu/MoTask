@@ -8,5 +8,5 @@ namespace MoTask.Core.Planning;
 /// </summary>
 public sealed record CandidateOutcome(bool Accepted, string? Reason, int CandidateId, int Total);
 
-/// <summary>プラン提出・完了宣言の返事。同じく Accepted が false でもツールエラーにはしない。</summary>
+/// <summary>計画提出・完了宣言の返事。同じく Accepted が false でもツールエラーにはしない。</summary>
 public sealed record PlanningOutcome(bool Accepted, string? Reason);

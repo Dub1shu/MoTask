@@ -45,7 +45,7 @@ public sealed partial class PlanSectionViewModel : ObservableObject
     }
 }
 
-/// <summary>プランの 1 行。タスク行はクリックでボードへ、候補行はクリックで候補キューの選択になる。</summary>
+/// <summary>計画の 1 行。タスク行はクリックでボードへ、候補行はクリックで候補キューの選択になる。</summary>
 public sealed partial class PlanRowViewModel
 {
     private readonly Action<PlanRowViewModel> _open;

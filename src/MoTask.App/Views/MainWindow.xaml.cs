@@ -72,7 +72,7 @@ public partial class MainWindow : Window
 
     private void OnShowBoardClick(object sender, RoutedEventArgs e) => ShowBoard(true);
 
-    /// <summary>朝のプランの「ボードで開く」／タスク行のクリック。ボードへ切り替えてそのタスクを選ぶ。</summary>
+    /// <summary>計画の「ボードで開く」／タスク行のクリック。ボードへ切り替えてそのタスクを選ぶ。</summary>
     private void OnNavigateToTask(object? sender, int taskId)
     {
         ShowBoard(true);
@@ -118,7 +118,7 @@ public partial class MainWindow : Window
 
     /// <summary>
     /// 仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は奪わない。
-    /// 朝の画面では T/E/X/L（仕分け）だけを受け、ボードのキーは渡さない（候補の仕分け中に Delete を
+    /// 計画の画面では T/E/X/L（仕分け）だけを受け、ボードのキーは渡さない（候補の仕分け中に Delete を
     /// 押しただけでボードのタスクが消えないように）。
     /// </summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)

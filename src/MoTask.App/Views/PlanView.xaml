@@ -24,8 +24,8 @@
                TextWrapping="Wrap" Margin="{StaticResource Gap.Top.4}"
                Visibility="{Binding WarningMessage, Converter={StaticResource NullToVisibility}}" />
 
-    <!-- プラン未生成（仕様 §4・§11）。取り込み済みで候補 0 件はここに含めない
-         （この朝のプランは存在するので、HasNoPlanYet ではなく HasNoCandidates 側の案内文だけを出す） -->
+    <!-- 計画未生成（仕様 §4・§11）。取り込み済みで候補 0 件はここに含めない
+         （この計画は存在するので、HasNoPlanYet ではなく HasNoCandidates 側の案内文だけを出す） -->
     <StackPanel DockPanel.Dock="Top" Margin="{StaticResource Gap.Top.4}"
                 Visibility="{Binding HasNoPlanYet, Converter={StaticResource BoolToVisibility}}">
       <TextBlock Text="{x:Static res:Strings.PlanNoRun}" />
@@ -146,7 +146,7 @@
         </ContentControl.Resources>
       </ContentControl>
 
-      <!-- 右カラム。日付見出し・状況、候補キュー（状態 1）、プラン（01 最初にやる1件 ＋ 02〜05）。 -->
+      <!-- 右カラム。日付見出し・状況、候補キュー（状態 1）、計画（01 最初にやる1件 ＋ 02〜05）。 -->
       <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Margin="{StaticResource Gap.Left.4}">
         <StackPanel Visibility="{Binding HasPlanView, Converter={StaticResource BoolToVisibility}}">
           <TextBlock Text="{Binding DateHeading}" Style="{StaticResource Text.Section}" />
@@ -223,7 +223,7 @@
                      Margin="{StaticResource Gap.Top.4}"
                      Visibility="{Binding HasNoCandidates, Converter={StaticResource BoolToVisibility}}" />
 
-          <!-- プラン: 01 最初にやる1件 ＋ 02〜05 の区分 -->
+          <!-- 計画: 01 最初にやる1件 ＋ 02〜05 の区分 -->
           <TextBlock Text="{x:Static res:Strings.PlanHeading}" Style="{StaticResource Text.Label}"
                      Margin="{StaticResource Gap.Section}" />
           <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"

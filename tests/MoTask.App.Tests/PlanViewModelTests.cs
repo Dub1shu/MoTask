@@ -50,7 +50,7 @@ public class PlanViewModelTests
         JobFolder = @"C:\work\planning\0001-2026-09-07", PlanJson = "{\"groups\":[]}",
     };
 
-    /// <summary>TestBoards.Sample のタスク 10 / 12 と、候補 outlook:001 を指すプラン。</summary>
+    /// <summary>TestBoards.Sample のタスク 10 / 12 と、候補 outlook:001 を指す計画。</summary>
     private PlanningRun IngestedRunWithPlan(string firstThing = "{\"taskId\":10,\"reason\":\"期限が一番近い\"}",
         string today = "{\"taskId\":10},{\"externalId\":\"outlook:001\"},{\"taskId\":12}")
     {
@@ -99,8 +99,8 @@ public class PlanViewModelTests
         _vm.HasNoCandidates.Should().BeTrue("候補 0 件は失敗ではない（仕様 §11）");
         _vm.CanStart.Should().BeTrue();
         _vm.HasNoPlanYet.Should().BeFalse(
-            "取り込み済みなら候補が 0 件でもこの朝のプランは存在する（仕様 §4）。" +
-            "『今日のプランはまだありません』と『候補はありませんでした』を同時に出さない");
+            "取り込み済みなら候補が 0 件でもこの計画は存在する（仕様 §4）。" +
+            "『今日の計画はまだありません』と『候補はありませんでした』を同時に出さない");
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public class PlanViewModelTests
         _vm.Candidates.Should().BeEmpty();
         _vm.Selected.Should().BeNull();
         _vm.IsPlanReady.Should().BeTrue();
-        _vm.HasNoCandidates.Should().BeFalse("候補はあった。案内文は 0 件の朝だけ");
+        _vm.HasNoCandidates.Should().BeFalse("候補はあった。案内文は 0 件の日だけ");
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public class PlanViewModelTests
     }
 
     /// <summary>
-    /// finding I3。仕様 §7: 右カラム(候補キュー＋プラン)は実行前・実行中・失敗のときは空にする。
+    /// finding I3。仕様 §7: 右カラム(候補キュー＋計画)は実行前・実行中・失敗のときは空にする。
     /// HasNoPlanYet は取り込み済みなら候補 0 件でも false になるだけの値で、実行中はそれだけでは
     /// 右カラムを隠せないので、別の HasPlanView で見せる/隠すを決める。
     /// </summary>
@@ -448,7 +448,7 @@ public class PlanViewModelTests
         row.BadgeText.Should().Be(Strings.PlanRowNew);
         _vm.LeftPanel.Should().BeSameAs(_vm.FirstThing, "最後の 1 件を片づけたので切り替わる");
         _vm.PendingCount.Should().Be(0);
-        _vm.HasNoCandidates.Should().BeFalse("候補はあった。『候補はありませんでした』は 0 件の朝だけ");
+        _vm.HasNoCandidates.Should().BeFalse("候補はあった。『候補はありませんでした』は 0 件の日だけ");
     }
 
     [Fact]
@@ -468,7 +468,7 @@ public class PlanViewModelTests
     public async Task FirstThing_FallsBackToTheFirstTodayRow_WhenItPointedAtARejectedCandidate()
     {
         _service.Current = IngestedRunWithPlan(
-            firstThing: "{\"externalId\":\"outlook:001\",\"reason\":\"今朝の依頼\"}",
+            firstThing: "{\"externalId\":\"outlook:001\",\"reason\":\"この実行の依頼\"}",
             today: "{\"externalId\":\"outlook:001\"},{\"taskId\":12}");
         _service.Candidates.Add(Candidate());
         await _vm.LoadAsync();
@@ -502,7 +502,7 @@ public class PlanViewModelTests
         _service.Raise(run, candidates: false);
         await _vm.PendingLoad;
 
-        _vm.Sections[0].Rows.Should().NotBeEmpty("候補 0 件の朝でもプランはある（親仕様 §8）");
+        _vm.Sections[0].Rows.Should().NotBeEmpty("候補 0 件の日でも計画はある（親仕様 §8）");
         _vm.LeftPanel.Should().BeSameAs(_vm.FirstThing);
     }
 

@@ -22,7 +22,7 @@ public readonly struct PlanningArgs
         _args = new BoardArgs(arguments);
     }
 
-    /// <summary>この朝の実行の runId。整数で来ていなければ null。</summary>
+    /// <summary>この計画づくりの runId。整数で来ていなければ null。</summary>
     public int? RunId => _args.Int("runId");
 
     /// <summary>オブジェクト／配列をそのままの文字列で取り出す（plan 用）。</summary>

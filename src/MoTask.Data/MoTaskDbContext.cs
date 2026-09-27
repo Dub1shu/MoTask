@@ -116,7 +116,7 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.SuggestedProject).IsRequired().HasDefaultValue("");
             e.Property(x => x.SuggestedAction).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
-            // 却下した候補を翌朝また拾わないための鍵（仕様 §9）
+            // 却下した候補を次の実行でまた拾わないための鍵（仕様 §9）
             e.HasIndex(x => x.ExternalId).IsUnique();
             e.HasIndex(x => x.Status);
             e.HasIndex(x => x.PlanningRunId);

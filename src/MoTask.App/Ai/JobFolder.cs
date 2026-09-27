@@ -56,7 +56,7 @@ public sealed class JobFolder : IJobFolder
         // フックが無いと端末は動くが盤面が一切追従しない。黙って走らせず、開始時に止める。
         if (!File.Exists(HooksExecutable)) return Result.Fail<string>(Messages.HooksExecutableNotFound);
 
-        // ブリッジが無いと朝の実行は成果を渡す先を失う。黙って走らせず、開始時に止める。
+        // ブリッジが無いと計画づくりは成果を渡す先を失う。黙って走らせず、開始時に止める。
         if (request.WithMcpConfig && !File.Exists(McpExecutable))
         {
             return Result.Fail<string>(Messages.McpExecutableNotFound);

@@ -7,8 +7,8 @@ using MoTask.Core.Planning;
 namespace MoTask.Core.Services;
 
 /// <summary>
-/// 朝の実行のライフサイクル(仕様 §6・§10)。AiJobService と同じ構えだが、終了時の副作用が違う
-/// (あちらはタスクを確認待ちへ動かし、こちらは候補とプランを取り込む)ので共通化しない。
+/// 計画づくりのライフサイクル(仕様 §6・§10)。AiJobService と同じ構えだが、終了時の副作用が違う
+/// (あちらはタスクを確認待ちへ動かし、こちらは候補と計画を取り込む)ので共通化しない。
 /// DB は BoardService / AiJobService と共有の OperationGate で直列化する。
 /// <b>ゲートの中から IBoardService を呼ぶとデッドロックする</b>ので、登録・統合はゲートの外で呼ぶ。
 /// </summary>
@@ -153,7 +153,7 @@ public sealed class PlanningService : IPlanningService
             if (!created.IsSuccess) return Result.Fail<PlanningRun>(created.Error!);
 
             var sessionId = Guid.NewGuid();
-            // cwd はジョブフォルダ自身。朝の実行はソースツリーに用が無い(仕様 §6)。
+            // cwd はジョブフォルダ自身。計画づくりはソースツリーに用が無い(仕様 §6)。
             // 成果はファイルではなく MCP で渡すので、起動プロンプトに出力先を出さない(仕様 §5.4)。
             var command = _launcher.BuildCommand(new SessionLaunchRequest(
                 sessionId, root, root, Resume: false,
@@ -230,7 +230,7 @@ public sealed class PlanningService : IPlanningService
             _turns[run.Id] = 0;
             Follow(run.Id, root, skipLines: 0);
 
-            // 朝の実行は MoTask が所有する。完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。
+            // 計画づくりは MoTask が所有する。完了時に窓を閉じるには Process ハンドルが要る（仕様 §5.3）。
             var owned = _launcher.LaunchOwned(run.Id, command.Value!);
             if (!owned.IsSuccess) return await FailAsync(run, owned.Error!).ConfigureAwait(false);
 
@@ -363,7 +363,7 @@ public sealed class PlanningService : IPlanningService
                 if (target is null || target.IsDeleted) return Refused(Messages.CandidateMergeTargetMissing, total);
             }
 
-            // 却下・登録済みの ExternalId は翌朝また出てきても積まない(親仕様 §9)。
+            // 却下・登録済みの ExternalId は次の実行でまた出てきても積まない(親仕様 §9)。
             // 現行は黙って捨てていたが、ここでは理由を返す(仕様 §6)。
             var known = await _runs.GetKnownExternalIdsAsync(new[] { record.ExternalId }, ct).ConfigureAwait(false);
             if (known.Count > 0)
@@ -417,7 +417,7 @@ public sealed class PlanningService : IPlanningService
         {
             var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
             if (run is null || run.Status.IsTerminal()) return NotRunning<PlanningOutcome>(runId);
-            // 受理しなかったプランで、前に受理したものを上書きしない
+            // 受理しなかった計画で、前に受理したものを上書きしない
             if (!validated.IsSuccess) return Result.Ok(new PlanningOutcome(false, validated.Error!));
 
             run.PlanJson = validated.Value!;
@@ -448,7 +448,7 @@ public sealed class PlanningService : IPlanningService
         var result = await CompleteRunAsync(runId, closeNow: true, ct).ConfigureAwait(false);
         if (!result.IsSuccess) return Result.Fail(result.Error!);
         // result.Value.Reason は Claude 向け(MCP ツール名を含む)。人には出さない。
-        // CompleteRunAsync が Accepted:false を返す理由は今のところ「プラン未提出」の
+        // CompleteRunAsync が Accepted:false を返す理由は今のところ「計画未提出」の
         // 1 種類だけ(他の拒否は NotRunning = Result.Fail でここまで来ない)。理由が増えたら
         // ここも作り直すこと。
         return result.Value!.Accepted ? Result.Ok() : Result.Fail(Messages.PlanningCompleteWithoutPlan);
@@ -463,7 +463,7 @@ public sealed class PlanningService : IPlanningService
         {
             var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
             if (run is null || run.Status.IsTerminal()) return NotRunning<PlanningOutcome>(runId);
-            // プランの無い実行は終わらせない(仕様 §6)。候補 0 件は失敗ではない(親仕様 §8)。
+            // 計画の無い実行は終わらせない(仕様 §6)。候補 0 件は失敗ではない(親仕様 §8)。
             if (run.PlanJson is not { Length: > 0 })
             {
                 return Result.Ok(new PlanningOutcome(false, Messages.PlanNotSubmitted));

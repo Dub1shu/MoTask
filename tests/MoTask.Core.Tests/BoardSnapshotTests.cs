@@ -90,7 +90,7 @@ public class BoardSnapshotTests
     public void Build_MarksTasksThatAlreadyHaveAnAiJob()
         => Build(busy: new[] { 45 }).GetProperty("tasks").EnumerateArray().Single()
             .GetProperty("hasActiveAiJob").GetBoolean().Should()
-            .BeTrue("プランの『AI 準備完了』区分に要る（仕様 §7）");
+            .BeTrue("計画の『AI 準備完了』区分に要る（仕様 §7）");
 
     [Fact]
     public void Build_WritesNullForAMissingProjectAndDueDate()

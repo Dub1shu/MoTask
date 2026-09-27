@@ -6,7 +6,7 @@ using Xunit;
 namespace MoTask.Core.Tests;
 
 /// <summary>
-/// プラン 1 本の検証（仕様 §6）。通れば原文をそのまま残すので、PlanResolver は
+/// 計画 1 本の検証（仕様 §6）。通れば原文をそのまま残すので、PlanResolver は
 /// 今までと同じ文字列を読む。
 /// </summary>
 public class PlanValidatorTests
@@ -108,7 +108,7 @@ public class PlanValidatorTests
     public void Validate_AcceptsAPlanWithNoFirstThing()
     {
         PlanValidator.Validate("""{"groups":[{"key":"today","items":[]}]}""")
-            .IsSuccess.Should().BeTrue("最初の 1 件を決められない朝もある");
+            .IsSuccess.Should().BeTrue("最初の 1 件を決められない日もある");
     }
 
     [Fact]
