@@ -55,13 +55,14 @@ public class HostWiringTests : IDisposable
             .GetValue(service)!;
 
     [Fact]
-    public void BuildHost_GivesTheMcpServerAndTheViewModel_TheSameBoardToolHost()
+    public void BuildHost_GivesTheViewModelTheCombinedBoardChangeSource()
     {
         Directory.CreateDirectory(_dir);
         using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
 
-        var tools = host.Services.GetRequiredService<MoTask.App.Ai.BoardTools.BoardToolHost>();
-        host.Services.GetRequiredService<MoTask.App.Ai.IBoardChangeSource>().Should().BeSameAs(tools);
+        // ViewModel が購読するのは MCP と計画の仕分けをまとめた通知元(BoardToolHost はその片方)。
+        host.Services.GetRequiredService<MoTask.App.Ai.IBoardChangeSource>()
+            .Should().BeOfType<MoTask.App.Ai.BoardChangeSources>();
         host.Services.GetRequiredService<MoTask.App.Ai.MoTaskMcpServer>().Should().NotBeNull();
         // ViewModel まで実際に解決して、購読側を含む DI グラフが組み上がることを見る。
         host.Services.GetRequiredService<MoTask.App.ViewModels.BoardViewModel>().Should().NotBeNull();

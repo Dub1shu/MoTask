@@ -25,6 +25,10 @@ public sealed record CompleteRunCall(int RunId, bool CloseNow);
 public sealed class FakePlanningService : IPlanningService
 {
     public event EventHandler<PlanningRunChangedEventArgs>? RunChanged;
+    public event EventHandler? BoardChanged;
+
+    /// <summary>BoardChanged を発火させる。</summary>
+    public void RaiseBoardChanged() => BoardChanged?.Invoke(this, EventArgs.Empty);
 
     public PlanningRun? Current { get; set; }
     public List<TriageCandidate> Candidates { get; } = new();

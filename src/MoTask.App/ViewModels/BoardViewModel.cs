@@ -29,6 +29,11 @@ public sealed partial class BoardViewModel : ObservableObject
     private bool _syncingSelection;
     /// <summary>重なった <see cref="ReloadAsync"/> の世代。古い方は await から戻った時点で降りる。</summary>
     private int _reloadGeneration;
+    /// <summary>
+    /// <see cref="SelectTaskAsync"/> が読み直しの後に選びたいタスク。選ぶための読み直しが新しい読み直しに
+    /// 追い越されても、最後に終わった読み直しがこれを選ぶ。
+    /// </summary>
+    private int? _pendingSelection;
 
     public IAiJobService AiJobs { get; }
 
@@ -124,7 +129,11 @@ public sealed partial class BoardViewModel : ObservableObject
         ApplyFilter();
         await ApplyAiStatesAsync();
         if (generation != _reloadGeneration) return;
-        SelectCard(selectedId is int id ? AllCards().FirstOrDefault(c => c.Id == id) : null);
+        var pending = _pendingSelection;
+        _pendingSelection = null;
+        // 選びたいタスクが読み直しても無ければ、前の選択のまま（SelectTaskAsync の「無ければ変えない」）
+        SelectCard((pending is int wanted ? AllCards().FirstOrDefault(c => c.Id == wanted) : null)
+            ?? (selectedId is int id ? AllCards().FirstOrDefault(c => c.Id == id) : null));
         IsLoaded = true;
     }
 
@@ -277,11 +286,18 @@ public sealed partial class BoardViewModel : ObservableObject
     /// <summary>
     /// 計画の「ボードで開く」とタスク行のクリックから（仕様 §6）。フィルタで隠れていても
     /// 選択（と詳細パネル）は開く。盤面に無ければ何もしない（仕様 §8）。
+    /// 計画で登録した直後のタスクはまだ読んでいないことがあるので、手元に無ければ読み直してから選ぶ。
     /// </summary>
-    public void SelectTask(int taskId)
+    public async Task SelectTaskAsync(int taskId)
     {
         var card = Columns.SelectMany(c => c.AllCards).FirstOrDefault(c => c.Id == taskId);
-        if (card is not null) SelectCard(card);
+        if (card is not null)
+        {
+            SelectCard(card);
+            return;
+        }
+        _pendingSelection = taskId;
+        await ReloadAsync();
     }
 
     partial void OnSelectedCardChanged(TaskCardViewModel? value)

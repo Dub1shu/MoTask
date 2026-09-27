@@ -88,9 +88,11 @@ public partial class App : Application
         builder.Services.AddSingleton<IJobFolder, JobFolder>();
         builder.Services.AddSingleton<JobEventWatcher>();
         builder.Services.AddSingleton<IJobEventSource>(sp => sp.GetRequiredService<JobEventWatcher>());
-        // MCP の board ツール。BoardToolHost 自身が外部変更の通知元なので、同じインスタンスを両方に配る。
+        // MCP の board ツール。BoardToolHost 自身も外部変更の通知元で、計画の仕分けと合わせて
+        // BoardViewModel へ配る(どちらもボード画面を通らずに書き込む)。
         builder.Services.AddSingleton<Ai.BoardTools.BoardToolHost>();
-        builder.Services.AddSingleton<IBoardChangeSource>(sp => sp.GetRequiredService<Ai.BoardTools.BoardToolHost>());
+        builder.Services.AddSingleton<IBoardChangeSource>(sp => new Ai.BoardChangeSources(
+            sp.GetRequiredService<Ai.BoardTools.BoardToolHost>(), sp.GetRequiredService<IPlanningService>()));
         // 計画づくりの受け口。IPlanningService だけを見るので BoardToolHost とは独立している。
         builder.Services.AddSingleton<Ai.PlanningTools.PlanningToolHost>();
         builder.Services.AddSingleton<MoTaskMcpServer>();
