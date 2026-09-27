@@ -263,6 +263,59 @@ public class PlanningServiceTriageTests
         candidate.Status.Should().Be(TriageStatus.Pending);
     }
 
+    // ---- ボードへの通知 ----
+    // ボード画面は自分を通らない書き込みに気づけないので、盤面を書き換えたときだけ知らせる。
+
+    [Fact]
+    public async Task Register_RaisesBoardChanged()
+    {
+        var raised = 0;
+        _service.BoardChanged += (_, _) => raised++;
+        var candidate = Candidate();
+
+        await WithinLimitAsync(_service.RegisterAsync(
+            new CandidateDecision(candidate.Id, "請求先情報を更新する", null, "", _backlog.Id)));
+
+        raised.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Merge_RaisesBoardChanged()
+    {
+        var raised = 0;
+        _service.BoardChanged += (_, _) => raised++;
+        var candidate = Candidate(TriageAction.Merge);
+
+        await WithinLimitAsync(_service.MergeAsync(candidate.Id, _target.Id));
+
+        raised.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PostponeAndReject_DoNotRaiseBoardChanged()
+    {
+        var raised = 0;
+        _service.BoardChanged += (_, _) => raised++;
+
+        await WithinLimitAsync(_service.PostponeAsync(Candidate().Id));
+        await WithinLimitAsync(_service.RejectAsync(_store.SeedCandidate(_run, "outlook:002").Id));
+
+        raised.Should().Be(0, "盤面は変わらない");
+    }
+
+    [Fact]
+    public async Task Register_DoesNotRaiseBoardChanged_WhenRefused()
+    {
+        var raised = 0;
+        _service.BoardChanged += (_, _) => raised++;
+        var candidate = Candidate();
+
+        await WithinLimitAsync(_service.RegisterAsync(
+            new CandidateDecision(candidate.Id, "   ", null, "", _backlog.Id)));
+
+        raised.Should().Be(0);
+    }
+
     // ---- あとで / 却下 ----
 
     [Fact]

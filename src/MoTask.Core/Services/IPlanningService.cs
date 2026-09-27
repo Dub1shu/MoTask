@@ -15,6 +15,12 @@ public interface IPlanningService
 {
     event EventHandler<PlanningRunChangedEventArgs>? RunChanged;
 
+    /// <summary>
+    /// 仕分け(登録・統合)でボードを書き換えた。ボード画面はこの書き込みを通らないので、これを見て読み直す。
+    /// ワーカースレッドから上がりうるので、購読側で UI スレッドへ載せ替えること。
+    /// </summary>
+    event EventHandler? BoardChanged;
+
     // 照会
     Task<PlanningRun?> GetCurrentRunAsync(CancellationToken ct = default);
     Task<IReadOnlyList<TriageCandidate>> GetQueueAsync(int runId, CancellationToken ct = default);

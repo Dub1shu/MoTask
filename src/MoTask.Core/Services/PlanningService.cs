@@ -43,6 +43,7 @@ public sealed class PlanningService : IPlanningService
     private readonly ConcurrentDictionary<int, byte> _closePending = new();
 
     public event EventHandler<PlanningRunChangedEventArgs>? RunChanged;
+    public event EventHandler? BoardChanged;
 
     public PlanningService(
         IPlanningRepository runs, IBoardRepository boards, IAiJobRepository jobs, IHistoryRepository history,
@@ -663,6 +664,8 @@ public sealed class PlanningService : IPlanningService
             return Result.Fail<TaskItem>(updated.Error!);
         }
 
+        BoardChanged?.Invoke(this, EventArgs.Empty);
+
         var warning = await DecideAsync(candidate, TriageStatus.Registered, task.Id,
             HistoryKind.CandidateRegistered, ct).ConfigureAwait(false);
 
@@ -693,6 +696,7 @@ public sealed class PlanningService : IPlanningService
         var updated = await _boardService.UpdateTaskAsync(
             new TaskUpdate(target.Id, target.Title, description, target.ProjectId, due), ct).ConfigureAwait(false);
         if (!updated.IsSuccess) return updated;
+        BoardChanged?.Invoke(this, EventArgs.Empty);
 
         var warning = await DecideAsync(candidate, TriageStatus.Merged, target.Id,
             HistoryKind.CandidateMerged, ct).ConfigureAwait(false);

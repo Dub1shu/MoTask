@@ -944,7 +944,7 @@ public class BoardViewModelTests
     {
         await _vm.LoadAsync();
 
-        _vm.SelectTask(12);
+        await _vm.SelectTaskAsync(12);
 
         _vm.SelectedCard!.Id.Should().Be(12);
         _vm.Detail.Should().NotBeNull("計画の『ボードで開く』は詳細パネルまで開く");
@@ -954,10 +954,75 @@ public class BoardViewModelTests
     public async Task SelectTask_DoesNothing_ForAnUnknownId()
     {
         await _vm.LoadAsync();
-        _vm.SelectTask(10);
+        await _vm.SelectTaskAsync(10);
 
-        _vm.SelectTask(999);
+        await _vm.SelectTaskAsync(999);
 
         _vm.SelectedCard!.Id.Should().Be(10, "無ければ選択を変えない（仕様 §8）");
+    }
+
+    /// <summary>
+    /// 計画で登録した直後に「ボードで開く」を押すと、ボードはまだそのタスクを読んでいないことがある。
+    /// 手元に無ければ読み直してから選ぶ。
+    /// </summary>
+    [Fact]
+    public async Task SelectTask_ReloadsAndSelects_ATaskCreatedAfterTheLastLoad()
+    {
+        await _vm.LoadAsync();
+        var t = new DateTime(2026, 9, 27, 0, 0, 0, DateTimeKind.Utc);
+        _board.Columns[0].Tasks.Add(new TaskItem
+            { Id = 50, Title = "ゴルフ練習", ColumnId = 1, Position = 2, CreatedAt = t, UpdatedAt = t });
+
+        await _vm.SelectTaskAsync(50);
+
+        _vm.SelectedCard!.Id.Should().Be(50);
+        _service.GetBoardCalls.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task SelectTask_DoesNotReload_WhenTheCardIsAlreadyThere()
+    {
+        await _vm.LoadAsync();
+
+        await _vm.SelectTaskAsync(12);
+
+        _service.GetBoardCalls.Should().Be(1, "読み直すと列のスクロールが先頭に戻る");
+    }
+
+    /// <summary>
+    /// 選ぶための読み直しが、後から来た外部変更の読み直しに追い越されても、選択は失われない。
+    /// </summary>
+    [Fact]
+    public async Task SelectTask_SurvivesBeingOvertakenByANewerReload()
+    {
+        await _vm.LoadAsync();
+        var t = new DateTime(2026, 9, 27, 0, 0, 0, DateTimeKind.Utc);
+        _board.Columns[0].Tasks.Add(new TaskItem
+            { Id = 50, Title = "ゴルフ練習", ColumnId = 1, Position = 2, CreatedAt = t, UpdatedAt = t });
+
+        // 1 回目（選ぶための読み直し）が先に終わって降り、2 回目（外部変更）が後から終わる順にする。
+        var first = new TaskCompletionSource();
+        var second = new TaskCompletionSource();
+        var calls = 0;
+        _service.OnGetBoard = async () =>
+        {
+            await (++calls == 1 ? first.Task : second.Task);
+            return Result.Ok(_board);
+        };
+
+        var selecting = _vm.SelectTaskAsync(50);
+        _externalChanges.RaiseBoardChanged();
+        first.SetResult();
+        await selecting;
+        second.SetResult();
+
+        // 継続は SetResult の中で同期的に走るはずだが、念のため短時間だけ安定を待つ（上と同じ）。
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (_vm.SelectedCard?.Id != 50 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
+        _vm.SelectedCard!.Id.Should().Be(50, "後から終わった読み直しが、選ぶはずだったタスクを選ぶ");
     }
 }

@@ -72,11 +72,21 @@ public partial class MainWindow : Window
 
     private void OnShowBoardClick(object sender, RoutedEventArgs e) => ShowBoard(true);
 
-    /// <summary>計画の「ボードで開く」／タスク行のクリック。ボードへ切り替えてそのタスクを選ぶ。</summary>
-    private void OnNavigateToTask(object? sender, int taskId)
+    /// <summary>
+    /// 計画の「ボードで開く」／タスク行のクリック。ボードへ切り替えてそのタスクを選ぶ。
+    /// async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。
+    /// </summary>
+    private async void OnNavigateToTask(object? sender, int taskId)
     {
         ShowBoard(true);
-        _vm.SelectTask(taskId);
+        try
+        {
+            await _vm.SelectTaskAsync(taskId);
+        }
+        catch (Exception ex)
+        {
+            _vm.ShowBanner(string.Format(CultureInfo.CurrentCulture, Strings.StartupFailedFormat, ex.Message));
+        }
     }
 
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
