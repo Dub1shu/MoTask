@@ -674,26 +674,57 @@ dotnet test MoTask.sln
 
 期待: 失敗 0・合計 882。XAML のレイアウトだけを変えたので、ここが赤くなったらバインド名を打ち間違えている。
 
-- [ ] **Step 4: DB を消してアプリを起動する（手動確認 1・2）**
+- [ ] **Step 4: 設定を控え、手元 DB を SQL で移行してからアプリを起動する（手動確認 0・1・2）**
+
+**この Step はレビュー後に訂正した。** 元は「DB と WAL/SHM を削除して起動」としていたが、
+`%LOCALAPPDATA%\MoTask\motask.db` には盤面・タスク・プロジェクト・ラベル・履歴・AI ジョブが
+計画づくりの実行ログと同居している（`tests/MoTask.Data.Tests/MigrationTests.cs`）。削除すると
+利用者のカンバン全部を消すことになるので、代わりにその場で SQL 移行する（仕様 §6）。
+
+0. `%USERPROFILE%\MoTask\settings.json` を開き、`MorningInstruction` に値があれば控えておく。
+   新しい設定 DTO にはこのキーが無く、`JsonAiSettingsStore.Load` は未知のキーを黙って捨て、
+   `Save` はそのキーを持たない形でファイルを丸ごと書き直すので、**AI 設定を一度でも保存すると
+   このキーはファイルから消えて戻せない。**
 
 ```bash
-# MoTask が動いていないことを確かめてから
-rm -f "$LOCALAPPDATA/MoTask/motask.db" "$LOCALAPPDATA/MoTask/motask.db-wal" "$LOCALAPPDATA/MoTask/motask.db-shm"
+# MoTask が動いていないことを確かめてから、motask.db を退避コピーしておく
+cp "$LOCALAPPDATA/MoTask/motask.db" "$LOCALAPPDATA/MoTask/motask.db.bak-manual"
+```
+
+続けて `%LOCALAPPDATA%\MoTask\motask.db` に対して次の 3 文を実行する（`sqlite3` CLI か、
+Python の `sqlite3` モジュールなど、SQLite に直接つなげる手段でよい）。
+
+```sql
+ALTER TABLE MorningRuns RENAME TO PlanningRuns;
+ALTER TABLE TriageCandidates RENAME COLUMN MorningRunId TO PlanningRunId;
+UPDATE __EFMigrationsHistory SET MigrationId='20260907135320_AddPlanningRuns'
+  WHERE MigrationId='20260907135320_AddMorningRuns';
+```
+
+索引と FK の制約名は `IX_MorningRuns_Date` のような旧名のまま残るが、EF は起動時に
+`__EFMigrationsHistory` のマイグレーション ID しか見ず、実行時の SQL は表名・列名で組み立てる
+ので実害は無い（このブランチの作業中に、改名前のスキーマで作った DB にサンプル行を入れて
+実際にこの 3 文を実行し、`dotnet ef database update` が「すでに最新です」と報告し、
+`PlanningRuns` と `PlanningRunId` で結合したクエリが元のデータを返すところまで確認済み）。
+
+移行を終えたらアプリを起動する。
+
+```bash
 dotnet run --project src/MoTask.App
 ```
 
-既存 DB の `__EFMigrationsHistory` には旧 ID `20260907135320_AddMorningRuns` が残っていて、消さずに起動すると `MorningRuns` が孤児として残ったまま `PlanningRuns` が追加される中途半端な状態になる（仕様 §6）。**必ず先に消す。**
-
 確認:
-1. 例外なく盤面が出る
+1. 例外なく盤面が出て、既存のタスク・プロジェクト・ラベル・履歴・AI ジョブがすべて残っている
 2. タブが「計画」になっている。候補件数バッジは従来どおり出る
+
+（起動後、控えておいた `MorningInstruction` の値があれば、設定画面の「計画づくりの指示文」へ貼り直す。）
 
 - [ ] **Step 5: 計画を作って MCP ツール 4 本を通す（手動確認 3・4）**
 
 3. 「計画を作る」で端末が起動し、既定ワークフォルダ（`%USERPROFILE%\MoTask\`）の下に `planning/0001-YYYY-MM-DD` ができる
 4. `planning_get_context` / `planning_add_candidate` / `planning_submit_plan` / `planning_complete` の 4 本が通り、`planning_complete` で端末が閉じる
 
-旧 `morning/` のジョブフォルダが残っていても放置してよい。過去の実行は DB ごと消えたので誰も参照しない（仕様 §6）。
+旧 `morning/` のジョブフォルダが残っていても放置してよい。DB 行は上の SQL 移行で残るが、ジョブフォルダの中身（instruction.md やログ）自体は誰も参照しない（仕様 §6）。
 
 - [ ] **Step 6: 下部ストリップの出方を確かめる（手動確認 5）**
 
@@ -701,7 +732,7 @@ dotnet run --project src/MoTask.App
 
 - [ ] **Step 7: 設定と仕分けを確かめる（手動確認 6・7）**
 
-6. 設定画面のラベルが「計画づくりの指示文」になっている。設定 JSON の旧キー `MorningInstruction` は読まれず、カスタム指示文を書いていた場合は既定テンプレートに戻る（仕様 §6・意図どおり）
+6. 設定画面のラベルが「計画づくりの指示文」になっている。設定 JSON の旧キー `MorningInstruction` は読まれず、カスタム指示文を書いていた場合は既定テンプレートに戻る（仕様 §6・意図どおり。Step 4・0 で控えた値は手で貼り直す）
 7. 仕分け（T / E / X / L）が従来どおり効く
 
 - [ ] **Step 8: コミットする**

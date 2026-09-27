@@ -21,7 +21,7 @@
 - 利用者に見える文言から「朝」を外す（§4）
 - 「朝の実行」に由来する制御ボタンを、計画本体より下の補助的な位置へ退ける（§5）
 - 内部名の全面改名（§3）。MCP ツール名とテーブル名を含む
-- 既存マイグレーションの書き換えと、手元 DB の作り直し（§6）
+- 既存マイグレーションの書き換えと、手元 DB のその場移行（§6）
 
 ### 含まない
 
@@ -29,7 +29,8 @@
 - 区分（今日中／余裕があれば／AI 準備完了／待ち）の整理。分類軸の混在はそのまま残す
 - 「最初にやる1件」の常駐、所要時間、着手ボタン、要約の作り直し
 - 既存の設計仕様・実装計画の書き換え（§8）
-- 旧データの引き継ぎ。DB の行も、設定 JSON のカスタム指示文も持ち越さない（§6）
+- 設定 JSON のカスタム指示文の自動移行。旧キー `MorningInstruction` は読まない（§6）。
+  DB の行は逆に、その場の SQL 移行で残す（§6）
 
 ## 3. 命名の規則
 
@@ -150,18 +151,49 @@
 
 ## 6. データとマイグレーション
 
-**旧データは引き継がない。** 手元の DB を作り直す前提で進める。
+**この節はレビュー後に訂正した。** もともとは「旧データは引き継がない。手元の DB を
+作り直す前提で進める」としていたが、これは誤りだった。`%LOCALAPPDATA%\MoTask\motask.db`
+には計画づくりの実行ログ（`MorningRuns` / `TriageCandidates`）だけでなく、盤面・タスク・
+プロジェクト・ラベル・履歴・AI ジョブという利用者の全データが同居している（`tests/MoTask.Data.Tests/MigrationTests.cs`
+参照）。DB を作り直す前提はこれらすべてを消す前提と同じで、正しくない。以下は
+**その場の SQL 移行で DB を残す**方針に置き換える。
 
 - 最後のマイグレーション `20260907135320_AddMorningRuns` をその場で書き換え、`AddPlanningRuns`
   にする。タイムスタンプ ID は維持し、ファイル名・クラス名・`CreateTable` のテーブル名を変える。
   `.Designer.cs` と `MoTaskDbContextModelSnapshot.cs` は再生成する
-- 既存 DB の `__EFMigrationsHistory` には旧 ID `20260907135320_AddMorningRuns` が残っている。
-  **そのまま起動すると `MorningRuns` が孤児として残ったまま `PlanningRuns` が追加される**
-  中途半端な状態になる。手動確認の先頭で DB を消す（§7 の手動確認 1）
+- 書き換えた `20260907135320_AddPlanningRuns.Up()` は `PlanningRuns` と `TriageCandidates` の
+  両方を `CreateTable` する（改名前の元マイグレーションがそうだったのを引き継いでいるだけで、
+  こちらは変えていない）。そのため、旧 DB にそのまま起動すると `TriageCandidates` が既に
+  存在していて `CreateTable` が例外を投げる。`App.xaml.cs` の `TryInitializeDatabaseAsync`
+  がこれを捕まえて「バックアップして作り直しますか？」（`Strings.DbOpenFailedFormat`）を出し、
+  Yes を選ぶと `DatabaseRecovery.BackupAndReset` が `.bak-yyyyMMdd-HHmmss` を残して DB を
+  空で作り直す（`Strings.DbRecreatedFormat`）。**これ自体が、利用者が気づかないうちに盤面を
+  失う経路になる。** だから手動確認の先頭で、起動する前に次の SQL 移行を済ませておく
+  （§7 の手動確認 0・1）。
+- **手元 DB の移行手順。** MoTask を終了した状態で、`%LOCALAPPDATA%\MoTask\motask.db` に対して
+  次の 3 文を実行する（念のため実行前に `motask.db` をコピーして退避しておくとよい）。
+
+  ```sql
+  ALTER TABLE MorningRuns RENAME TO PlanningRuns;
+  ALTER TABLE TriageCandidates RENAME COLUMN MorningRunId TO PlanningRunId;
+  UPDATE __EFMigrationsHistory SET MigrationId='20260907135320_AddPlanningRuns'
+    WHERE MigrationId='20260907135320_AddMorningRuns';
+  ```
+
+  盤面・タスク・プロジェクト・ラベル・履歴・AI ジョブ・過去の計画づくりの行はすべて残る。
+  索引と FK の制約名は旧名（`IX_MorningRuns_Date` / `IX_MorningRuns_Status` /
+  `IX_TriageCandidates_MorningRunId` / `FK_TriageCandidates_MorningRuns_MorningRunId` など）
+  のまま残るが、EF は起動時に `__EFMigrationsHistory` のマイグレーション ID しか見ず、
+  実行時の SQL は表名・列名で組み立てるので実害は無い。この 3 文は、改名前のスキーマで
+  作った DB にサンプル行を入れ、実際に実行して `dotnet ef database update` が
+  「すでに最新です」と報告し、`PlanningRuns` と `PlanningRunId` で結合したクエリが
+  元のデータをそのまま返すところまで確認済み。
 - 設定 JSON（`%USERPROFILE%\MoTask\`）の旧キー `MorningInstruction` は読まない。
-  カスタム指示文を書いていた場合は既定テンプレートに戻る
+  カスタム指示文を書いていた場合は既定テンプレートに戻る。書いていた指示文を残したい
+  場合の手順は §7 の手動確認 0 を参照
 - 既定ワークフォルダ下の旧 `morning/` ジョブフォルダは放置する。新しい実行は `planning/` の下に作る。
-  過去の実行は DB ごと消えるので、誰も参照しない
+  過去の実行の DB 行は上の移行で残るが、ジョブフォルダ自体の中身（instruction.md やログ）は
+  誰も参照しない
 
 ## 7. テストと検証
 
@@ -186,7 +218,14 @@
 
 ### 手動確認
 
-1. `%LOCALAPPDATA%\MoTask\motask.db` と WAL/SHM を削除して起動 → 例外なく盤面が出る
+0. `%USERPROFILE%\MoTask\settings.json` を開き、`MorningInstruction` に値があれば控えておく。
+   MoTask を起動したあと、設定画面の「計画づくりの指示文」へ貼り直す。**AI 設定を一度でも
+   保存すると、このキーはファイルから消えて戻せない。** 新しい設定 DTO にこのキーは無く、
+   読み込み時は未知のキーを黙って捨て、保存時はそのキーを持たない形でファイルを丸ごと
+   書き直すため（`JsonAiSettingsStore`）
+1. §6 の SQL 移行を先に済ませてから起動する（MoTask を終了した状態で 3 文を実行し、
+   その後で起動する）→ 例外なく盤面が出て、既存のタスク・プロジェクト・ラベル・履歴・
+   AI ジョブがすべて残っている
 2. タブが「計画」になっている。候補件数バッジは従来どおり出る
 3. 「計画を作る」で端末が起動し、既定ワークフォルダ下に `planning/` のジョブフォルダができる
 4. `planning_get_context` / `planning_add_candidate` / `planning_submit_plan` / `planning_complete`
