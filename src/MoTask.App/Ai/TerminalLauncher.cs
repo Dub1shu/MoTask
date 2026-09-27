@@ -32,7 +32,7 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
     internal const string DefaultTemplate = "cmd.exe /s /k \"{command}\"";
 
     /// <summary>朝の実行の既定。claude が終われば窓も畳む（仕様 §5.2）。</summary>
-    internal const string MorningTemplate = "cmd.exe /s /c \"{command}\"";
+    internal const string PlanningTemplate = "cmd.exe /s /c \"{command}\"";
 
     /// <summary>
     /// 起動テンプレートの先頭トークンのファイル名が wt.exe か（フルパスも同じ扱い・大文字小文字は無視）。
@@ -112,7 +112,7 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         parts.Add(request.OutputDirectoryName is { Length: > 0 } output
             ? string.Format(Messages.TerminalStartPromptFormat,
                 paths.InstructionMarkdown, Path.Combine(paths.Root, output))
-            : string.Format(Messages.MorningStartPromptFormat, paths.InstructionMarkdown));
+            : string.Format(Messages.PlanningStartPromptFormat, paths.InstructionMarkdown));
 
         var inner = string.Join(" ", parts.Select(CommandLine.Quote));
         // 利用者定義のテンプレートは AI 遂行でも朝の実行でも効く。ただし朝の実行で wt を挟むと
@@ -121,7 +121,7 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
                          && !(request.CloseOnExit && IsWindowsTerminalTemplate(text))
             ? text
             : null;
-        var template = configured ?? (request.CloseOnExit ? MorningTemplate : DefaultTemplate);
+        var template = configured ?? (request.CloseOnExit ? PlanningTemplate : DefaultTemplate);
         // テンプレート側で {cwd} はすでに "..." に囲まれている（既定テンプレートも利用者定義も同じ形）。
         // ドライブ直下（D:\ など）のように末尾が \ で終わる cwd をそのまま埋めると、
         // テンプレートの閉じ " の直前が奇数個の \ になり、CommandLineToArgvW がその " を
@@ -243,7 +243,7 @@ public sealed class TerminalLauncher : ISessionLauncher, IDisposable
         // 走ってしまう。スレッドプールに逃がすのは、この再入を断ち（呼び出し元は通知に待たされない）、
         // 通常の Exited 経路と同じ「別スレッドから届く」形に揃えるため。
         // ※ 順序は保証されない — 通知が戻り値より先に届くことはありうるので、
-        // 呼び出し元は終了通知を受け取れる状態を作ってから起動すること（MorningService はそうしている）。
+        // 呼び出し元は終了通知を受け取れる状態を作ってから起動すること（PlanningService はそうしている）。
         if (process.HasExited) ThreadPool.QueueUserWorkItem(_ => OnExited(ownerId, process));
     }
 

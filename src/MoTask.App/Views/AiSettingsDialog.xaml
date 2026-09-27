@@ -49,8 +49,8 @@
                    Margin="{StaticResource Gap.Top.1}"
                    Visibility="{Binding TemplateNotice, Converter={StaticResource NullToVisibility}}" />
 
-        <TextBlock Text="{x:Static res:Strings.SettingsMorningInstruction}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
-        <TextBox Text="{Binding MorningInstruction, UpdateSourceTrigger=PropertyChanged}"
+        <TextBlock Text="{x:Static res:Strings.SettingsPlanningInstruction}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
+        <TextBox Text="{Binding PlanningInstruction, UpdateSourceTrigger=PropertyChanged}"
                  AcceptsReturn="True" TextWrapping="Wrap" Height="160"
                  VerticalScrollBarVisibility="Auto" />
       </StackPanel>

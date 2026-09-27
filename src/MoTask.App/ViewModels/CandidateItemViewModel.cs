@@ -4,7 +4,7 @@ using MoTask.Core.Model;
 
 namespace MoTask.App.ViewModels;
 
-/// <summary>候補 1 件の読み取り専用の見え方。編集中の値は MorningPlanViewModel が持つ。</summary>
+/// <summary>候補 1 件の読み取り専用の見え方。編集中の値は PlanViewModel が持つ。</summary>
 public sealed class CandidateItemViewModel
 {
     private readonly TriageCandidate _candidate;
@@ -40,10 +40,10 @@ public sealed class CandidateItemViewModel
     /// <summary>候補キューの推奨バッジ（仕様 §7）。SuggestedAction を文言に写すだけ。</summary>
     public string SuggestionText => _candidate.SuggestedAction switch
     {
-        TriageAction.Merge => Strings.MorningSuggestMerge,
-        TriageAction.Later => Strings.MorningSuggestLater,
-        TriageAction.Reject => Strings.MorningSuggestReject,
-        _ => Strings.MorningSuggestRegister,
+        TriageAction.Merge => Strings.PlanSuggestMerge,
+        TriageAction.Later => Strings.PlanSuggestLater,
+        TriageAction.Reject => Strings.PlanSuggestReject,
+        _ => Strings.PlanSuggestRegister,
     };
 
     /// <summary>差出人／期限の小さな 1 行。</summary>

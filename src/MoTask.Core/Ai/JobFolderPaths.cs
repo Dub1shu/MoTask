@@ -14,7 +14,7 @@ public sealed record JobFolderPaths(string Root)
     public const string JobsDirectoryName = "jobs";
 
     /// <summary>朝の実行のフォルダを集める場所（仕様 §6）。</summary>
-    public const string MorningDirectoryName = "morning";
+    public const string PlanningDirectoryName = "planning";
 
     /// <summary>AI 遂行の成果物。Create が併せて作る。</summary>
     public const string ArtifactsDirectoryName = "artifacts";

@@ -43,7 +43,7 @@
   <data name="JobFolderFailedFormat" xml:space="preserve"><value>ジョブフォルダを作成できません: {0}（{1}）</value></data>
   <data name="TerminalLaunchFailedFormat" xml:space="preserve"><value>端末を起動できませんでした: {0}</value></data>
   <data name="TerminalStartPromptFormat" xml:space="preserve"><value>{0} を読んで作業を始めてください。調査に使ったファイルと成果物は {1} に出してください。</value></data>
-  <data name="MorningStartPromptFormat" xml:space="preserve"><value>{0} を読んで作業を始めてください。</value></data>
+  <data name="PlanningStartPromptFormat" xml:space="preserve"><value>{0} を読んで作業を始めてください。</value></data>
   <data name="EventsFileGoneFormat" xml:space="preserve"><value>イベントログを追えなくなりました（削除されたか作り直されました）: {0}</value></data>
   <data name="EventsWatchFailedFormat" xml:space="preserve"><value>イベントログの追従中に予期しないエラーが発生しました: {0}（{1}）</value></data>
   <data name="McpAppNotFoundFormat" xml:space="preserve"><value>MoTask の実行ファイルが見つかりません: {0}</value></data>
@@ -52,7 +52,7 @@
   <data name="McpUnexpectedStatusFormat" xml:space="preserve"><value>MoTask が予期しない応答を返しました（HTTP {0}）。</value></data>
   <data name="McpConnectionLost" xml:space="preserve"><value>MoTask との接続が切れました（MoTask が終了した可能性があります）。MoTask を起動したまま、もう一度実行してください。</value></data>
   <data name="McpUnexpectedFailure" xml:space="preserve"><value>MoTask との通信で予期しない問題が起きました。MoTask を再起動してから試してください（詳細は MCP サーバのログに出ています）。</value></data>
-  <data name="MorningInstructionDefault" xml:space="preserve"><value># 朝のタスク候補の収集
+  <data name="PlanningInstructionDefault" xml:space="preserve"><value># 朝のタスク候補の収集
 
 あなたが今アクセスできる受信箱・チャット・カレンダーを見て、今日のタスク候補を出してください。
 どのサービスから取るかはこちらでは指定しません。認証済みのコネクタで届く範囲を自分で決めて集めてください。
@@ -60,31 +60,31 @@
 
 候補にするのは「人が何かをする必要があるもの」だけです。通知・広告・自動送信のものは候補にしないでください。
 1 件ごとに、元の文面から根拠となる一文を引用してください。引用できないものは候補にしないでください。</value></data>
-  <data name="MorningInstructionContractFormat" xml:space="preserve"><value>## 出力の契約（この節は MoTask が書いています。変更しないでください）
+  <data name="PlanningInstructionContractFormat" xml:space="preserve"><value>## 出力の契約（この節は MoTask が書いています。変更しないでください）
 
 対象日は {0} です。この朝の実行の runId は {1} です。
 成果は MCP ツールで渡してください。ファイルは書かないでください。
 
-1. mcp__motask__morning_get_context({{"runId":{1}}}) で今日の盤面を取る。
+1. mcp__motask__planning_get_context({{"runId":{1}}}) で今日の盤面を取る。
    統合先の推薦と今日のプランは、必ずこの結果に基づくこと。
-2. 候補 1 件ごとに mcp__motask__morning_add_candidate({{"runId":{1}, ...}}) を呼ぶ。
+2. 候補 1 件ごとに mcp__motask__planning_add_candidate({{"runId":{1}, ...}}) を呼ぶ。
    externalId は再実行しても同じ値になるようにすること（例: サービス名:元のID）。
    一度片づけた候補を二度出さないための鍵である。
    accepted:false が返ったら reason を読み、直せるなら直して呼び直す。
    直せないなら、その候補は諦めて次へ進んでよい。
-3. mcp__motask__morning_submit_plan({{"runId":{1},"plan":{{...}}}}) でプランを出す。
+3. mcp__motask__planning_submit_plan({{"runId":{1},"plan":{{...}}}}) でプランを出す。
    plan の groups[].key は today / ifTime / aiReady / waiting のいずれかにする。
-   aiReady には、morning_get_context の hasActiveAiJob が false で AI に任せられるものを入れる。
-4. mcp__motask__morning_complete({{"runId":{1}}}) を呼ぶ。呼ぶとこの端末は閉じる。
+   aiReady には、planning_get_context の hasActiveAiJob が false で AI に任せられるものを入れる。
+4. mcp__motask__planning_complete({{"runId":{1}}}) を呼ぶ。呼ぶとこの端末は閉じる。
 
 決めるのは人である。suggestedAction は推薦であって実行ではない。
 候補が 0 件の朝もある。それは失敗ではない。その場合も 3 と 4 は必ず呼ぶこと。</value></data>
-  <data name="MorningRunAlreadyRunning" xml:space="preserve"><value>朝の実行がまだ終わっていません。先に取り込むか、追跡をやめてください</value></data>
-  <data name="MorningRunNotFound" xml:space="preserve"><value>朝の実行が見つかりません</value></data>
-  <data name="MorningRunAlreadyFinished" xml:space="preserve"><value>この朝の実行はもう終わっています</value></data>
-  <data name="MorningPlanNotSubmitted" xml:space="preserve"><value>先に morning_submit_plan を呼んでください</value></data>
-  <data name="MorningCompleteMissing" xml:space="preserve"><value>Claude が完了を通知しないままセッションを終えました</value></data>
-  <data name="MorningCompleteWithoutPlan" xml:space="preserve"><value>まだプランが出ていないので、完了にできません</value></data>
+  <data name="PlanningRunAlreadyRunning" xml:space="preserve"><value>朝の実行がまだ終わっていません。先に取り込むか、追跡をやめてください</value></data>
+  <data name="PlanningRunNotFound" xml:space="preserve"><value>朝の実行が見つかりません</value></data>
+  <data name="PlanningRunAlreadyFinished" xml:space="preserve"><value>この朝の実行はもう終わっています</value></data>
+  <data name="PlanNotSubmitted" xml:space="preserve"><value>先に planning_submit_plan を呼んでください</value></data>
+  <data name="PlanningCompleteMissing" xml:space="preserve"><value>Claude が完了を通知しないままセッションを終えました</value></data>
+  <data name="PlanningCompleteWithoutPlan" xml:space="preserve"><value>まだプランが出ていないので、完了にできません</value></data>
   <data name="CandidateFieldRequiredFormat" xml:space="preserve"><value>{0} が空です。必須の項目です</value></data>
   <data name="CandidateEvidenceRequired" xml:space="preserve"><value>evidence が空です。元の文面から引用してください</value></data>
   <data name="CandidateActionInvalid" xml:space="preserve"><value>suggestedAction は register / merge / later / reject のどれかにしてください</value></data>
@@ -96,10 +96,10 @@
   <data name="PlanItemsInvalidFormat" xml:space="preserve"><value>groups[{0}].items が配列ではありません</value></data>
   <data name="PlanItemNeedsIdFormat" xml:space="preserve"><value>groups[{0}].items[{1}] は taskId か externalId のどちらかを持ってください</value></data>
   <data name="PlanFirstThingNeedsId" xml:space="preserve"><value>firstThing は taskId か externalId のどちらかを持ってください</value></data>
-  <data name="MorningRunNotRunningFormat" xml:space="preserve"><value>runId {0} の朝の実行は動いていません</value></data>
+  <data name="PlanningRunNotRunningFormat" xml:space="preserve"><value>runId {0} の朝の実行は動いていません</value></data>
   <data name="CandidateAlreadyDecidedElsewhere" xml:space="preserve"><value>この externalId は過去に処理済みです</value></data>
   <data name="CandidateAlreadyInThisRun" xml:space="preserve"><value>今朝すでに積んだ externalId です</value></data>
-  <data name="MorningTerminalClosed" xml:space="preserve"><value>端末が閉じられました</value></data>
+  <data name="PlanningTerminalClosed" xml:space="preserve"><value>端末が閉じられました</value></data>
   <data name="CandidateNotFound" xml:space="preserve"><value>候補が見つかりません</value></data>
   <data name="CandidateAlreadyDecided" xml:space="preserve"><value>この候補はもう片づいています</value></data>
   <data name="CandidateNoteHeaderFormat" xml:space="preserve"><value>【{0} から取り込み】</value></data>

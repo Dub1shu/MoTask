@@ -78,7 +78,7 @@ public class TerminalLauncherTests : IDisposable
 
     /// <summary>朝の実行は cmd.exe /s /c。claude が終われば窓も畳む（仕様 §5.2）。</summary>
     [Fact]
-    public void BuildCommand_UsesCmdWithSlashC_ForAMorningRun()
+    public void BuildCommand_UsesCmdWithSlashC_ForAPlanningRun()
     {
         var command = Launcher().BuildCommand(_request with { CloseOnExit = true }).Value!;
 
@@ -111,14 +111,14 @@ public class TerminalLauncherTests : IDisposable
     // 朝の実行の実物の形。--mcp-config で引用符が 2 個増え、OutputDirectoryName は無い
     // （仕様 §5.4）。空白と日本語を含むパスも通す。
     [InlineData(true, true)]
-    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit, bool morningShape)
+    public void BuildCommand_ProducesACommandLineCmdCanActuallyParse(bool closeOnExit, bool planningShape)
     {
         var fakeClaude = Path.Combine(_dir, "fake-claude.cmd");
         File.WriteAllText(fakeClaude, "@echo off\r\necho " + LaunchMarker + "\r\nexit " + LaunchExitCode + "\r\n");
         _store.Save(_store.Load() with { ClaudeExecutablePath = fakeClaude });
 
         var request = _request with { CloseOnExit = closeOnExit };
-        if (morningShape)
+        if (planningShape)
         {
             request = request with
             {
@@ -193,11 +193,11 @@ public class TerminalLauncherTests : IDisposable
     /// 朝の実行は成果をファイルに出さないので、起動プロンプトに出し先を書かない（仕様 §5.4）。
     /// </summary>
     [Fact]
-    public void BuildCommand_PointsThePromptOnlyAtTheInstruction_ForAMorningRun()
+    public void BuildCommand_PointsThePromptOnlyAtTheInstruction_ForAPlanningRun()
     {
-        var morning = _request with { OutputDirectoryName = null, CloseOnExit = true };
+        var planning = _request with { OutputDirectoryName = null, CloseOnExit = true };
 
-        var command = Launcher().BuildCommand(morning).Value!;
+        var command = Launcher().BuildCommand(planning).Value!;
 
         command.Arguments.Should()
             .Contain(@"C:\work\jobs\0042-見積り\instruction.md")
@@ -301,7 +301,7 @@ public class TerminalLauncherTests : IDisposable
     [InlineData("wt.exe -d \"{cwd}\" cmd /k {command}")]
     [InlineData("WT.EXE -d \"{cwd}\" cmd /k {command}")]
     [InlineData("\"C:\\Program Files\\WindowsApps\\wt.exe\" -d \"{cwd}\" cmd /k {command}")]
-    public void BuildCommand_FallsBackToTheMorningDefault_WhenTheTemplateStartsWithWindowsTerminal(string template)
+    public void BuildCommand_FallsBackToThePlanningDefault_WhenTheTemplateStartsWithWindowsTerminal(string template)
     {
         _store.Save(_store.Load() with { TerminalCommandTemplate = template });
 
@@ -323,7 +323,7 @@ public class TerminalLauncherTests : IDisposable
 
     /// <summary>先頭プロセスがウィンドウの持ち主なら、朝の実行でもそのまま使える（仕様 §5.2）。</summary>
     [Fact]
-    public void BuildCommand_KeepsAPowerShellTemplate_ForAMorningRun()
+    public void BuildCommand_KeepsAPowerShellTemplate_ForAPlanningRun()
     {
         _store.Save(_store.Load() with { TerminalCommandTemplate = "powershell.exe -NoExit -Command {command}" });
 

@@ -34,7 +34,7 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
                     ? mode
                     : defaults.PermissionMode,
                 string.IsNullOrWhiteSpace(dto.TerminalCommandTemplate) ? null : dto.TerminalCommandTemplate,
-                string.IsNullOrWhiteSpace(dto.MorningInstruction) ? null : dto.MorningInstruction);
+                string.IsNullOrWhiteSpace(dto.PlanningInstruction) ? null : dto.PlanningInstruction);
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
@@ -53,7 +53,7 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
             Model = settings.Model,
             PermissionMode = settings.PermissionMode,
             TerminalCommandTemplate = settings.TerminalCommandTemplate,
-            MorningInstruction = settings.MorningInstruction,
+            PlanningInstruction = settings.PlanningInstruction,
         };
 
         // 一時ファイルに書いてから置き換える。書き込みが途中で失敗しても settings.json は元のまま。
@@ -85,6 +85,6 @@ public sealed class JsonAiSettingsStore : IAiSettingsStore
         public string? Model { get; set; }
         public string? PermissionMode { get; set; }
         public string? TerminalCommandTemplate { get; set; }
-        public string? MorningInstruction { get; set; }
+        public string? PlanningInstruction { get; set; }
     }
 }

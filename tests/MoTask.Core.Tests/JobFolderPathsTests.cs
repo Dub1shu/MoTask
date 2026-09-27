@@ -70,22 +70,22 @@ public class JobFolderPathsTests
     }
 
     [Fact]
-    public void MorningFolder_IsNumberedAndDated()
+    public void PlanningFolder_IsNumberedAndDated()
         => JobFolderPaths.FolderName(7, "2026-09-07").Should().Be("0007-2026-09-07",
-            "仕様 §6 の morning/0007-2026-09-07");
+            "仕様 §6 の planning/0007-2026-09-07");
 
     [Fact]
-    public void MorningPaths_PointIntoTheResultFolder()
+    public void PlanningPaths_PointIntoTheResultFolder()
     {
-        var paths = JobFolderPaths.For(@"C:\work\morning\0007-2026-09-07");
+        var paths = JobFolderPaths.For(@"C:\work\planning\0007-2026-09-07");
 
-        paths.RunJson.Should().Be(@"C:\work\morning\0007-2026-09-07\run.json");
+        paths.RunJson.Should().Be(@"C:\work\planning\0007-2026-09-07\run.json");
     }
 
     [Fact]
     public void RelativePaths_MatchTheAbsoluteOnes()
     {
-        var root = @"C:\work\morning\0007-2026-09-07";
+        var root = @"C:\work\planning\0007-2026-09-07";
         var paths = JobFolderPaths.For(root);
 
         Path.Combine(root, JobFolderPaths.RunJsonName).Should().Be(paths.RunJson);

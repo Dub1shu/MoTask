@@ -7,7 +7,7 @@ namespace MoTask.Core.Model;
 public sealed class TriageCandidate
 {
     public int Id { get; set; }
-    public int MorningRunId { get; set; }
+    public int PlanningRunId { get; set; }
     /// <summary>重複排除の鍵。一意インデックスを張る。</summary>
     public string ExternalId { get; set; } = "";
     /// <summary>取り込み元。enum ではなく自由文字列（仕様 §4）。</summary>

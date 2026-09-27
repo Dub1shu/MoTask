@@ -3,7 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
-using MoTask.Core.Morning;
+using MoTask.Core.Planning;
 
 namespace MoTask.App.ViewModels;
 
@@ -22,13 +22,13 @@ public sealed partial class PlanSectionViewModel : ObservableObject
 
     public string Heading => Key switch
     {
-        PlanGroupKey.Today => Strings.MorningGroupToday,
-        PlanGroupKey.IfTime => Strings.MorningGroupIfTime,
-        PlanGroupKey.AiReady => Strings.MorningGroupAiReady,
-        _ => Strings.MorningGroupWaiting,
+        PlanGroupKey.Today => Strings.PlanGroupToday,
+        PlanGroupKey.IfTime => Strings.PlanGroupIfTime,
+        PlanGroupKey.AiReady => Strings.PlanGroupAiReady,
+        _ => Strings.PlanGroupWaiting,
     };
 
-    public string EmptyText => Strings.MorningGroupEmpty;
+    public string EmptyText => Strings.PlanGroupEmpty;
     public ObservableCollection<PlanRowViewModel> Rows { get; } = new();
 
     [ObservableProperty] private string _countText = "";
@@ -40,8 +40,8 @@ public sealed partial class PlanSectionViewModel : ObservableObject
         foreach (var row in group.Rows) Rows.Add(new PlanRowViewModel(row, _open));
         IsEmpty = Rows.Count == 0;
         CountText = group.CandidateCount > 0
-            ? string.Format(Strings.MorningGroupCountWithCandidatesFormat, group.TaskCount, group.CandidateCount)
-            : string.Format(Strings.MorningGroupCountFormat, group.TaskCount);
+            ? string.Format(Strings.PlanGroupCountWithCandidatesFormat, group.TaskCount, group.CandidateCount)
+            : string.Format(Strings.PlanGroupCountFormat, group.TaskCount);
     }
 }
 
@@ -72,9 +72,9 @@ public sealed partial class PlanRowViewModel
 
     public string? BadgeText => Row switch
     {
-        TaskRow { Origin: TaskRowOrigin.RegisteredThisMorning } => Strings.MorningRowNew,
-        TaskRow { Origin: TaskRowOrigin.MergedThisMorning } => Strings.MorningRowMerged,
-        CandidateRow => Strings.MorningRowPendingCandidate,
+        TaskRow { Origin: TaskRowOrigin.RegisteredThisRun } => Strings.PlanRowNew,
+        TaskRow { Origin: TaskRowOrigin.MergedThisRun } => Strings.PlanRowMerged,
+        CandidateRow => Strings.PlanRowPendingCandidate,
         _ => null,
     };
 

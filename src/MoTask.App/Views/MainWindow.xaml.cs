@@ -13,18 +13,18 @@ namespace MoTask.App.Views;
 public partial class MainWindow : Window
 {
     private readonly BoardViewModel _vm;
-    private readonly MorningPlanViewModel _morning;
+    private readonly PlanViewModel _plan;
     private readonly IAiSettingsStore _settings;
 
-    public MainWindow(BoardViewModel vm, MorningPlanViewModel morning, IAiSettingsStore settings)
+    public MainWindow(BoardViewModel vm, PlanViewModel plan, IAiSettingsStore settings)
     {
         _vm = vm;
-        _morning = morning;
+        _plan = plan;
         _settings = settings;
         DataContext = vm;
         InitializeComponent();
-        MorningHost.DataContext = morning;
-        morning.NavigateToTask += OnNavigateToTask;
+        PlanHost.DataContext = plan;
+        plan.NavigateToTask += OnNavigateToTask;
         DarkWindowChrome.Apply(this);
         // 起動直後はボード表示。タブの選択状態もそれに合わせておく(切り替えと同じコード経路で決める)。
         SetActiveTab(board: true);
@@ -37,7 +37,7 @@ public partial class MainWindow : Window
         {
             await _vm.LoadAsync();
             // タブのバッジを起動直後から出す（仕様 §6）。タブを押したときも LoadAsync で読み直す。
-            await _morning.LoadAsync();
+            await _plan.LoadAsync();
         }
         catch (Exception ex)
         {
@@ -80,12 +80,12 @@ public partial class MainWindow : Window
     }
 
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
-    private async void OnShowMorningClick(object sender, RoutedEventArgs e)
+    private async void OnShowPlanClick(object sender, RoutedEventArgs e)
     {
         ShowBoard(false);
         try
         {
-            await _morning.LoadAsync();
+            await _plan.LoadAsync();
         }
         catch (Exception ex)
         {
@@ -97,7 +97,7 @@ public partial class MainWindow : Window
     {
         BoardHost.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
         FilterBar.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
-        MorningHost.Visibility = board ? Visibility.Collapsed : Visibility.Visible;
+        PlanHost.Visibility = board ? Visibility.Collapsed : Visibility.Visible;
         SetActiveTab(board);
     }
 
@@ -108,7 +108,7 @@ public partial class MainWindow : Window
     private void SetActiveTab(bool board)
     {
         SetActiveTab(BoardTabButton, board);
-        SetActiveTab(MorningTabButton, !board);
+        SetActiveTab(PlanTabButton, !board);
     }
 
     private static void SetActiveTab(Button tab, bool active)
@@ -135,12 +135,12 @@ public partial class MainWindow : Window
         var typing = Keyboard.FocusedElement is TextBoxBase or ComboBox or DatePicker;
         if (typing) return; // インライン編集中の Enter/Esc は各入力欄が処理する
 
-        if (MorningHost.Visibility == Visibility.Visible)
+        if (PlanHost.Visibility == Visibility.Visible)
         {
             // OS のキーリピートで押しっぱなしのまま多重実行しないよう、リピートは無視する。
             if (!e.IsRepeat
-                && _morning.LeftPanel is TriagePanelViewModel triage
-                && MorningKeyMap.Resolve(e.Key, Keyboard.Modifiers) is { } action)
+                && _plan.LeftPanel is TriagePanelViewModel triage
+                && TriageKeyMap.Resolve(e.Key, Keyboard.Modifiers) is { } action)
             {
                 e.Handled = true;
                 _ = RunTriageKeyAsync(triage, action);

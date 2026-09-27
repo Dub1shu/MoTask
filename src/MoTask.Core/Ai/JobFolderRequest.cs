@@ -6,7 +6,7 @@ namespace MoTask.Core.Ai;
 /// </summary>
 public sealed record JobFolderRequest(int JobId, string TaskTitle, string Instruction)
 {
-    /// <summary>既定ワークフォルダ直下のどこに置くか（jobs / morning）。</summary>
+    /// <summary>既定ワークフォルダ直下のどこに置くか（jobs / planning）。</summary>
     public string Category { get; init; } = JobFolderPaths.JobsDirectoryName;
 
     /// <summary>

@@ -187,7 +187,7 @@ namespace MoTask.Data.Migrations
                     b.ToTable("Labels", (string)null);
                 });
 
-            modelBuilder.Entity("MoTask.Core.Model.MorningRun", b =>
+            modelBuilder.Entity("MoTask.Core.Model.PlanningRun", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -242,7 +242,7 @@ namespace MoTask.Data.Migrations
 
                     b.HasIndex("Status");
 
-                    b.ToTable("MorningRuns", (string)null);
+                    b.ToTable("PlanningRuns", (string)null);
                 });
 
             modelBuilder.Entity("MoTask.Core.Model.Project", b =>
@@ -346,7 +346,7 @@ namespace MoTask.Data.Migrations
                         .HasColumnType("TEXT")
                         .HasDefaultValue("");
 
-                    b.Property<int>("MorningRunId")
+                    b.Property<int>("PlanningRunId")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("Reasoning")
@@ -400,7 +400,7 @@ namespace MoTask.Data.Migrations
                     b.HasIndex("ExternalId")
                         .IsUnique();
 
-                    b.HasIndex("MorningRunId");
+                    b.HasIndex("PlanningRunId");
 
                     b.HasIndex("ResultTaskId");
 
@@ -469,9 +469,9 @@ namespace MoTask.Data.Migrations
 
             modelBuilder.Entity("MoTask.Core.Model.TriageCandidate", b =>
                 {
-                    b.HasOne("MoTask.Core.Model.MorningRun", null)
+                    b.HasOne("MoTask.Core.Model.PlanningRun", null)
                         .WithMany()
-                        .HasForeignKey("MorningRunId")
+                        .HasForeignKey("PlanningRunId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

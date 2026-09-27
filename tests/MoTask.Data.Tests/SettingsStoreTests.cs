@@ -100,24 +100,24 @@ public class SettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void MorningInstruction_RoundTripsThroughTheFile()
+    public void PlanningInstruction_RoundTripsThroughTheFile()
     {
         var path = Path.Combine(_dir, "settings.json");
         var store = new JsonAiSettingsStore(path);
 
-        store.Save(AiSettings.Default() with { MorningInstruction = "私の方針\n2行目" });
+        store.Save(AiSettings.Default() with { PlanningInstruction = "私の方針\n2行目" });
 
-        new JsonAiSettingsStore(path).Load().MorningInstruction.Should().Be("私の方針\n2行目");
+        new JsonAiSettingsStore(path).Load().PlanningInstruction.Should().Be("私の方針\n2行目");
     }
 
     [Fact]
-    public void MorningInstruction_IsNull_WhenTheFileDoesNotHaveIt()
+    public void PlanningInstruction_IsNull_WhenTheFileDoesNotHaveIt()
     {
         Directory.CreateDirectory(_dir);
         var path = Path.Combine(_dir, "settings.json");
         File.WriteAllText(path, "{\"DefaultWorkingDirectory\":\"C:\\\\work\"}");
 
-        new JsonAiSettingsStore(path).Load().MorningInstruction.Should().BeNull("既定のテンプレートを使う");
+        new JsonAiSettingsStore(path).Load().PlanningInstruction.Should().BeNull("既定のテンプレートを使う");
     }
 
     public void Dispose()

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using FluentAssertions;
 using MoTask.Core.Model;
-using MoTask.Core.Morning;
+using MoTask.Core.Planning;
 using Xunit;
 
 namespace MoTask.Core.Tests;

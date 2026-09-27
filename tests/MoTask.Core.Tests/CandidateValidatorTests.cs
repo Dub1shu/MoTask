@@ -1,13 +1,13 @@
 using FluentAssertions;
 using MoTask.Core.Model;
-using MoTask.Core.Morning;
+using MoTask.Core.Planning;
 using Xunit;
 
 namespace MoTask.Core.Tests;
 
 /// <summary>
 /// 候補 1 件の検証（仕様 §6）。MoTask と Claude の接点なので、通る形と落ちる理由を固定する。
-/// MorningResultReaderTests の候補まわりをここへ移植したもの（JSON Lines 読みの分だけ落ちている）。
+/// PlanningResultReaderTests の候補まわりをここへ移植したもの（JSON Lines 読みの分だけ落ちている）。
 /// </summary>
 public class CandidateValidatorTests
 {

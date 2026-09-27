@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
-using MoTask.Core.Morning;
+using MoTask.Core.Planning;
 
 namespace MoTask.App.ViewModels;
 
@@ -18,8 +18,8 @@ public sealed partial class FirstThingViewModel : ObservableObject
         _openOnBoard = openOnBoard;
     }
 
-    public string Heading => Strings.MorningFirstThingHeading;
-    public string EmptyText => Strings.MorningNoFirstThing;
+    public string Heading => Strings.PlanFirstThingHeading;
+    public string EmptyText => Strings.PlanNoFirstThing;
 
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private string _reason = "";

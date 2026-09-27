@@ -6,7 +6,7 @@ using System.Text.Json;
 using FluentAssertions;
 using MoTask.App.Ai;
 using MoTask.App.Ai.BoardTools;
-using MoTask.App.Ai.MorningTools;
+using MoTask.App.Ai.PlanningTools;
 using MoTask.Core;
 using MoTask.Core.Model;
 using MoTask.App.Tests.Fakes;
@@ -16,7 +16,7 @@ namespace MoTask.App.Tests;
 
 /// <summary>
 /// 実際に HTTP を立てて叩く。トークンは起動ごとの board トークン 1 本だけで、
-/// 見えるのは board ツール 6 本と morning ツール 4 本（BoardToolHost と MorningToolHost を
+/// 見えるのは board ツール 6 本と planning ツール 4 本（BoardToolHost と PlanningToolHost を
 /// 束ねたもの。仕様 §9）。宛先の絞り込みはツールごとの runId 引数が担う。
 /// </summary>
 public class MoTaskMcpServerTests : IDisposable
@@ -30,7 +30,7 @@ public class MoTaskMcpServerTests : IDisposable
         _board.Board = TestBoards.Sample();
         _server = new MoTaskMcpServer(
             new BoardToolHost(_board, new TestClock()),
-            new MorningToolHost(new FakeMorningService()));
+            new PlanningToolHost(new FakePlanningService()));
         _server.Start();
     }
 
@@ -83,7 +83,7 @@ public class MoTaskMcpServerTests : IDisposable
     }
 
     [Fact]
-    public async Task BoardToken_SeesTheBoardAndMorningTools()
+    public async Task BoardToken_SeesTheBoardAndPlanningTools()
     {
         var (_, body) = await PostAsync(_server.BoardToken, """{"jsonrpc":"2.0","id":11,"method":"tools/list"}""");
 
@@ -91,7 +91,7 @@ public class MoTaskMcpServerTests : IDisposable
             .EnumerateArray().Select(t => t.GetProperty("name").GetString()).ToArray();
         names.Should().Equal(
             "get_board", "list_tasks", "get_task", "add_task", "update_task", "move_task",
-            "morning_get_context", "morning_add_candidate", "morning_submit_plan", "morning_complete");
+            "planning_get_context", "planning_add_candidate", "planning_submit_plan", "planning_complete");
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public class MoTaskMcpServerTests : IDisposable
 
         using var notStarted = new MoTaskMcpServer(
             new BoardToolHost(_board, new TestClock()),
-            new MorningToolHost(new FakeMorningService()));
+            new PlanningToolHost(new FakePlanningService()));
         notStarted.Invoking(s => s.BoardToken).Should().Throw<InvalidOperationException>();
     }
 
