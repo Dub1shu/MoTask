@@ -206,15 +206,18 @@
   </Style>
 
   <!-- TextBox。Tag に文字列を渡すと、空の間だけ透かし文字として出す（説明の行を別に置かずに済む）。
-       キャレットは入力文字の先頭に立つので、透かし文字を同じ位置に置くと先頭の字に重なる。
-       透かし文字だけ右へずらしてキャレットとの間を空ける（12 は実機で測った値）。
+       Padding は PART_ContentHost の中で TextBox 自身が当てる。外の Border にも当てると二重にかかり、
+       入力開始位置が左から 17px まで奥に入っていた。Border には当てず、透かし文字の位置合わせにだけ使う。
+       高さは二重だった頃と変えないよう、上下は 10 にしてある。
+       キャレットは入力文字の先頭（Padding の内側さらに約 2px）に立つので、透かし文字を同じ位置に置くと
+       先頭の字に重なる。透かし文字だけ右へずらしてキャレットとの間を空ける（5 は実機で測った値）。
        入力した文字と区別できるよう、透かし文字は一段小さい FontSize.Small にする。 -->
   <Style TargetType="TextBox">
     <Setter Property="Background" Value="{StaticResource Brush.Input}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="Padding" Value="6.8,5" />
+    <Setter Property="Padding" Value="6.8,10" />
     <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
     <Setter Property="CaretBrush" Value="{StaticResource Brush.Accent}" />
     <Setter Property="SelectionBrush" Value="{StaticResource Brush.Accent.300}" />
@@ -223,12 +226,14 @@
       <Setter.Value>
         <ControlTemplate TargetType="TextBox">
           <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                  BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
+                  BorderThickness="{TemplateBinding BorderThickness}"
                   CornerRadius="6" SnapsToDevicePixels="True">
             <Grid>
-              <TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}" Foreground="{StaticResource Brush.TextMuted}"
-                         FontSize="{StaticResource FontSize.Small}"
-                         IsHitTestVisible="False" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
+              <Border Padding="{TemplateBinding Padding}" IsHitTestVisible="False">
+                <TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}" Foreground="{StaticResource Brush.TextMuted}"
+                           FontSize="{StaticResource FontSize.Small}"
+                           Margin="5,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
+              </Border>
               <ScrollViewer x:Name="PART_ContentHost" />
             </Grid>
           </Border>
