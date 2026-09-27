@@ -486,11 +486,62 @@
     <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
     <Setter Property="FontFamily" Value="{StaticResource Font.Body}" />
     <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+    <!-- 既定のテンプレートは左端にアイコン欄を明るい色で描き、暗いテーマの上で白い帯になる。 -->
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ContextMenu">
+          <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="1" CornerRadius="6" Padding="4">
+            <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Cycle" />
+          </Border>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
+  <!-- 平らな項目だけを描く（サブメニューは持たない）。左の欄はチェック印のためだけに空ける。 -->
   <Style TargetType="MenuItem">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
     <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="MenuItem">
+          <Border x:Name="ItemFrame" Background="{TemplateBinding Background}"
+                  Padding="{TemplateBinding Padding}" CornerRadius="4">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Path x:Name="CheckMark" Data="M0,4 L3,7 L9,1" Stroke="{StaticResource Brush.Accent}" StrokeThickness="1.6"
+                    VerticalAlignment="Center" Visibility="Hidden" />
+              <ContentPresenter Grid.Column="1" ContentSource="Header" RecognizesAccessKey="True"
+                                VerticalAlignment="Center" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="CheckMark" Property="Visibility" Value="Visible" />
+            </Trigger>
+            <Trigger Property="IsHighlighted" Value="True">
+              <Setter TargetName="ItemFrame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+  <Style x:Key="{x:Static MenuItem.SeparatorStyleKey}" TargetType="Separator">
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Separator">
+          <Border Height="1" Margin="4,4" Background="{StaticResource Brush.Divider}" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
   <Style TargetType="ComboBoxItem">
     <Setter Property="Background" Value="{StaticResource Brush.SurfaceRaised}" />
