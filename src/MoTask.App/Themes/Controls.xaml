@@ -205,7 +205,10 @@
     </Style.Triggers>
   </Style>
 
-  <!-- TextBox。Tag に文字列を渡すと、空の間だけ透かし文字として出す（説明の行を別に置かずに済む）。 -->
+  <!-- TextBox。Tag に文字列を渡すと、空の間だけ透かし文字として出す（説明の行を別に置かずに済む）。
+       キャレットは入力文字の先頭に立つので、透かし文字を同じ位置に置くと先頭の字に重なる。
+       透かし文字だけ右へずらしてキャレットとの間を空ける（12 は実機で測った値）。
+       入力した文字と区別できるよう、透かし文字は一段小さい FontSize.Small にする。 -->
   <Style TargetType="TextBox">
     <Setter Property="Background" Value="{StaticResource Brush.Input}" />
     <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
@@ -224,7 +227,8 @@
                   CornerRadius="6" SnapsToDevicePixels="True">
             <Grid>
               <TextBlock x:Name="Watermark" Text="{TemplateBinding Tag}" Foreground="{StaticResource Brush.TextMuted}"
-                         IsHitTestVisible="False" Margin="2,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
+                         FontSize="{StaticResource FontSize.Small}"
+                         IsHitTestVisible="False" Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed" />
               <ScrollViewer x:Name="PART_ContentHost" />
             </Grid>
           </Border>
