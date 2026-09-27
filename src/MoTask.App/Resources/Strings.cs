@@ -57,6 +57,7 @@ public static class Strings
     public static string NoProject => Get(nameof(NoProject));
     public static string NewProjectHint => Get(nameof(NewProjectHint));
     public static string NewLabelHint => Get(nameof(NewLabelHint));
+    public static string AddProject => Get(nameof(AddProject));
     public static string HistoryCreatedFormat => Get(nameof(HistoryCreatedFormat));
     public static string HistoryMovedFormat => Get(nameof(HistoryMovedFormat));
     public static string HistoryEditedFormat => Get(nameof(HistoryEditedFormat));

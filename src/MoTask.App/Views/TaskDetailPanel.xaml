@@ -58,10 +58,16 @@
           <TextBox Text="{Binding Description, UpdateSourceTrigger=LostFocus}" AcceptsReturn="True" TextWrapping="Wrap"
                    MinHeight="80" VerticalScrollBarVisibility="Auto" KeyDown="EditBox_KeyDown" />
 
+          <!-- 新しいプロジェクトを作ることはまれなので、入力欄は「＋」で開いたときだけ出す -->
           <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Field.Label}" />
-          <ComboBox ItemsSource="{Binding Projects}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedProject}" />
-          <TextBlock Text="{x:Static res:Strings.NewProjectHint}" Style="{StaticResource Text.Hint}" Margin="{StaticResource Gap.ProjectHint}" />
-          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" KeyDown="NewProjectBox_KeyDown" />
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Content="＋" Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Left.2}"
+                    Command="{Binding BeginAddProjectCommand}" ToolTip="{x:Static res:Strings.AddProject}" />
+            <ComboBox ItemsSource="{Binding Projects}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedProject}" />
+          </DockPanel>
+          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Tag="{x:Static res:Strings.NewProjectHint}"
+                   Margin="{StaticResource Gap.Top.1}" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
+                   KeyDown="NewProjectBox_KeyDown" LostFocus="NewProjectBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
 
           <!-- プロジェクトの作業フォルダ（AI ジョブの cwd）。プロジェクトが選ばれているときだけ -->
           <StackPanel Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
@@ -70,8 +76,25 @@
             <TextBlock Text="{x:Static res:Strings.ProjectWorkingDirectoryHint}" Style="{StaticResource Text.Hint}" />
           </StackPanel>
 
+          <!-- 末尾に「＋ 追加」を並べるため、チップと同じ WrapPanel に入れる（CompositeCollection）。
+               CompositeCollection の中身はパネルの DataContext を継がないので、Labels と
+               「＋ 追加」の DataContext はコードビハインドで渡す。
+               「＋ 追加」は UIElement のままなので ItemTemplate を通らず、そのまま並ぶ。 -->
           <TextBlock Text="{x:Static res:Strings.Labels}" Style="{StaticResource Field.Label}" />
-          <ItemsControl ItemsSource="{Binding Labels}">
+          <ItemsControl>
+            <ItemsControl.ItemsSource>
+              <CompositeCollection>
+                <CollectionContainer x:Name="LabelChips" />
+                <Grid x:Name="AddLabelSlot" Margin="{StaticResource Gap.Chip}">
+                  <Button Content="{x:Static res:Strings.AddTaskInline}" Style="{StaticResource Btn.Ghost}" Padding="6.8,2"
+                          FontSize="{StaticResource FontSize.Small}" Command="{Binding BeginAddLabelCommand}"
+                          Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />
+                  <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" Tag="{x:Static res:Strings.NewLabelHint}"
+                           MinWidth="160" Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibility}}"
+                           KeyDown="NewLabelBox_KeyDown" LostFocus="NewLabelBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
+                </Grid>
+              </CompositeCollection>
+            </ItemsControl.ItemsSource>
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
@@ -81,8 +104,6 @@
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
-          <TextBlock Text="{x:Static res:Strings.NewLabelHint}" Style="{StaticResource Text.Hint}" Margin="{StaticResource Gap.LabelHint}" />
-          <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" KeyDown="NewLabelBox_KeyDown" />
 
           <TextBlock Text="{x:Static res:Strings.DueDate}" Style="{StaticResource Field.Label}" />
           <DatePicker SelectedDate="{Binding DueDate}" />

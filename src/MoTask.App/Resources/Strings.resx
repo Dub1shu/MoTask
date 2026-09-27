@@ -49,8 +49,9 @@
   <data name="ColumnMenu" xml:space="preserve"><value>列のメニュー</value></data>
   <data name="History" xml:space="preserve"><value>履歴</value></data>
   <data name="NoProject" xml:space="preserve"><value>（なし）</value></data>
-  <data name="NewProjectHint" xml:space="preserve"><value>新しいプロジェクト名を入力して Enter</value></data>
-  <data name="NewLabelHint" xml:space="preserve"><value>新しいラベル名を入力して Enter</value></data>
+  <data name="NewProjectHint" xml:space="preserve"><value>プロジェクト名を入力して Enter</value></data>
+  <data name="NewLabelHint" xml:space="preserve"><value>ラベル名を入力して Enter</value></data>
+  <data name="AddProject" xml:space="preserve"><value>新しいプロジェクト</value></data>
   <data name="HistoryCreatedFormat" xml:space="preserve"><value>{0} に作成</value></data>
   <data name="HistoryMovedFormat" xml:space="preserve"><value>{0} → {1}</value></data>
   <data name="HistoryEditedFormat" xml:space="preserve"><value>{0} を変更</value></data>
