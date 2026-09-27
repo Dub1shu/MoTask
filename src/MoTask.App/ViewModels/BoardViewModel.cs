@@ -319,12 +319,12 @@ public sealed partial class BoardViewModel : ObservableObject
         IsAddingColumn = true;
     }
 
-    /// <summary>追加時に聞くのは名前だけ。役割は「進行中」で始め、変えたければ列メニューから選ぶ。</summary>
+    /// <summary>追加時に聞くのは名前だけ。役割は「未着手」で始め、変えたければ列メニューから選ぶ。</summary>
     [RelayCommand]
     private async Task CommitAddColumnAsync()
     {
         if (string.IsNullOrWhiteSpace(NewColumnName)) return;
-        var result = await GuardAsync(() => _service.AddColumnAsync(NewColumnName, ColumnRole.Active));
+        var result = await GuardAsync(() => _service.AddColumnAsync(NewColumnName, ColumnRole.Backlog));
         if (!await HandleAsync(result)) return;
         IsAddingColumn = false;
         NewColumnName = "";

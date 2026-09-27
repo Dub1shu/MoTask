@@ -885,14 +885,14 @@ public class BoardViewModelTests
         _vm.Columns[0].CountText.Should().Be("1");
     }
 
-    // ---- 列の追加（名前だけを聞き、役割は既定の「進行中」） ----
+    // ---- 列の追加（名前だけを聞き、役割は既定の「未着手」） ----
 
     [Fact]
-    public async Task CommitAddColumn_AddsAnActiveColumnAndAppendsIt()
+    public async Task CommitAddColumn_AddsABacklogColumnAndAppendsIt()
     {
-        _service.OnAddColumn = call => call is { Name: "調査", Role: ColumnRole.Active }
+        _service.OnAddColumn = call => call is { Name: "調査", Role: ColumnRole.Backlog }
             ? Task.FromResult(Result.Ok(
-                new Column { Id = 4, BoardId = 1, Name = "調査", Order = 3, Role = ColumnRole.Active }))
+                new Column { Id = 4, BoardId = 1, Name = "調査", Order = 3, Role = ColumnRole.Backlog }))
             : Task.FromResult(Result.Ok(new Column { Name = call.Name, Role = call.Role }));
         await _vm.LoadAsync();
         _vm.BeginAddColumnCommand.Execute(null);
@@ -902,7 +902,7 @@ public class BoardViewModelTests
 
         _vm.IsAddingColumn.Should().BeFalse();
         _vm.Columns.Select(c => c.Name).Should().Equal("未着手", "進行中", "完了", "調査");
-        _vm.Columns[3].Role.Should().Be(ColumnRole.Active);
+        _vm.Columns[3].Role.Should().Be(ColumnRole.Backlog);
     }
 
     /// <summary>書きかけで閉じても、次に開いたときは名前が空に戻る。</summary>
