@@ -10,3 +10,5 @@ TestResults/
 .worktrees/
 .claude/worktrees/
 .superpowers/
+docs/
+Incomplete design request/
