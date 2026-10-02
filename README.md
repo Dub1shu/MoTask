@@ -1,6 +1,6 @@
 # MoTask
 
-個人用カンバン（v1）。Windows 11 / .NET 10 / WPF / SQLite。
+個人用カンバン。Windows 11 / .NET 10 / WPF / SQLite。
 
 ## 使い方
 
@@ -28,8 +28,6 @@ dotnet tool restore
 dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migrations
 ```
 
-構成は `docs/superpowers/specs/2026-09-04-motask-kanban-v1-design.md` を参照。
-
 ## MoTask.Mcp（Claude Code から TODO を操作する）
 
 手元の Claude Code に MoTask の TODO を読み書きさせるための stdio ブリッジ。
@@ -49,7 +47,7 @@ dotnet publish src/MoTask.Mcp -c Release -o publish
 `Failed to reconnect to motask` になる）。
 
 ```bash
-claude mcp add motask -- "D:\source\cs\MoTask\publish\MoTask.Mcp.exe"
+claude mcp add motask -- "absolute/path/to/Motask.Mcp.exe"
 ```
 
 登録内容は `claude mcp get motask` で確認できる。`command` が実在する exe を指していること。
@@ -68,14 +66,6 @@ MoTask が既に起動していれば何も起きない（単一インスタン�
 
 常時開いておきたくない場合は、ユーザースコープではなく MoTask を使うプロジェクトでだけ
 登録する（そのプロジェクトのフォルダで `claude mcp add` を実行する）。
-
-### 既知の制限：同時更新は後勝ち
-
-`update_task` は現在値を読んでから省略された項目を埋めて書き戻す（read-modify-write）。
-各サービス呼び出しは直列化されるが、「読み」と「書き」の間は保護されていないため、2 つの
-Claude セッションが同じタスクへ別々の項目の `update_task` を投げると、後から書いたほうが勝ち、
-もう一方の変更は消える（画面で編集中のカードと衝突した場合も同じ）。個人用途では実害が
-小さいため、根本的な修正（楽観的同時実行制御など）はスコープ外とした。
 
 ### 使えるツール
 
