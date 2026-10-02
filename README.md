@@ -37,6 +37,13 @@ dotnet ef migrations add <Name> --project src/MoTask.Data --output-dir Migration
 ブリッジは既定で **自分と同じフォルダの `MoTask.exe`** を探すので、2 つを同じ場所へ発行する
 （`MoTask.App` の `AssemblyName` が `MoTask` なので、出来上がる exe は `MoTask.exe`）。
 
+```bat
+publish.bat
+```
+
+`publish.bat` はリポジトリ直下の `publish\` へ 2 つをまとめて発行する。出力先を変えたいときは
+`publish.bat D:\tools\MoTask` のように引数で渡す。
+
 ```bash
 dotnet publish src/MoTask.App -c Release -o publish
 dotnet publish src/MoTask.Mcp -c Release -o publish
