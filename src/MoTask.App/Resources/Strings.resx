@@ -14,6 +14,10 @@
   <data name="DueOverdue" xml:space="preserve"><value>期限切れ</value></data>
   <data name="Search" xml:space="preserve"><value>検索</value></data>
   <data name="ShowDeleted" xml:space="preserve"><value>削除済みを表示</value></data>
+  <data name="LabelFilterOverflowFormat" xml:space="preserve"><value>+{0}</value></data>
+  <data name="LabelFilterAllOfHint" xml:space="preserve"><value>選んだラベルがすべて付いたタスクを表示します</value></data>
+  <data name="LabelFilterClear" xml:space="preserve"><value>選択を解除</value></data>
+  <data name="LabelFilterEmpty" xml:space="preserve"><value>ラベルはまだありません</value></data>
   <data name="NewTask" xml:space="preserve"><value>＋ タスク</value></data>
   <data name="AddColumn" xml:space="preserve"><value>＋ 列を追加</value></data>
   <data name="AddTaskInline" xml:space="preserve"><value>＋ 追加</value></data>

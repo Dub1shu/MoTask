@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
 using MoTask.Core.Filtering;
 using MoTask.Core.Model;
@@ -9,6 +10,9 @@ namespace MoTask.App.ViewModels;
 /// <summary>フィルタバー。変更を <see cref="Changed"/> で知らせ、ボードが表示を絞り直す。</summary>
 public sealed partial class FilterViewModel : ObservableObject
 {
+    /// <summary>バーに並べる選択中ラベルの上限。超えた分は「+n」にまとめ、バーがあふれないようにする。</summary>
+    public const int PreviewLimit = 3;
+
     public ObservableCollection<ProjectOption> Projects { get; } = new();
     public ObservableCollection<LabelFilterItem> Labels { get; } = new();
     public IReadOnlyList<DueOption> DueOptions { get; } = new[]
@@ -23,6 +27,16 @@ public sealed partial class FilterViewModel : ObservableObject
     [ObservableProperty] private DueOption _selectedDue;
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private bool _showDeleted;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasSelectedLabels))] private int _selectedLabelCount;
+    [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasLabelOverflow))] private int _selectedLabelOverflow;
+
+    public bool HasSelectedLabels => SelectedLabelCount > 0;
+    public bool HasLabelOverflow => SelectedLabelOverflow > 0;
+    /// <summary>選択中のラベルの先頭 <see cref="PreviewLimit"/> 個（並びは <see cref="Labels"/> と同じ）。</summary>
+    public ObservableCollection<LabelFilterItem> SelectedLabelsPreview { get; } = new();
+
+    // 一括解除の間は、チップ 1 つずつの変更で絞り込みを走らせない
+    private bool _suppressLabelChanged;
 
     public event EventHandler? Changed;
 
@@ -51,8 +65,43 @@ public sealed partial class FilterViewModel : ObservableObject
         // アーカイブ済みは絞り込みの選択肢から外す（プロジェクトと同じ扱い）
         foreach (var l in labels.Where(l => !l.Archived).OrderBy(l => l.Name, StringComparer.CurrentCulture))
         {
-            Labels.Add(new LabelFilterItem(l, RaiseChanged) { IsSelected = keep.Contains(l.Id) });
+            Labels.Add(new LabelFilterItem(l, OnLabelSelectionChanged) { IsSelected = keep.Contains(l.Id) });
         }
+        UpdateLabelSummary();
+    }
+
+    [RelayCommand]
+    private void ClearLabels()
+    {
+        var selected = Labels.Where(l => l.IsSelected).ToList();
+        if (selected.Count == 0) return;
+        _suppressLabelChanged = true;
+        try
+        {
+            foreach (var l in selected) l.IsSelected = false;
+        }
+        finally
+        {
+            _suppressLabelChanged = false;
+        }
+        UpdateLabelSummary();
+        RaiseChanged();
+    }
+
+    private void OnLabelSelectionChanged()
+    {
+        if (_suppressLabelChanged) return;
+        UpdateLabelSummary();
+        RaiseChanged();
+    }
+
+    private void UpdateLabelSummary()
+    {
+        var selected = Labels.Where(l => l.IsSelected).ToList();
+        SelectedLabelsPreview.Clear();
+        foreach (var l in selected.Take(PreviewLimit)) SelectedLabelsPreview.Add(l);
+        SelectedLabelCount = selected.Count;
+        SelectedLabelOverflow = Math.Max(0, selected.Count - PreviewLimit);
     }
 
     public TaskFilter ToFilter() => new(

@@ -20,6 +20,10 @@ public static class Strings
     public static string DueOverdue => Get(nameof(DueOverdue));
     public static string Search => Get(nameof(Search));
     public static string ShowDeleted => Get(nameof(ShowDeleted));
+    public static string LabelFilterOverflowFormat => Get(nameof(LabelFilterOverflowFormat));
+    public static string LabelFilterAllOfHint => Get(nameof(LabelFilterAllOfHint));
+    public static string LabelFilterClear => Get(nameof(LabelFilterClear));
+    public static string LabelFilterEmpty => Get(nameof(LabelFilterEmpty));
     public static string NewTask => Get(nameof(NewTask));
     public static string AddColumn => Get(nameof(AddColumn));
     public static string AddTaskInline => Get(nameof(AddTaskInline));

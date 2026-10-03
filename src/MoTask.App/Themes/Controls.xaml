@@ -281,6 +281,88 @@
     </Setter>
   </Style>
 
+  <!-- ラベル絞り込みのポップアップに並べるチップ。DataContext は LabelFilterItem。
+       選ぶ前は色の丸と名前だけ、選ぶとラベル自身の色で塗りつぶして丸を ✓ に替える（塗りはカードのラベルと同じ）。
+       文字色と ✓ の色は、段の濃さから選んだ TextColor を使う。 -->
+  <Style x:Key="Chip.Label" TargetType="ToggleButton">
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Small}" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Bd" Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
+                  Padding="8,3,10,3" CornerRadius="12" SnapsToDevicePixels="True">
+            <StackPanel Orientation="Horizontal">
+              <Grid Width="10" Height="10" Margin="0,0,5,0" VerticalAlignment="Center">
+                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{Binding Color, Converter={StaticResource RampBrush}}" />
+                <Path x:Name="Check" Visibility="Collapsed" Data="M 1,5 L 4,8 L 9,2" StrokeThickness="1.6"
+                      StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                      Stroke="{Binding TextColor, Converter={StaticResource RampBrush}}" />
+              </Grid>
+              <ContentPresenter VerticalAlignment="Center" />
+            </StackPanel>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Brush.Neutral.600}" />
+            </Trigger>
+            <!-- ホバーより後に置き、選択中はホバーでも塗りを保つ -->
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{Binding Color, Converter={StaticResource RampBrush}}" />
+              <Setter TargetName="Bd" Property="BorderBrush" Value="{Binding Color, Converter={StaticResource RampBrush}}" />
+              <Setter Property="Foreground" Value="{Binding TextColor, Converter={StaticResource RampBrush}}" />
+              <Setter TargetName="Dot" Property="Visibility" Value="Collapsed" />
+              <Setter TargetName="Check" Property="Visibility" Value="Visible" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- ポップアップを開くフィルタバーのボタン。閉じた ComboBox と同じ枠と ▾ にそろえる。 -->
+  <Style x:Key="Btn.Dropdown" TargetType="ToggleButton">
+    <Setter Property="Background" Value="{StaticResource Brush.Input}" />
+    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+    <Setter Property="BorderBrush" Value="{StaticResource Brush.Divider}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+    <Setter Property="Padding" Value="8,3,0,3" />
+    <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="ToggleButton">
+          <Border x:Name="Frame" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                  BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" SnapsToDevicePixels="True">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="28" />
+              </Grid.ColumnDefinitions>
+              <ContentPresenter Grid.Column="0" Margin="{TemplateBinding Padding}" VerticalAlignment="Center" />
+              <Path Grid.Column="1" Width="8" Height="5" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Fill="{StaticResource Brush.TextMuted}" Data="M 0 0 L 8 0 L 4 5 Z" />
+            </Grid>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Neutral.600}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+              <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True">
+              <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
   <!-- ComboBox: Windows 標準テーマの白い面を使わず、閉じた状態とドロップダウンを同じ色にする。 -->
   <Style TargetType="ComboBox">
     <Setter Property="Background" Value="{StaticResource Brush.Input}" />
