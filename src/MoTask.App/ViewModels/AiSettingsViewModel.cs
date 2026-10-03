@@ -54,6 +54,17 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [RelayCommand]
     private void ResetPlanningInstruction() => PlanningInstruction = DefaultPlanningInstruction;
 
+    /// <summary>
+    /// 指示文だけを差し替える。ほかの欄は保存済みの値のまま残すので、書きかけの欄があっても止まらない。
+    /// </summary>
+    [RelayCommand]
+    private void ApplyPlanningInstruction()
+    {
+        _store.Save(_store.Load() with { PlanningInstruction = CustomPlanningInstructionOrNull() });
+        ErrorMessage = null;
+        StatusMessage = Strings.SettingsPlanningInstructionApplied;
+    }
+
     [RelayCommand]
     private void Save()
     {

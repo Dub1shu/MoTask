@@ -165,6 +165,8 @@ public static class Strings
     public static string McpBoardHasNoColumn => Get(nameof(McpBoardHasNoColumn));
     public static string SettingsPlanningInstruction => Get(nameof(SettingsPlanningInstruction));
     public static string SettingsPlanningInstructionReset => Get(nameof(SettingsPlanningInstructionReset));
+    public static string SettingsPlanningInstructionApply => Get(nameof(SettingsPlanningInstructionApply));
+    public static string SettingsPlanningInstructionApplied => Get(nameof(SettingsPlanningInstructionApplied));
     public static string ViewPlan => Get(nameof(ViewPlan));
     public static string PlanStart => Get(nameof(PlanStart));
     public static string PlanNoRun => Get(nameof(PlanNoRun));
