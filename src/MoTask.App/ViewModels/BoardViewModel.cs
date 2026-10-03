@@ -712,7 +712,12 @@ public sealed partial class BoardViewModel : ObservableObject
     private void ApplyFilter()
     {
         var filter = Filter.ToFilter();
-        foreach (var column in Columns) column.ApplyFilter(filter, Today);
+        foreach (var column in Columns)
+        {
+            column.ApplyFilter(filter, Today);
+            // 完了列の件数は「今週」で決まるので、週をまたいだ後の掛け直しでカードと一緒に数え直す。
+            column.RefreshHeader();
+        }
     }
 
     private IEnumerable<TaskCardViewModel> AllCards() => Columns.SelectMany(c => c.AllCards);

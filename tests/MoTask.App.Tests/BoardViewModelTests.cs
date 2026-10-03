@@ -1092,6 +1092,39 @@ public class BoardViewModelTests
     }
 
     [Fact]
+    public async Task ShowingDeleted_RevealsDeletedArchivedTaskSoItCanBeRestored()
+    {
+        // アーカイブは見るだけで復元できないので、先週以前に完了して削除したものは
+        // 「削除済みも表示」で完了列に出さないと、どこからも戻せなくなる。
+        AddDone(20, 0, LastWeek);
+        _board.Columns[2].Tasks.Single(t => t.Id == 20).DeletedAt = ThisWeek;
+        AddDone(21, 1, ThisWeek);
+        await _vm.LoadAsync();
+        Ids(_vm.Columns[2]).Should().Equal(21);
+
+        _vm.Filter.ShowDeleted = true;
+
+        Ids(_vm.Columns[2]).Should().Equal(20, 21);
+        _vm.Columns[2].CountText.Should().Be("1", "削除済みは件数に入らない");
+    }
+
+    [Fact]
+    public async Task ReapplyingFilter_AfterTheWeekTurns_RefreshesTheDoneCount()
+    {
+        var clock = new TestClock();
+        var vm = new BoardViewModel(_service, clock, new FakeAiJobService(), _externalChanges);
+        AddDone(21, 0, ThisWeek);
+        await vm.LoadAsync();
+        vm.Columns[2].CountText.Should().Be("1");
+
+        clock.Today = new DateOnly(2026, 9, 7); // 次の月曜。9/2 の完了は先週になる
+        vm.Filter.ShowDeleted = true;
+
+        Ids(vm.Columns[2]).Should().BeEmpty();
+        vm.Columns[2].CountText.Should().Be("0", "カードと同じく、件数も絞り込みの掛け直しで今週分に戻る");
+    }
+
+    [Fact]
     public async Task Load_NonDoneColumn_IsNotTrimmedByCompletedAt()
     {
         // 本番では完了列を出ると CompletedAt は null に戻るのでありえない状態。

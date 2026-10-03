@@ -89,9 +89,10 @@ public sealed partial class ColumnViewModel : ObservableObject
     public void ApplyFilter(TaskFilter filter, DateOnly today)
     {
         // TaskItem は Equals を上書きしないので、既定の HashSet がそのまま参照一致になる。
-        // 完了列では、今週より前に完了したものを出さない（アーカイブタブで見る）。「削除済みも表示」でも出さない。
+        // 完了列では、今週より前に完了したものを出さない（アーカイブタブで見る）。ただし削除済みは別で、
+        // 「削除済みも表示」なら出す。アーカイブは見るだけなので、ここで出さないと復元する手段が無くなる。
         var visible = filter.Apply(AllCards.Select(c => c.Model), today)
-            .Where(t => !IsDone || !CompletedWeek.IsArchived(t, today))
+            .Where(t => !IsDone || t.IsDeleted || !CompletedWeek.IsArchived(t, today))
             .ToHashSet();
         // Cards は ListBox の ItemsSource なので、Clear が発火する Reset で Selector は選択を解除し、
         // null を SelectedCard へ書き戻す。絞り込んだ後もまだ表示されるカードの選択はここで戻す。
