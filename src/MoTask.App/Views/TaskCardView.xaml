@@ -17,17 +17,49 @@
 
     <!-- 子要素はヒットテストしない: クリックと D&D は ListBoxItem が受ける -->
     <StackPanel Grid.Column="0" IsHitTestVisible="False">
-      <DockPanel>
-        <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" Style="{StaticResource Text.Caption}"
-                   Foreground="{Binding DueStatus, Converter={StaticResource DueStatusBrush}}" FontWeight="Medium" />
+      <StackPanel.Resources>
+        <Style x:Key="Card.Due" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+          <Setter Property="Foreground" Value="{Binding DueStatus, Converter={StaticResource DueStatusBrush}}" />
+          <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+      </StackPanel.Resources>
+      <!-- 上段はプロジェクトがあるときだけ。無いときは行ごと消し、期日はタイトルの右へ回す。 -->
+      <DockPanel Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
+        <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" Style="{StaticResource Card.Due}" />
         <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
-                CornerRadius="3" HorizontalAlignment="Left"
-                Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
+                CornerRadius="3" HorizontalAlignment="Left">
           <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
         </Border>
       </DockPanel>
-      <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}"
-                 TextWrapping="Wrap" Margin="{StaticResource Gap.Top.1}" />
+      <DockPanel>
+        <DockPanel.Style>
+          <Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="{StaticResource Gap.Top.1}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding ProjectName}" Value="{x:Null}">
+                <Setter Property="Margin" Value="0" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </DockPanel.Style>
+        <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" VerticalAlignment="Top" Margin="{StaticResource Gap.Left.2}">
+          <TextBlock.Style>
+            <!-- プロジェクトが無く、期日があるときだけ出す。 -->
+            <Style TargetType="TextBlock" BasedOn="{StaticResource Card.Due}">
+              <Setter Property="Visibility" Value="Collapsed" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding ProjectName}" Value="{x:Null}">
+                  <Setter Property="Visibility" Value="Visible" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding DueText}" Value="">
+                  <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </TextBlock.Style>
+        </TextBlock>
+        <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}" TextWrapping="Wrap" />
+      </DockPanel>
       <!-- AI 稼働中・入力待ちのバッジ（仕様 §10）。入力待ちは濃い段で目立たせる -->
       <Border Margin="{StaticResource Gap.Top.1}" Padding="{StaticResource Pad.Chip}" CornerRadius="3" HorizontalAlignment="Left"
               Visibility="{Binding HasAiBadge, Converter={StaticResource BoolToVisibility}}">
