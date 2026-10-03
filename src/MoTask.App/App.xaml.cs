@@ -100,6 +100,7 @@ public partial class App : Application
         builder.Services.AddSingleton<IPlanningService, PlanningService>();
         builder.Services.AddSingleton<ViewModels.BoardViewModel>();
         builder.Services.AddSingleton<ViewModels.PlanViewModel>();
+        builder.Services.AddSingleton<ViewModels.ArchiveViewModel>();
         builder.Services.AddSingleton<MainWindow>();
         return builder.Build();
     }

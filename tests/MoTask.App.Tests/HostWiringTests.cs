@@ -48,6 +48,15 @@ public class HostWiringTests : IDisposable
         host.Services.GetRequiredService<ViewModels.PlanViewModel>().Should().NotBeNull();
     }
 
+    [Fact]
+    public void BuildHost_ResolvesTheArchiveViewModel()
+    {
+        Directory.CreateDirectory(_dir);
+        using var host = App.BuildHost(Path.Combine(_dir, "motask.db"));
+
+        host.Services.GetRequiredService<ViewModels.ArchiveViewModel>().Should().NotBeNull();
+    }
+
     /// <summary>ゲートは公開されていないので、この不変条件だけリフレクションで見る。</summary>
     private static OperationGate GateOf(object service)
         => (OperationGate)service.GetType()

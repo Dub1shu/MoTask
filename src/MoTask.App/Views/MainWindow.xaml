@@ -23,7 +23,7 @@
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
         <StackPanel Orientation="Horizontal">
-          <!-- どちらが今の画面かは Click ハンドラ側(ShowBoard)が Tag を切り替えて示す。
+          <!-- どれが今の画面かは Click ハンドラ側(ShowView)が Tag を切り替えて示す。
                下線と文字色そのものは Btn.Tab スタイルが持つ。 -->
           <Button x:Name="BoardTabButton" Style="{StaticResource Btn.Tab}" Click="OnShowBoardClick">
             <TextBlock Text="{x:Static res:Strings.ViewBoard}" FontWeight="Medium" />
@@ -40,6 +40,10 @@
                            Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.OnAccent}" />
               </Border>
             </StackPanel>
+          </Button>
+          <Button x:Name="ArchiveTabButton" Style="{StaticResource Btn.Tab}" Click="OnShowArchiveClick"
+                  Margin="{StaticResource Gap.Left.2}">
+            <TextBlock Text="{x:Static res:Strings.ViewArchive}" FontWeight="Medium" />
           </Button>
         </StackPanel>
       </DockPanel>
@@ -69,6 +73,7 @@
                                Visibility="{Binding DataContext.Detail, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource NullToVisibility}}" />
       </Grid>
       <views:PlanView x:Name="PlanHost" Visibility="Collapsed" />
+      <views:ArchiveView x:Name="ArchiveHost" Visibility="Collapsed" />
     </Grid>
   </DockPanel>
 </Window>
