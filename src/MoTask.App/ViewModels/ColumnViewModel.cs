@@ -60,8 +60,12 @@ public sealed partial class ColumnViewModel : ObservableObject
         IsBacklog = Role == ColumnRole.Backlog;
         IsActive = Role == ColumnRole.Active;
         IsReview = Role == ColumnRole.Review;
-        ActiveCount = Model.ActiveCount;
-        IsOverWip = Model.IsOverWip;
+        // 完了列は今週分だけを表示するので、件数と上限の判定も表示と同じ数で見る
+        // （Column.ActiveCount は全件を数え、MCP の get_board もそれを返すのでモデル側は変えない）。
+        ActiveCount = IsDone
+            ? Model.Tasks.Count(t => !t.IsDeleted && !CompletedWeek.IsArchived(t, _board.Today))
+            : Model.ActiveCount;
+        IsOverWip = WipLimit is int max && ActiveCount > max;
         CountText = WipLimit is int limit
             ? string.Format(CultureInfo.CurrentCulture, Strings.ColumnCountWithLimitFormat, ActiveCount, limit)
             : string.Format(CultureInfo.CurrentCulture, Strings.ColumnCountFormat, ActiveCount);
@@ -85,7 +89,10 @@ public sealed partial class ColumnViewModel : ObservableObject
     public void ApplyFilter(TaskFilter filter, DateOnly today)
     {
         // TaskItem は Equals を上書きしないので、既定の HashSet がそのまま参照一致になる。
-        var visible = filter.Apply(AllCards.Select(c => c.Model), today).ToHashSet();
+        // 完了列では、今週より前に完了したものを出さない（アーカイブタブで見る）。「削除済みも表示」でも出さない。
+        var visible = filter.Apply(AllCards.Select(c => c.Model), today)
+            .Where(t => !IsDone || !CompletedWeek.IsArchived(t, today))
+            .ToHashSet();
         // Cards は ListBox の ItemsSource なので、Clear が発火する Reset で Selector は選択を解除し、
         // null を SelectedCard へ書き戻す。絞り込んだ後もまだ表示されるカードの選択はここで戻す。
         var selected = SelectedCard;
