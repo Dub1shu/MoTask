@@ -9,7 +9,9 @@
   <Border Background="{StaticResource Brush.Surface}" BorderBrush="{StaticResource Brush.Divider}"
           BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}">
     <DockPanel>
-      <Button DockPanel.Dock="Right" Content="{x:Static res:Strings.NewTask}" Style="{StaticResource Btn.Primary}"
+      <!-- DockPanel は既定で縦に引き伸ばすので、そのままだと隣の TextBox の高さまで太る。
+           中央寄せにしてボタン本来の高さで置く。 -->
+      <Button DockPanel.Dock="Right" VerticalAlignment="Center" Content="{x:Static res:Strings.NewTask}" Style="{StaticResource Btn.Primary}"
               Command="{Binding NewTaskCommand}" />
       <StackPanel Orientation="Horizontal">
         <ComboBox Width="180" ItemsSource="{Binding Filter.Projects}" DisplayMemberPath="Name"
