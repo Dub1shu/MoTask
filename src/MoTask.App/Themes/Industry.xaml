@@ -36,6 +36,22 @@
   <Color x:Key="Color.Accent.800">#2C455D</Color>
   <Color x:Key="Color.Accent.900">#1D2D3D</Color>
 
+  <!-- ラベルの見本（LabelPalette）だけが使う色相。明るさは accent-300 / accent-600 にそろえ、使う段だけを置く -->
+  <Color x:Key="Color.Red.300">#F5B8B8</Color>
+  <Color x:Key="Color.Red.600">#A35959</Color>
+  <Color x:Key="Color.Orange.300">#F8CBA6</Color>
+  <Color x:Key="Color.Orange.600">#A3734A</Color>
+  <Color x:Key="Color.Yellow.300">#F1DF9E</Color>
+  <Color x:Key="Color.Yellow.600">#998433</Color>
+  <Color x:Key="Color.Green.300">#B8E0B5</Color>
+  <Color x:Key="Color.Green.600">#5C8F59</Color>
+  <Color x:Key="Color.Teal.300">#A8DDD6</Color>
+  <Color x:Key="Color.Teal.600">#4E8C84</Color>
+  <Color x:Key="Color.Purple.300">#D3C2F5</Color>
+  <Color x:Key="Color.Purple.600">#7A64A8</Color>
+  <Color x:Key="Color.Pink.300">#F4BFD9</Color>
+  <Color x:Key="Color.Pink.600">#A35C80</Color>
+
   <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}" />
   <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
   <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="{StaticResource Color.SurfaceRaised}" />
@@ -68,6 +84,21 @@
   <SolidColorBrush x:Key="Brush.Accent.700" Color="{StaticResource Color.Accent.700}" />
   <SolidColorBrush x:Key="Brush.Accent.800" Color="{StaticResource Color.Accent.800}" />
   <SolidColorBrush x:Key="Brush.Accent.900" Color="{StaticResource Color.Accent.900}" />
+
+  <SolidColorBrush x:Key="Brush.Red.300" Color="{StaticResource Color.Red.300}" />
+  <SolidColorBrush x:Key="Brush.Red.600" Color="{StaticResource Color.Red.600}" />
+  <SolidColorBrush x:Key="Brush.Orange.300" Color="{StaticResource Color.Orange.300}" />
+  <SolidColorBrush x:Key="Brush.Orange.600" Color="{StaticResource Color.Orange.600}" />
+  <SolidColorBrush x:Key="Brush.Yellow.300" Color="{StaticResource Color.Yellow.300}" />
+  <SolidColorBrush x:Key="Brush.Yellow.600" Color="{StaticResource Color.Yellow.600}" />
+  <SolidColorBrush x:Key="Brush.Green.300" Color="{StaticResource Color.Green.300}" />
+  <SolidColorBrush x:Key="Brush.Green.600" Color="{StaticResource Color.Green.600}" />
+  <SolidColorBrush x:Key="Brush.Teal.300" Color="{StaticResource Color.Teal.300}" />
+  <SolidColorBrush x:Key="Brush.Teal.600" Color="{StaticResource Color.Teal.600}" />
+  <SolidColorBrush x:Key="Brush.Purple.300" Color="{StaticResource Color.Purple.300}" />
+  <SolidColorBrush x:Key="Brush.Purple.600" Color="{StaticResource Color.Purple.600}" />
+  <SolidColorBrush x:Key="Brush.Pink.300" Color="{StaticResource Color.Pink.300}" />
+  <SolidColorBrush x:Key="Brush.Pink.600" Color="{StaticResource Color.Pink.600}" />
 
   <!-- 間隔（styles.css の space トークン） -->
   <sys:Double x:Key="Space.1">3.4</sys:Double>

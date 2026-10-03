@@ -25,5 +25,8 @@
     -->
     <None Include="..\..\src\MoTask.App\Views\BoardView.xaml" Link="Fixtures\BoardView.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <!-- ラベルの見本の色がテーマにあるかを、同じくテキストとして確かめる -->
+    <None Include="..\..\src\MoTask.App\Themes\Industry.xaml" Link="Fixtures\Industry.xaml"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
