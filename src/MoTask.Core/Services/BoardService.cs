@@ -324,6 +324,17 @@ public sealed class BoardService : IBoardService
         name = name.Trim();
         if (name.Length == 0) return Result.Fail<Project>(Messages.ProjectNameRequired);
 
+        // 同名は作らない（MCP が名前で引くので曖昧にしない）。アーカイブ済みなら復元して使う。
+        var projects = await _boards.GetProjectsAsync(ct).ConfigureAwait(false);
+        var existing = projects.FirstOrDefault(p => SameName(p.Name, name));
+        if (existing is not null)
+        {
+            if (!existing.Archived) return Result.Ok(existing);
+            existing.Archived = false;
+            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Result.Ok(existing);
+        }
+
         var project = new Project { Name = name };
         _boards.AddProject(project);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -371,6 +382,17 @@ public sealed class BoardService : IBoardService
         name = name.Trim();
         if (name.Length == 0) return Result.Fail<Label>(Messages.LabelNameRequired);
 
+        // 同名は作らない。アーカイブ済みなら復元し、色は元のまま（引数の色は使わない）。
+        var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+        var existing = labels.FirstOrDefault(l => SameName(l.Name, name));
+        if (existing is not null)
+        {
+            if (!existing.Archived) return Result.Ok(existing);
+            existing.Archived = false;
+            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Result.Ok(existing);
+        }
+
         var label = new Label { Name = name, Color = string.IsNullOrWhiteSpace(color) ? Label.DefaultColor : color.Trim() };
         _boards.AddLabel(label);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -401,6 +423,10 @@ public sealed class BoardService : IBoardService
     }, ct);
 
     // ---------- 共通 ----------
+
+    /// <summary>分類の名前の同一判定。MCP の名前引き（BoardLookup）と同じく、前後の空白と大文字小文字を無視する。</summary>
+    private static bool SameName(string a, string b)
+        => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private void AddEditedHistory(TaskItem task, Dictionary<string, FieldChange> changes)
     {

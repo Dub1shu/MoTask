@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MoTask.Core;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
@@ -179,5 +179,55 @@ public class BoardServiceClassificationTests
     public async Task SetProjectWorkingDirectory_UnknownProject_IsRejected()
     {
         (await _service.SetProjectWorkingDirectoryAsync(999, @"C:\x")).Error.Should().Be(Messages.ProjectNotFound);
+    }
+
+    [Fact]
+    public async Task CreateProject_SameNameAsArchived_RestoresIt()
+    {
+        var p = _store.SeedProject("合宿");
+        p.Archived = true;
+
+        var result = await _service.CreateProjectAsync(" 合宿 ");
+
+        result.Value!.Id.Should().Be(p.Id);
+        p.Archived.Should().BeFalse();
+        (await _service.GetProjectsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateProject_SameNameAsLive_ReturnsIt_IgnoringCase()
+    {
+        var p = _store.SeedProject("Alpha");
+
+        var result = await _service.CreateProjectAsync("alpha");
+
+        result.Value!.Id.Should().Be(p.Id);
+        result.Value.Name.Should().Be("Alpha");
+        (await _service.GetProjectsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateLabel_SameNameAsArchived_RestoresIt_KeepingItsColor()
+    {
+        var l = _store.SeedLabel("至急", "red-600");
+        l.Archived = true;
+
+        var result = await _service.CreateLabelAsync("至急", "green-300");
+
+        result.Value!.Id.Should().Be(l.Id);
+        l.Archived.Should().BeFalse();
+        l.Color.Should().Be("red-600");
+        (await _service.GetLabelsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateLabel_SameNameAsLive_ReturnsIt()
+    {
+        var l = _store.SeedLabel("Bug");
+
+        var result = await _service.CreateLabelAsync(" BUG ", "green-300");
+
+        result.Value!.Id.Should().Be(l.Id);
+        (await _service.GetLabelsAsync()).Should().ContainSingle();
     }
 }
