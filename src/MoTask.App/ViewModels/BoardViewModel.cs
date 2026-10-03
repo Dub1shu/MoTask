@@ -434,6 +434,8 @@ public sealed partial class BoardViewModel : ObservableObject
         }
         Projects = projects.Value!;
         Filter.SetProjects(Projects);
+        // 管理ダイアログからの作成・復元は詳細パネルを通らないので、開いている詳細パネルの選択肢も入れ替える
+        Detail?.Refresh();
         return result.Value;
     }
 
@@ -450,6 +452,7 @@ public sealed partial class BoardViewModel : ObservableObject
         }
         Labels = labels.Value!;
         Filter.SetLabels(Labels);
+        Detail?.Refresh();
         return result.Value;
     }
 

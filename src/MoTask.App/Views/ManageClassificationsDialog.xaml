@@ -59,11 +59,21 @@
           <!-- 色丸：ラベルだけ。押すと見本のポップアップ -->
           <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,6,0"
                 Visibility="{Binding Color, Converter={StaticResource NullToVisibility}}">
-            <ToggleButton x:Name="ColorDot" Style="{StaticResource Manage.ColorDot}"
-                          ToolTip="{x:Static res:Strings.ManageChangeColor}">
+            <ToggleButton x:Name="ColorDot" ToolTip="{x:Static res:Strings.ManageChangeColor}">
+              <ToggleButton.Style>
+                <Style TargetType="ToggleButton" BasedOn="{StaticResource Manage.ColorDot}">
+                  <Style.Triggers>
+                    <!-- StaysOpen=False は外側のクリックで閉じた直後に、そのクリックで ToggleButton が開き直す。
+                         開いている間は色丸がクリックを受けないようにして、色丸のクリックで閉じられるようにする -->
+                    <DataTrigger Binding="{Binding IsOpen, ElementName=ColorPopup}" Value="True">
+                      <Setter Property="IsHitTestVisible" Value="False" />
+                    </DataTrigger>
+                  </Style.Triggers>
+                </Style>
+              </ToggleButton.Style>
               <Ellipse Width="12" Height="12" Fill="{Binding Color, Converter={StaticResource RampBrush}}" />
             </ToggleButton>
-            <Popup IsOpen="{Binding IsChecked, ElementName=ColorDot}" StaysOpen="False"
+            <Popup x:Name="ColorPopup" IsOpen="{Binding IsChecked, ElementName=ColorDot}" StaysOpen="False"
                    PlacementTarget="{Binding ElementName=ColorDot}" Placement="Bottom" AllowsTransparency="True">
               <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
                       BorderThickness="1" CornerRadius="6" Padding="6">

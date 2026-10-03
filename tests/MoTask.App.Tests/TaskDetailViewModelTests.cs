@@ -433,4 +433,25 @@ public class TaskDetailViewModelTests
         _service.SetTaskLabelsCalls.Should().ContainSingle()
             .Which.LabelIds.Should().OnlyHaveUniqueItems().And.Contain(200);
     }
+
+    /// <summary>
+    /// 管理ダイアログからの作成・復元は詳細パネルを通らない。開いている詳細パネルの選択肢にも、その場で出ること。
+    /// </summary>
+    [Fact]
+    public async Task CreatingFromElsewhere_ShowsUpInTheOpenDetailPanel()
+    {
+        var created = new Label { Id = 300, Name = "定例", Color = "green-300" };
+        var project = new Project { Id = 102, Name = "新案件" };
+        _service.OnCreateLabel = _ => Task.FromResult(Result.Ok(created));
+        _service.OnCreateProject = _ => Task.FromResult(Result.Ok(project));
+        var detail = await OpenAsync(10);
+        _service.Labels = new[] { TestBoards.Urgent(), created };
+        _service.Projects = new[] { TestBoards.ProjectA(), project };
+
+        await _vm.CreateLabelAsync("定例");
+        await _vm.CreateProjectAsync("新案件");
+
+        detail.Labels.Select(l => l.Id).Should().Contain(300);
+        detail.Projects.Select(p => p.Id).Should().Contain(102);
+    }
 }
