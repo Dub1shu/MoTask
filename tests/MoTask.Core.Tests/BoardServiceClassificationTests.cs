@@ -230,4 +230,78 @@ public class BoardServiceClassificationTests
         result.Value!.Id.Should().Be(l.Id);
         (await _service.GetLabelsAsync()).Should().ContainSingle();
     }
+
+    [Fact]
+    public async Task RenameProject_TrimsAndSaves()
+    {
+        var p = _store.SeedProject("合宿");
+        (await _service.RenameProjectAsync(p.Id, " 秋合宿 ")).IsSuccess.Should().BeTrue();
+        p.Name.Should().Be("秋合宿");
+    }
+
+    [Fact]
+    public async Task RenameProject_Rejections()
+    {
+        var p = _store.SeedProject("A");
+        _store.SeedProject("B");
+        var archived = _store.SeedProject("C");
+        archived.Archived = true;
+
+        (await _service.RenameProjectAsync(p.Id, "  ")).Error.Should().Be(Messages.ProjectNameRequired);
+        (await _service.RenameProjectAsync(p.Id, "b")).Error.Should().Be(Messages.ProjectNameDuplicate);
+        (await _service.RenameProjectAsync(p.Id, "C")).Error.Should().Be(Messages.ProjectNameArchivedDuplicate);
+        (await _service.RenameProjectAsync(999, "D")).Error.Should().Be(Messages.ProjectNotFound);
+        p.Name.Should().Be("A");
+    }
+
+    [Fact]
+    public async Task RenameLabel_CaseOnlyChange_IsAllowed()
+    {
+        var l = _store.SeedLabel("bug");
+        (await _service.RenameLabelAsync(l.Id, "Bug")).IsSuccess.Should().BeTrue();
+        l.Name.Should().Be("Bug");
+    }
+
+    [Fact]
+    public async Task RenameLabel_Rejections()
+    {
+        var l = _store.SeedLabel("A");
+        _store.SeedLabel("B");
+        var archived = _store.SeedLabel("C");
+        archived.Archived = true;
+
+        (await _service.RenameLabelAsync(l.Id, "")).Error.Should().Be(Messages.LabelNameRequired);
+        (await _service.RenameLabelAsync(l.Id, " B ")).Error.Should().Be(Messages.LabelNameDuplicate);
+        (await _service.RenameLabelAsync(l.Id, "c")).Error.Should().Be(Messages.LabelNameArchivedDuplicate);
+        (await _service.RenameLabelAsync(999, "D")).Error.Should().Be(Messages.LabelNotFound);
+        l.Name.Should().Be("A");
+    }
+
+    [Fact]
+    public async Task RenameLabel_SameName_DoesNotSave()
+    {
+        var l = _store.SeedLabel("A");
+        var saves = _store.SaveCount;
+
+        (await _service.RenameLabelAsync(l.Id, " A ")).IsSuccess.Should().BeTrue();
+
+        _store.SaveCount.Should().Be(saves);
+    }
+
+    [Fact]
+    public async Task SetLabelColor_PaletteColor_IsSavedNormalized()
+    {
+        var l = _store.SeedLabel("A");
+        (await _service.SetLabelColorAsync(l.Id, "Teal-600")).IsSuccess.Should().BeTrue();
+        l.Color.Should().Be("teal-600");
+    }
+
+    [Fact]
+    public async Task SetLabelColor_Rejections()
+    {
+        var l = _store.SeedLabel("A", "accent-300");
+        (await _service.SetLabelColorAsync(l.Id, "accent-500")).Error.Should().Be(Messages.LabelColorInvalid);
+        (await _service.SetLabelColorAsync(999, "red-300")).Error.Should().Be(Messages.LabelNotFound);
+        l.Color.Should().Be("accent-300");
+    }
 }

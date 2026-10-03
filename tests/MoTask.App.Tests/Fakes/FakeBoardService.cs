@@ -305,4 +305,43 @@ public sealed class FakeBoardService : IBoardService
         UnarchiveLabelCalls.Add(labelId);
         return OnUnarchiveLabel?.Invoke(labelId) ?? Task.FromResult(Result.Ok());
     }
+
+    /// <summary>RenameProjectAsync に渡された引数を呼ばれた順に。</summary>
+    public List<RenameCall> RenameProjectCalls { get; } = new();
+
+    /// <summary>RenameLabelAsync に渡された引数を呼ばれた順に。</summary>
+    public List<RenameCall> RenameLabelCalls { get; } = new();
+
+    /// <summary>SetLabelColorAsync に渡された引数を呼ばれた順に。</summary>
+    public List<SetLabelColorCall> SetLabelColorCalls { get; } = new();
+
+    /// <summary>RenameProjectAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
+    public Func<RenameCall, Task<Result>>? OnRenameProject { get; set; }
+
+    /// <summary>RenameLabelAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
+    public Func<RenameCall, Task<Result>>? OnRenameLabel { get; set; }
+
+    /// <summary>SetLabelColorAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
+    public Func<SetLabelColorCall, Task<Result>>? OnSetLabelColor { get; set; }
+
+    public Task<Result> RenameProjectAsync(int projectId, string name, CancellationToken ct = default)
+    {
+        var call = new RenameCall(projectId, name);
+        RenameProjectCalls.Add(call);
+        return OnRenameProject?.Invoke(call) ?? Task.FromResult(Result.Ok());
+    }
+
+    public Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default)
+    {
+        var call = new RenameCall(labelId, name);
+        RenameLabelCalls.Add(call);
+        return OnRenameLabel?.Invoke(call) ?? Task.FromResult(Result.Ok());
+    }
+
+    public Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default)
+    {
+        var call = new SetLabelColorCall(labelId, color);
+        SetLabelColorCalls.Add(call);
+        return OnSetLabelColor?.Invoke(call) ?? Task.FromResult(Result.Ok());
+    }
 }

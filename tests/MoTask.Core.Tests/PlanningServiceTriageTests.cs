@@ -199,6 +199,9 @@ public class PlanningServiceTriageTests
         public Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default) => _inner.CreateLabelAsync(name, color, ct);
         public Task<Result> ArchiveLabelAsync(int labelId, CancellationToken ct = default) => _inner.ArchiveLabelAsync(labelId, ct);
         public Task<Result> UnarchiveLabelAsync(int labelId, CancellationToken ct = default) => _inner.UnarchiveLabelAsync(labelId, ct);
+        public Task<Result> RenameProjectAsync(int projectId, string name, CancellationToken ct = default) => _inner.RenameProjectAsync(projectId, name, ct);
+        public Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default) => _inner.RenameLabelAsync(labelId, name, ct);
+        public Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default) => _inner.SetLabelColorAsync(labelId, color, ct);
     }
 
     // ---- 統合 ----
