@@ -25,6 +25,9 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>CLI が受け付ける値だけを選ばせる（仕様 §4.3）。</summary>
     public IReadOnlyList<string> PermissionModes => AiSettings.PermissionModes;
 
+    // 生成されるプロパティ PlanningInstruction と同名なので、型は名前空間から引く。
+    private static string DefaultPlanningInstruction => Core.Planning.PlanningInstruction.DefaultTemplate;
+
     /// <summary>
     /// wt.exe 始まりのテンプレートへの注意（仕様 §5.2）。計画づくりでは既定の起動に落ちる。
     /// 無ければ null（画面は NullToVisibility で隠す）。
@@ -43,7 +46,23 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         _model = s.Model ?? "";
         _permissionMode = s.PermissionMode;
         _terminalCommandTemplate = s.TerminalCommandTemplate ?? "";
-        _planningInstruction = s.PlanningInstruction ?? "";
+        // 既定の文面は隠さずに見せる。人はそれを読んでから書き換える。
+        _planningInstruction = s.PlanningInstruction ?? DefaultPlanningInstruction;
+    }
+
+    /// <summary>既定の文面に戻す。他の欄と同じく、保存するまでは反映しない。</summary>
+    [RelayCommand]
+    private void ResetPlanningInstruction() => PlanningInstruction = DefaultPlanningInstruction;
+
+    /// <summary>
+    /// 指示文だけを差し替える。ほかの欄は保存済みの値のまま残すので、書きかけの欄があっても止まらない。
+    /// </summary>
+    [RelayCommand]
+    private void ApplyPlanningInstruction()
+    {
+        _store.Save(_store.Load() with { PlanningInstruction = CustomPlanningInstructionOrNull() });
+        ErrorMessage = null;
+        StatusMessage = Strings.SettingsPlanningInstructionApplied;
     }
 
     [RelayCommand]
@@ -64,9 +83,19 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
 
         _store.Save(new AiSettings(dir, NullIfBlank(ClaudeExecutablePath), NullIfBlank(Model),
-            mode, NullIfBlank(TerminalCommandTemplate), NullIfBlank(PlanningInstruction)));
+            mode, NullIfBlank(TerminalCommandTemplate), CustomPlanningInstructionOrNull()));
         ErrorMessage = null;
         StatusMessage = Strings.SettingsSaved;
+    }
+
+    /// <summary>
+    /// 既定と同じなら null で持つ。既定の文面が改まったとき、書き換えていない人にもそのまま届く。
+    /// </summary>
+    private string? CustomPlanningInstructionOrNull()
+    {
+        // TextBox の Enter は CRLF を入れる。改行コードの違いだけで「書き換えた」扱いにしない。
+        var text = NullIfBlank(PlanningInstruction);
+        return text?.ReplaceLineEndings() == DefaultPlanningInstruction.Trim().ReplaceLineEndings() ? null : text;
     }
 
     private static string? NullIfBlank(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
