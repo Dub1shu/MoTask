@@ -14,20 +14,26 @@ public partial class MainWindow : Window
 {
     private readonly BoardViewModel _vm;
     private readonly PlanViewModel _plan;
+    private readonly ArchiveViewModel _archive;
     private readonly IAiSettingsStore _settings;
 
-    public MainWindow(BoardViewModel vm, PlanViewModel plan, IAiSettingsStore settings)
+    /// <summary>どの画面を出しているか。タブの下線と中身の表示を、この 1 つから決める。</summary>
+    private enum View { Board, Plan, Archive }
+
+    public MainWindow(BoardViewModel vm, PlanViewModel plan, ArchiveViewModel archive, IAiSettingsStore settings)
     {
         _vm = vm;
         _plan = plan;
+        _archive = archive;
         _settings = settings;
         DataContext = vm;
         InitializeComponent();
         PlanHost.DataContext = plan;
+        ArchiveHost.DataContext = archive;
         plan.NavigateToTask += OnNavigateToTask;
         DarkWindowChrome.Apply(this);
         // 起動直後はボード表示。タブの選択状態もそれに合わせておく(切り替えと同じコード経路で決める)。
-        SetActiveTab(board: true);
+        ShowView(View.Board);
     }
 
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
@@ -70,7 +76,7 @@ public partial class MainWindow : Window
         dialog.ShowDialog();
     }
 
-    private void OnShowBoardClick(object sender, RoutedEventArgs e) => ShowBoard(true);
+    private void OnShowBoardClick(object sender, RoutedEventArgs e) => ShowView(View.Board);
 
     /// <summary>
     /// 計画の「ボードで開く」／タスク行のクリック。ボードへ切り替えてそのタスクを選ぶ。
@@ -78,7 +84,7 @@ public partial class MainWindow : Window
     /// </summary>
     private async void OnNavigateToTask(object? sender, int taskId)
     {
-        ShowBoard(true);
+        ShowView(View.Board);
         try
         {
             await _vm.SelectTaskAsync(taskId);
@@ -92,7 +98,7 @@ public partial class MainWindow : Window
     /// <summary>async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。</summary>
     private async void OnShowPlanClick(object sender, RoutedEventArgs e)
     {
-        ShowBoard(false);
+        ShowView(View.Plan);
         try
         {
             await _plan.LoadAsync();
@@ -103,22 +109,42 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ShowBoard(bool board)
+    /// <summary>
+    /// 開くたびに読み直す（ボードで完了にした分や、週が替わった分を拾う）。
+    /// async void なので、例外が漏れるとプロセスごと落ちる。必ずバナーへ回す。
+    /// </summary>
+    private async void OnShowArchiveClick(object sender, RoutedEventArgs e)
     {
+        ShowView(View.Archive);
+        try
+        {
+            await _archive.LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _vm.ShowBanner(string.Format(CultureInfo.CurrentCulture, Strings.StartupFailedFormat, ex.Message));
+        }
+    }
+
+    private void ShowView(View view)
+    {
+        var board = view == View.Board;
         BoardHost.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
         FilterBar.Visibility = board ? Visibility.Visible : Visibility.Collapsed;
-        PlanHost.Visibility = board ? Visibility.Collapsed : Visibility.Visible;
-        SetActiveTab(board);
+        PlanHost.Visibility = view == View.Plan ? Visibility.Visible : Visibility.Collapsed;
+        ArchiveHost.Visibility = view == View.Archive ? Visibility.Visible : Visibility.Collapsed;
+        SetActiveTab(view);
     }
 
     /// <summary>
-    /// どちらのタブが今の画面かを示す。下線と文字色は Btn.Tab スタイルが持ち、ここでは
+    /// どのタブが今の画面かを示す。下線と文字色は Btn.Tab スタイルが持ち、ここでは
     /// 選択中かどうかだけを Tag で渡す(色を局所値で当てるとホバーのトリガが効かない)。
     /// </summary>
-    private void SetActiveTab(bool board)
+    private void SetActiveTab(View view)
     {
-        SetActiveTab(BoardTabButton, board);
-        SetActiveTab(PlanTabButton, !board);
+        SetActiveTab(BoardTabButton, view == View.Board);
+        SetActiveTab(PlanTabButton, view == View.Plan);
+        SetActiveTab(ArchiveTabButton, view == View.Archive);
     }
 
     private static void SetActiveTab(Button tab, bool active)
@@ -129,7 +155,7 @@ public partial class MainWindow : Window
     /// <summary>
     /// 仕様 §6 キーボード: N=新規、Delete=論理削除、Esc=詳細を閉じる、Ctrl+F=検索。文字入力中は奪わない。
     /// 計画の画面では T/E/X/L（仕分け）だけを受け、ボードのキーは渡さない（候補の仕分け中に Delete を
-    /// 押しただけでボードのタスクが消えないように）。
+    /// 押しただけでボードのタスクが消えないように）。アーカイブの画面ではボードのキーを受けない。
     /// </summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -157,6 +183,10 @@ public partial class MainWindow : Window
             }
             return;
         }
+
+        // アーカイブは見るだけ。見えていないボードで選ばれているカードが Delete で消えたり、
+        // N で新しいタスクが作られたりしないよう、ボードのキーは渡さない。
+        if (ArchiveHost.Visibility == Visibility.Visible) return;
 
         switch (e.Key)
         {
