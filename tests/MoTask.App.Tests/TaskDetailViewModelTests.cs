@@ -418,4 +418,19 @@ public class TaskDetailViewModelTests
         detail.NewLabelName.Should().BeEmpty();
         _service.CreateLabelCalls.Should().BeEmpty();
     }
+
+    [Fact]
+    public async Task CreateLabel_ExistingAttachedName_DoesNotDuplicateTheId()
+    {
+        // サービスは同名の既存ラベル（すでに付いている至急）を返す
+        _service.OnCreateLabel = _ => Task.FromResult(Result.Ok(TestBoards.Urgent()));
+        var detail = await OpenAsync(10);
+        detail.BeginAddLabelCommand.Execute(null);
+        detail.NewLabelName = "至急";
+
+        await detail.CreateLabelCommand.ExecuteAsync(null);
+
+        _service.SetTaskLabelsCalls.Should().ContainSingle()
+            .Which.LabelIds.Should().OnlyHaveUniqueItems().And.Contain(200);
+    }
 }

@@ -1136,4 +1136,46 @@ public class BoardViewModelTests
         Ids(_vm.Columns[0]).Should().Equal(10, 11);
         _vm.Columns[0].CountText.Should().Be("2");
     }
+
+    [Fact]
+    public async Task RenameProject_ReloadsTheBoard_SoCardsShowTheNewName()
+    {
+        var project = TestBoards.ProjectA();
+        _service.Projects = new[] { project };
+        _service.OnRenameProject = call =>
+        {
+            project.Name = call.Name;
+            return Task.FromResult(Result.Ok());
+        };
+        await _vm.LoadAsync();
+
+        (await _vm.RenameProjectAsync(project.Id, "新しい名前")).Should().BeTrue();
+
+        _service.RenameProjectCalls.Should().ContainSingle().Which.Should().Be(new RenameCall(project.Id, "新しい名前"));
+        _vm.Columns.SelectMany(c => c.AllCards).Single(c => c.Id == 10).ProjectName.Should().Be("新しい名前");
+    }
+
+    [Fact]
+    public async Task SetLabelColor_Failure_ShowsBanner()
+    {
+        _service.OnSetLabelColor = _ => Task.FromResult(Result.Fail(Messages.LabelColorInvalid));
+        await _vm.LoadAsync();
+
+        (await _vm.SetLabelColorAsync(200, "accent-500")).Should().BeFalse();
+
+        _vm.BannerMessage.Should().Be(Messages.LabelColorInvalid);
+    }
+
+    /// <summary>新しいラベルの色は、呼んだ時点の Labels.Count で見本の色相を回す。</summary>
+    [Fact]
+    public async Task CreateLabel_AutoColor_ComesFromThePalette()
+    {
+        await _vm.LoadAsync();
+        var countBefore = _vm.Labels.Count;
+
+        await _vm.CreateLabelAsync("新規");
+
+        _service.CreateLabelCalls.Should().ContainSingle()
+            .Which.Color.Should().Be(LabelPalette.AutoColorFor(countBefore));
+    }
 }

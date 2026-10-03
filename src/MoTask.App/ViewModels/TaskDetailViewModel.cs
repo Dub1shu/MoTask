@@ -257,7 +257,8 @@ public sealed partial class TaskDetailViewModel : ObservableObject
         if (label is null) return;
         NewLabelName = "";
         IsAddingLabel = false;
-        var ids = Card.Model.Labels.Select(l => l.Id).Append(label.Id).ToList();
+        // 同名の既存ラベルが返ってくることがある（サービスは同名を作らない）ので、二重に付けない
+        var ids = Card.Model.Labels.Select(l => l.Id).Append(label.Id).Distinct().ToList();
         if (await _board.SetTaskLabelsAsync(Card, ids)) await LoadHistoryAsync();
     }
 }
