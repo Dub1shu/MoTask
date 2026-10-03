@@ -220,4 +220,10 @@ public static class Strings
     public static string McpPlanningRunIdRequired => Get(nameof(McpPlanningRunIdRequired));
     public static string McpPlanningPlanRequired => Get(nameof(McpPlanningPlanRequired));
     public static string McpPlanningSuggestedDueDateInvalid => Get(nameof(McpPlanningSuggestedDueDateInvalid));
+    public static string ViewArchive => Get(nameof(ViewArchive));
+    public static string ArchiveEmpty => Get(nameof(ArchiveEmpty));
+    public static string ArchiveDayFormat => Get(nameof(ArchiveDayFormat));
+    public static string ArchiveWeekHeadingFormat => Get(nameof(ArchiveWeekHeadingFormat));
+    public static string ArchiveWeekCountFormat => Get(nameof(ArchiveWeekCountFormat));
+    public static string CreatedAt => Get(nameof(CreatedAt));
 }

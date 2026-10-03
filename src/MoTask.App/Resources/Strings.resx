@@ -229,4 +229,10 @@
   <data name="McpPlanningRunIdRequired" xml:space="preserve"><value>runId（整数）を渡してください。instruction.md に書いてある値です</value></data>
   <data name="McpPlanningPlanRequired" xml:space="preserve"><value>plan（JSON オブジェクト）を渡してください</value></data>
   <data name="McpPlanningSuggestedDueDateInvalid" xml:space="preserve"><value>suggestedDueDate が日付として読めません。YYYY-MM-DD で書いてください</value></data>
+  <data name="ViewArchive" xml:space="preserve"><value>アーカイブ</value></data>
+  <data name="ArchiveEmpty" xml:space="preserve"><value>アーカイブはまだありません</value></data>
+  <data name="ArchiveDayFormat" xml:space="preserve"><value>M/d（ddd）</value></data>
+  <data name="ArchiveWeekHeadingFormat" xml:space="preserve"><value>{0} 〜 {1}</value></data>
+  <data name="ArchiveWeekCountFormat" xml:space="preserve"><value>{0} 件</value></data>
+  <data name="CreatedAt" xml:space="preserve"><value>作成日時</value></data>
 </root>
