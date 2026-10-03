@@ -16,17 +16,96 @@
       <StackPanel Orientation="Horizontal">
         <ComboBox Width="180" ItemsSource="{Binding Filter.Projects}" DisplayMemberPath="Name"
                   SelectedItem="{Binding Filter.SelectedProject}" />
-        <ItemsControl ItemsSource="{Binding Filter.Labels}" Margin="{StaticResource Gap.Left.3}" VerticalAlignment="Center">
-          <ItemsControl.ItemsPanel>
-            <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
-          </ItemsControl.ItemsPanel>
-          <ItemsControl.ItemTemplate>
-            <DataTemplate>
-              <ToggleButton Content="{Binding Name}" IsChecked="{Binding IsSelected}" Style="{StaticResource Chip.Toggle}"
-                            Margin="{StaticResource Gap.Right.1}" />
-            </DataTemplate>
-          </ItemsControl.ItemTemplate>
-        </ItemsControl>
+        <!-- ラベルはポップアップで選ぶ。バーに並べると、ラベルが増えたときに右の検索欄が押し出される。
+             バーには選択中の先頭いくつかと「+n」だけを出す（数は FilterViewModel.PreviewLimit）。
+             選択中のチップもボタンの中に置き、どこを押しても同じポップアップが開くようにする。 -->
+        <ToggleButton x:Name="LabelToggle" Margin="{StaticResource Gap.Left.3}"
+                      PreviewKeyDown="LabelPopup_PreviewKeyDown">
+          <ToggleButton.Style>
+            <Style TargetType="ToggleButton" BasedOn="{StaticResource Btn.Dropdown}">
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding Filter.HasSelectedLabels}" Value="True">
+                  <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                </DataTrigger>
+                <!-- 開いている間は押せなくする。StaysOpen="False" のポップアップは外側の押下で閉じ、
+                     そのクリックがこのボタンにも届いて開き直してしまうため。 -->
+                <DataTrigger Binding="{Binding IsOpen, ElementName=LabelPopup}" Value="True">
+                  <Setter Property="IsHitTestVisible" Value="False" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </ToggleButton.Style>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="{x:Static res:Strings.Labels}" VerticalAlignment="Center" />
+            <Border Margin="{StaticResource Gap.Left.1}" MinWidth="16" Padding="4,0" CornerRadius="8" VerticalAlignment="Center"
+                    Background="{StaticResource Brush.Accent}"
+                    Visibility="{Binding Filter.HasSelectedLabels, Converter={StaticResource BoolToVisibility}}">
+              <TextBlock Text="{Binding Filter.SelectedLabelCount}" Style="{StaticResource Text.Caption}"
+                         Foreground="{StaticResource Brush.OnAccent}" HorizontalAlignment="Center" />
+            </Border>
+            <ItemsControl ItemsSource="{Binding Filter.SelectedLabelsPreview}" Margin="{StaticResource Gap.Left.2}" VerticalAlignment="Center">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <!-- カードのラベルと同じ見た目 -->
+                  <Border Background="{Binding Color, Converter={StaticResource RampBrush}}" CornerRadius="3"
+                          Padding="{StaticResource Pad.Chip}" Margin="{StaticResource Gap.Right.1}">
+                    <TextBlock Text="{Binding Name}" Style="{StaticResource Text.Caption}"
+                               Foreground="{Binding TextColor, Converter={StaticResource RampBrush}}" />
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="{Binding Filter.SelectedLabelOverflow, StringFormat={x:Static res:Strings.LabelFilterOverflowFormat}}"
+                       Style="{StaticResource Text.Caption}" VerticalAlignment="Center"
+                       Visibility="{Binding Filter.HasLabelOverflow, Converter={StaticResource BoolToVisibility}}" />
+          </StackPanel>
+        </ToggleButton>
+        <Popup x:Name="LabelPopup" PlacementTarget="{Binding ElementName=LabelToggle}" Placement="Bottom"
+               StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
+               IsOpen="{Binding IsChecked, ElementName=LabelToggle, Mode=TwoWay}">
+          <Border Width="420" Margin="0,4,0,0" Padding="{StaticResource Pad.Box}"
+                  Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
+                  BorderThickness="1" CornerRadius="6" PreviewKeyDown="LabelPopup_PreviewKeyDown">
+            <DockPanel>
+              <DockPanel DockPanel.Dock="Bottom" Margin="{StaticResource Gap.Top.2}" LastChildFill="False">
+                <Button DockPanel.Dock="Right" Content="{x:Static res:Strings.LabelFilterClear}" Style="{StaticResource Btn.Link}"
+                        Command="{Binding Filter.ClearLabelsCommand}"
+                        IsEnabled="{Binding Filter.HasSelectedLabels}" />
+                <TextBlock Text="{x:Static res:Strings.LabelFilterAllOfHint}" Style="{StaticResource Text.Caption}" VerticalAlignment="Center" />
+              </DockPanel>
+              <Grid>
+                <TextBlock Text="{x:Static res:Strings.LabelFilterEmpty}">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
+                      <Setter Property="Visibility" Value="Collapsed" />
+                      <Style.Triggers>
+                        <DataTrigger Binding="{Binding Filter.Labels.Count}" Value="0">
+                          <Setter Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+                <ScrollViewer MaxHeight="280" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl ItemsSource="{Binding Filter.Labels}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <ToggleButton Content="{Binding Name}" IsChecked="{Binding IsSelected}" Style="{StaticResource Chip.Label}"
+                                      Margin="{StaticResource Gap.Chip}" />
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </Grid>
+            </DockPanel>
+          </Border>
+        </Popup>
         <ComboBox Width="120" Margin="{StaticResource Gap.Left.3}" ItemsSource="{Binding Filter.DueOptions}" DisplayMemberPath="Name"
                   SelectedItem="{Binding Filter.SelectedDue}" />
         <TextBlock Text="{x:Static res:Strings.Search}" Style="{StaticResource Text.Small}"
