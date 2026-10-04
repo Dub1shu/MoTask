@@ -43,5 +43,62 @@ public class InitializerTests : IDisposable
         (await ctx.Columns.CountAsync()).Should().Be(4);
     }
 
+    /// <summary>
+    /// 起動を速くするため、当てるマイグレーションが無ければ MigrateAsync を呼ばない
+    /// （呼ぶと移行ロックの取得・解除とモデル差分の確認で毎回 0.5 秒ほどかかる）。
+    /// 移行ロックのテーブルに触れていないことで確かめる。
+    /// </summary>
+    [Fact]
+    public async Task Initialize_OnUpToDateDb_DoesNotRunMigrate()
+    {
+        await using (var ctx = _db.CreateContext())
+        {
+            await new DatabaseInitializer(ctx).InitializeAsync();
+        }
+
+        var recorder = new CommandRecorder();
+        var options = new DbContextOptionsBuilder<MoTaskDbContext>()
+            .UseSqlite(DbPaths.ConnectionString(_db.Path))
+            .AddInterceptors(recorder)
+            .Options;
+        await using (var ctx = new MoTaskDbContext(options))
+        {
+            await new DatabaseInitializer(ctx).InitializeAsync();
+        }
+
+        recorder.Commands.Should().NotBeEmpty();
+        recorder.Commands.Should().NotContain(c => c.Contains("__EFMigrationsLock"));
+    }
+
+    private sealed class CommandRecorder : Microsoft.EntityFrameworkCore.Diagnostics.DbCommandInterceptor
+    {
+        public List<string> Commands { get; } = new();
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader>> ReaderExecutingAsync(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<System.Data.Common.DbDataReader> result,
+            CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return base.ReaderExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int>> NonQueryExecutingAsync(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return base.NonQueryExecutingAsync(command, eventData, result, cancellationToken);
+        }
+
+        public override ValueTask<Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<object>> ScalarExecutingAsync(
+            System.Data.Common.DbCommand command, Microsoft.EntityFrameworkCore.Diagnostics.CommandEventData eventData,
+            Microsoft.EntityFrameworkCore.Diagnostics.InterceptionResult<object> result, CancellationToken cancellationToken = default)
+        {
+            Commands.Add(command.CommandText);
+            return base.ScalarExecutingAsync(command, eventData, result, cancellationToken);
+        }
+    }
+
     public void Dispose() => _db.Dispose();
 }

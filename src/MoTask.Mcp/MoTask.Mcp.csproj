@@ -5,6 +5,15 @@
     <RootNamespace>MoTask.Mcp</RootNamespace>
     <AssemblyName>MoTask.Mcp</AssemblyName>
   </PropertyGroup>
+  <!--
+    MoTask.App と同じ発行先へ出す。App 側だけ ReadyToRun にすると、後から発行するこちらの
+    MoTask.Core.dll（IL のみ）が App 側の事前コンパイル済みを上書きしてしまうので、揃えておく。
+  -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
   <ItemGroup>
     <!-- EF Core を持ち込まないため、参照は Core だけ（仕様 §4） -->
     <ProjectReference Include="..\MoTask.Core\MoTask.Core.csproj" />

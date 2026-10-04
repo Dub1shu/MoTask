@@ -7,6 +7,16 @@
     <AssemblyName>MoTask</AssemblyName>
     <ApplicationIcon>..\..\resources\motodo_icon.ico</ApplicationIcon>
   </PropertyGroup>
+  <!--
+    発行時だけ ReadyToRun で事前コンパイルし、起動時の JIT を減らす（初回描画まで約 0.7 秒短くなった）。
+    ReadyToRun には RID が要るが、dotnet publish -r で渡すと参照先（Hooks / Mcp）にも伝わって
+    出力先が win-x64\ にずれ、下の hooks\ / mcp\ のコピーが壊れる。ここで指定すれば伝わらない。
+  -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="Microsoft.Extensions.Hosting" />
@@ -17,7 +27,9 @@
     <!-- フックの exe。参照はビルド順のためだけで、アセンブリとしては使わない。 -->
     <ProjectReference Include="..\MoTask.Hooks\MoTask.Hooks.csproj" ReferenceOutputAssembly="false" />
     <!-- MCP ブリッジの exe。参照はビルド順のためだけで、アセンブリとしては使わない。 -->
-    <ProjectReference Include="..\MoTask.Mcp\MoTask.Mcp.csproj" ReferenceOutputAssembly="false" />
+    <!-- _IsPublishing を渡すと、Mcp 側の発行時設定（RID）が効いて出力先が win-x64\ にずれる。 -->
+    <ProjectReference Include="..\MoTask.Mcp\MoTask.Mcp.csproj" ReferenceOutputAssembly="false"
+                      UndefineProperties="_IsPublishing" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="MoTask.App.Tests" />
