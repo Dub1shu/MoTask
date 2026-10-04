@@ -17,6 +17,8 @@ public sealed partial class ArchiveItemViewModel : ObservableObject
     public string Description { get; }
     public bool HasDescription => !string.IsNullOrWhiteSpace(Description);
     public string? ProjectName { get; }
+    /// <summary>プロジェクト名の前に出す色丸のランプ段。色なしなら null。</summary>
+    public string? ProjectColor { get; }
     public DateTime CompletedAt { get; }
     public DateOnly CompletedOn { get; }
     public string CompletedOnText { get; }
@@ -28,12 +30,13 @@ public sealed partial class ArchiveItemViewModel : ObservableObject
     [ObservableProperty] private bool _isSelected;
 
     /// <summary>アーカイブ対象（CompletedAt あり）だけを渡すこと。</summary>
-    public ArchiveItemViewModel(TaskItem task, string? projectName, TimeZoneInfo timeZone)
+    public ArchiveItemViewModel(TaskItem task, Project? project, TimeZoneInfo timeZone)
     {
         Id = task.Id;
         Title = task.Title;
         Description = task.Description;
-        ProjectName = projectName;
+        ProjectName = project?.Name;
+        ProjectColor = project?.Color;
         CompletedAt = task.CompletedAt!.Value;
         CompletedOn = CompletedWeek.CompletedOn(CompletedAt, timeZone);
         CompletedOnText = Day(CompletedOn);

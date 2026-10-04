@@ -120,7 +120,7 @@ public sealed partial class BoardViewModel : ObservableObject
         foreach (var column in _board.Columns.OrderBy(c => c.Order))
         {
             var vm = new ColumnViewModel(column, this);
-            vm.SyncCardsFromModel(ProjectName, Today);
+            vm.SyncCardsFromModel(ProjectOf, Today);
             Columns.Add(vm);
         }
         ApplyFilter();
@@ -146,8 +146,10 @@ public sealed partial class BoardViewModel : ObservableObject
         return history.Value!;
     }
 
-    public string? ProjectName(int? projectId)
-        => projectId is int id ? Projects.FirstOrDefault(p => p.Id == id)?.Name : null;
+    public string? ProjectName(int? projectId) => ProjectOf(projectId)?.Name;
+
+    public Project? ProjectOf(int? projectId)
+        => projectId is int id ? Projects.FirstOrDefault(p => p.Id == id) : null;
 
     public string ColumnName(int columnId)
         => _board?.Columns.FirstOrDefault(c => c.Id == columnId)?.Name ?? Strings.UnknownColumn;
@@ -471,6 +473,9 @@ public sealed partial class BoardViewModel : ObservableObject
     public Task<bool> RenameProjectAsync(int projectId, string name)
         => RunBoardWideClassificationChangeAsync(() => _service.RenameProjectAsync(projectId, name));
 
+    public Task<bool> SetProjectColorAsync(int projectId, string? color)
+        => RunBoardWideClassificationChangeAsync(() => _service.SetProjectColorAsync(projectId, color));
+
     public Task<bool> RenameLabelAsync(int labelId, string name)
         => RunBoardWideClassificationChangeAsync(() => _service.RenameLabelAsync(labelId, name));
 
@@ -711,7 +716,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     private void RefreshColumn(ColumnViewModel column)
     {
-        column.SyncCardsFromModel(ProjectName, Today);
+        column.SyncCardsFromModel(ProjectOf, Today);
         column.RefreshHeader();
         column.ApplyFilter(Filter.ToFilter(), Today);
     }

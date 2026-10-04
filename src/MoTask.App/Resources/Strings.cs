@@ -57,6 +57,7 @@ public static class Strings
     public static string ManageAddLabel => Get(nameof(ManageAddLabel));
     public static string ManageChangeColor => Get(nameof(ManageChangeColor));
     public static string ManageRenameHint => Get(nameof(ManageRenameHint));
+    public static string ManageNoColor => Get(nameof(ManageNoColor));
     public static string ManageArchive => Get(nameof(ManageArchive));
     public static string ManageUnarchive => Get(nameof(ManageUnarchive));
     public static string ManageArchivedNote => Get(nameof(ManageArchivedNote));

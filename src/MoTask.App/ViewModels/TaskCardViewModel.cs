@@ -15,6 +15,8 @@ public sealed partial class TaskCardViewModel : ObservableObject
 
     [ObservableProperty] private string _title = "";
     [ObservableProperty] private string? _projectName;
+    /// <summary>プロジェクト名の前に出す色丸のランプ段。色なしのプロジェクトやプロジェクト無しなら null。</summary>
+    [ObservableProperty] private string? _projectColor;
     [ObservableProperty] private string _dueText = "";
     [ObservableProperty] private DueStatus _dueStatus;
     [ObservableProperty] private bool _isDeleted;
@@ -33,10 +35,12 @@ public sealed partial class TaskCardViewModel : ObservableObject
     public int ColumnId => Model.ColumnId;
     public int Position => Model.Position;
 
-    public void Refresh(Func<int?, string?> projectName, DateOnly today)
+    public void Refresh(Func<int?, Project?> projectOf, DateOnly today)
     {
         Title = Model.Title;
-        ProjectName = projectName(Model.ProjectId);
+        var project = projectOf(Model.ProjectId);
+        ProjectName = project?.Name;
+        ProjectColor = project?.Color;
         DueText = Model.DueDate is DateOnly d
             ? string.Format(CultureInfo.CurrentCulture, Strings.CardDueFormat, d.Month, d.Day)
             : "";

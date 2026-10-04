@@ -56,9 +56,8 @@
             </Button.Style>
           </Button>
 
-          <!-- 色丸：ラベルだけ。押すと見本のポップアップ -->
-          <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,6,0"
-                Visibility="{Binding Color, Converter={StaticResource NullToVisibility}}">
+          <!-- 色丸：押すと見本のポップアップ。色なしのプロジェクトは枠線だけの丸 -->
+          <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,6,0">
             <ToggleButton x:Name="ColorDot" ToolTip="{x:Static res:Strings.ManageChangeColor}">
               <ToggleButton.Style>
                 <Style TargetType="ToggleButton" BasedOn="{StaticResource Manage.ColorDot}">
@@ -71,34 +70,64 @@
                   </Style.Triggers>
                 </Style>
               </ToggleButton.Style>
-              <Ellipse Width="12" Height="12" Fill="{Binding Color, Converter={StaticResource RampBrush}}" />
+              <Ellipse Width="12" Height="12">
+                <Ellipse.Style>
+                  <Style TargetType="Ellipse">
+                    <Setter Property="Fill" Value="{Binding Color, Converter={StaticResource RampBrush}}" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Color}" Value="{x:Null}">
+                        <Setter Property="Fill" Value="Transparent" />
+                        <Setter Property="Stroke" Value="{StaticResource Brush.TextMuted}" />
+                        <Setter Property="StrokeThickness" Value="1" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Ellipse.Style>
+              </Ellipse>
             </ToggleButton>
             <Popup x:Name="ColorPopup" IsOpen="{Binding IsChecked, ElementName=ColorDot}" StaysOpen="False"
                    PlacementTarget="{Binding ElementName=ColorDot}" Placement="Bottom" AllowsTransparency="True">
               <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
                       BorderThickness="1" CornerRadius="6" Padding="6">
-                <ItemsControl ItemsSource="{Binding Swatches}">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><UniformGrid Columns="9" Rows="2" /></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                      <!-- Popup の中は別のビジュアルツリーで、AncestorType=Window が引けない。コマンドはコードビハインドから呼ぶ -->
-                      <Button Margin="2" Padding="0" Cursor="Hand" Style="{StaticResource Btn.Ghost}"
-                              ToolTip="{Binding Color}" Click="OnSwatchClick">
-                        <Border x:Name="Ring" Width="22" Height="22" CornerRadius="11" BorderThickness="2"
-                                BorderBrush="Transparent" Padding="2">
-                          <Ellipse Fill="{Binding Color, Converter={StaticResource RampBrush}}" />
-                        </Border>
-                      </Button>
-                      <DataTemplate.Triggers>
-                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                          <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource Brush.Text}" />
-                        </DataTrigger>
-                      </DataTemplate.Triggers>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <StackPanel>
+                  <ItemsControl ItemsSource="{Binding Swatches}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><UniformGrid Columns="9" Rows="2" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <!-- Popup の中は別のビジュアルツリーで、AncestorType=Window が引けない。コマンドはコードビハインドから呼ぶ -->
+                        <Button Margin="2" Padding="0" Cursor="Hand" Style="{StaticResource Btn.Ghost}"
+                                ToolTip="{Binding Color}" Click="OnSwatchClick">
+                          <Border x:Name="Ring" Width="22" Height="22" CornerRadius="11" BorderThickness="2"
+                                  BorderBrush="Transparent" Padding="2">
+                            <Ellipse Fill="{Binding Color, Converter={StaticResource RampBrush}}" />
+                          </Border>
+                        </Button>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource Brush.Text}" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <!-- プロジェクトだけ：既定の「色なし」へ戻す。DataContext は NoColorSwatch なので、見本と同じ Click で扱える -->
+                  <Button DataContext="{Binding NoColorSwatch}" Content="{x:Static res:Strings.ManageNoColor}"
+                          HorizontalAlignment="Left" Margin="0,4,0,0" Click="OnSwatchClick"
+                          Visibility="{Binding Converter={StaticResource NullToVisibility}}">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
+                </StackPanel>
               </Border>
             </Popup>
           </Grid>

@@ -267,7 +267,6 @@ public class ManageClassificationsViewModelTests
         urgent.Swatches.Should().HaveCount(18);
         urgent.Swatches.Single(s => s.IsSelected).Color.Should().Be("red-600");
         manage.Labels.Single(r => r.Id == 201).Swatches.Should().OnlyContain(s => !s.IsSelected);
-        manage.Projects.Single(r => r.Id == 100).Swatches.Should().BeEmpty();
     }
 
     [Fact]
@@ -339,5 +338,49 @@ public class ManageClassificationsViewModelTests
 
         manage.Labels.Should().HaveCount(2);
         manage.Labels.Single(r => r.Id == 200).IsArchived.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProjectRows_OfferThePaletteAndNoColor()
+    {
+        _projectA.Color = "green-300";
+        var manage = await OpenAsync();
+
+        var colored = manage.Projects.Single(r => r.Id == 100);
+        colored.Color.Should().Be("green-300");
+        colored.Swatches.Should().HaveCount(18);
+        colored.Swatches.Single(s => s.IsSelected).Color.Should().Be("green-300");
+        colored.NoColorSwatch.Should().NotBeNull();
+        colored.NoColorSwatch!.IsSelected.Should().BeFalse();
+
+        var uncolored = manage.Projects.Single(r => r.Id == 101);
+        uncolored.Color.Should().BeNull();
+        uncolored.Swatches.Should().OnlyContain(s => !s.IsSelected);
+        uncolored.NoColorSwatch!.IsSelected.Should().BeTrue();
+
+        manage.Labels.Single(r => r.Id == 200).NoColorSwatch.Should().BeNull("ラベルは必ず色を持つ");
+    }
+
+    [Fact]
+    public async Task ProjectSetColor_AndClear_CallTheProjectService()
+    {
+        _projectA.Color = "green-300";
+        _service.OnSetProjectColor = call =>
+        {
+            _projectA.Color = call.Color;
+            return Task.FromResult(Result.Ok());
+        };
+        var manage = await OpenAsync();
+
+        manage.SetColorCommand.Execute(manage.Projects.Single(r => r.Id == 100).Swatches.Single(s => s.Color == "pink-600"));
+        await manage.PendingChange;
+        manage.Projects.Single(r => r.Id == 100).Color.Should().Be("pink-600");
+
+        manage.SetColorCommand.Execute(manage.Projects.Single(r => r.Id == 100).NoColorSwatch!);
+        await manage.PendingChange;
+
+        _service.SetProjectColorCalls.Should().Equal(new SetProjectColorCall(100, "pink-600"), new SetProjectColorCall(100, null));
+        manage.Projects.Single(r => r.Id == 100).Color.Should().BeNull();
+        _service.SetLabelColorCalls.Should().BeEmpty();
     }
 }

@@ -1178,4 +1178,25 @@ public class BoardViewModelTests
         _service.CreateLabelCalls.Should().ContainSingle()
             .Which.Color.Should().Be(LabelPalette.AutoColorFor(countBefore));
     }
+
+    [Fact]
+    public async Task Cards_CarryTheProjectColor_AndNullWhenUncolored()
+    {
+        var project = TestBoards.ProjectA();
+        _service.Projects = new[] { project };
+        await _vm.LoadAsync();
+        Card(10).ProjectColor.Should().BeNull();
+
+        _service.OnSetProjectColor = call =>
+        {
+            project.Color = call.Color;
+            return Task.FromResult(Result.Ok());
+        };
+        (await _vm.SetProjectColorAsync(100, "red-600")).Should().BeTrue();
+
+        _service.SetProjectColorCalls.Should().ContainSingle().Which.Should().Be(new SetProjectColorCall(100, "red-600"));
+        Card(10).ProjectColor.Should().Be("red-600");
+    }
+
+    private TaskCardViewModel Card(int id) => _vm.Columns.SelectMany(c => c.AllCards).Single(c => c.Id == id);
 }

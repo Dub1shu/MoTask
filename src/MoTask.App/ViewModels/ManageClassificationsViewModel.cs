@@ -45,7 +45,7 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
         Projects.Clear();
         foreach (var p in _board.Projects.OrderBy(p => p.Name, StringComparer.CurrentCulture))
         {
-            Projects.Add(new ClassificationRow(ClassificationKind.Project, p.Id, p.Name, null,
+            Projects.Add(new ClassificationRow(ClassificationKind.Project, p.Id, p.Name, p.Color,
                 live.Count(t => t.ProjectId == p.Id), p.Archived));
         }
 
@@ -121,7 +121,9 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
     {
         ErrorMessage = null;
         if (swatch.IsSelected) return;
-        PendingChange = Run(() => _board.SetLabelColorAsync(swatch.Row.Id, swatch.Color));
+        PendingChange = Run(() => swatch.Row.Kind == ClassificationKind.Project
+            ? _board.SetProjectColorAsync(swatch.Row.Id, swatch.Color)
+            : _board.SetLabelColorAsync(swatch.Row.Id, swatch.Color!));
     }
 
     // ---------- 追加 ----------
@@ -202,7 +204,7 @@ public enum ClassificationKind
     Label,
 }
 
-/// <summary>管理ダイアログの1行。プロジェクトとラベルで同じ形（色と見本はラベルだけ）。</summary>
+/// <summary>管理ダイアログの1行。プロジェクトとラベルで同じ形（「色なし」の見本はプロジェクトだけ）。</summary>
 public sealed partial class ClassificationRow : ObservableObject
 {
     public ClassificationRow(ClassificationKind kind, int id, string name, string? color, int usageCount, bool isArchived)
@@ -213,20 +215,21 @@ public sealed partial class ClassificationRow : ObservableObject
         Color = color;
         UsageCount = usageCount;
         IsArchived = isArchived;
-        Swatches = kind == ClassificationKind.Label
-            ? LabelPalette.Colors.Select(c => new PaletteSwatch(this, c,
-                string.Equals(c, color, StringComparison.OrdinalIgnoreCase))).ToList()
-            : Array.Empty<PaletteSwatch>();
+        Swatches = LabelPalette.Colors.Select(c => new PaletteSwatch(this, c,
+            string.Equals(c, color, StringComparison.OrdinalIgnoreCase))).ToList();
+        // ラベルは必ず色を持つ。プロジェクトは既定が色なしなので、そこへ戻る見本を置く
+        NoColorSwatch = kind == ClassificationKind.Project ? new PaletteSwatch(this, null, color is null) : null;
     }
 
     public ClassificationKind Kind { get; }
     public int Id { get; }
     public string Name { get; }
-    /// <summary>ラベルのランプ段の名前。プロジェクトは null。</summary>
+    /// <summary>ランプ段の名前。色なしのプロジェクトは null。</summary>
     public string? Color { get; }
     public int UsageCount { get; }
     public bool IsArchived { get; }
     public IReadOnlyList<PaletteSwatch> Swatches { get; }
+    public PaletteSwatch? NoColorSwatch { get; }
 
     [ObservableProperty] private bool _isEditing;
     [ObservableProperty] private string _editName = "";
@@ -234,5 +237,5 @@ public sealed partial class ClassificationRow : ObservableObject
     public string UsageText => string.Format(CultureInfo.CurrentCulture, Strings.ManageUsageFormat, UsageCount);
 }
 
-/// <summary>色のポップアップの見本 1 つ。押されたらどの行の色を変えるかを自分で持つ。</summary>
-public sealed record PaletteSwatch(ClassificationRow Row, string Color, bool IsSelected);
+/// <summary>色のポップアップの見本 1 つ。押されたらどの行の色を変えるかを自分で持つ。Color が null なら「色なし」。</summary>
+public sealed record PaletteSwatch(ClassificationRow Row, string? Color, bool IsSelected);

@@ -69,7 +69,7 @@ public sealed partial class ArchiveViewModel : ObservableObject
             .Where(c => c.Role == ColumnRole.Done)
             .SelectMany(c => c.Tasks)
             .Where(t => !t.IsDeleted && CompletedWeek.IsArchived(t, today, TimeZone))
-            .Select(t => new ArchiveItemViewModel(t, ProjectName(projects, t.ProjectId), TimeZone))
+            .Select(t => new ArchiveItemViewModel(t, ProjectOf(projects, t.ProjectId), TimeZone))
             .OrderByDescending(i => i.CompletedAt)
             .ThenByDescending(i => i.Id)
             .ToList();
@@ -108,6 +108,6 @@ public sealed partial class ArchiveViewModel : ObservableObject
         IsEmpty = false;
     }
 
-    private static string? ProjectName(IReadOnlyList<Project> projects, int? projectId)
-        => projectId is int id ? projects.FirstOrDefault(p => p.Id == id)?.Name : null;
+    private static Project? ProjectOf(IReadOnlyList<Project> projects, int? projectId)
+        => projectId is int id ? projects.FirstOrDefault(p => p.Id == id) : null;
 }
