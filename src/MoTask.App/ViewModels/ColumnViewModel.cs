@@ -72,7 +72,7 @@ public sealed partial class ColumnViewModel : ObservableObject
     }
 
     /// <summary>Model.Tasks から AllCards を組み直す。既存のカード VM は再利用する。</summary>
-    public void SyncCardsFromModel(Func<int?, string?> projectName, DateOnly today)
+    public void SyncCardsFromModel(Func<int?, Project?> projectOf, DateOnly today)
     {
         var existing = AllCards.ToDictionary(c => c.Id);
         AllCards.Clear();
@@ -81,7 +81,7 @@ public sealed partial class ColumnViewModel : ObservableObject
             var card = existing.TryGetValue(task.Id, out var e) && ReferenceEquals(e.Model, task)
                 ? e
                 : new TaskCardViewModel(task);
-            card.Refresh(projectName, today);
+            card.Refresh(projectOf, today);
             AllCards.Add(card);
         }
     }

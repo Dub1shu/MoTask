@@ -179,4 +179,208 @@ public class ManageClassificationsViewModelTests
 
         detail.Labels.Select(l => l.Id).Should().Contain(200);
     }
+
+    [Fact]
+    public async Task Rename_Commit_CallsServiceAndRefreshes()
+    {
+        _service.OnRenameLabel = call =>
+        {
+            _urgent.Name = call.Name;
+            return Task.FromResult(Result.Ok());
+        };
+        var manage = await OpenAsync();
+        var row = manage.Labels.Single(r => r.Id == 200);
+
+        manage.BeginRenameCommand.Execute(row);
+        row.IsEditing.Should().BeTrue();
+        row.EditName.Should().Be("至急");
+        row.EditName = " 大至急 ";
+        manage.CommitRenameCommand.Execute(row);
+        await manage.PendingChange;
+
+        _service.RenameLabelCalls.Should().ContainSingle().Which.Should().Be(new RenameCall(200, "大至急"));
+        manage.Labels.Single(r => r.Id == 200).Name.Should().Be("大至急");
+        manage.Labels.Single(r => r.Id == 200).IsEditing.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("   ")]
+    [InlineData(" 至急 ")]
+    public async Task Rename_EmptyOrUnchanged_JustCloses(string input)
+    {
+        var manage = await OpenAsync();
+        var row = manage.Labels.Single(r => r.Id == 200);
+
+        manage.BeginRenameCommand.Execute(row);
+        row.EditName = input;
+        manage.CommitRenameCommand.Execute(row);
+        await manage.PendingChange;
+
+        _service.RenameLabelCalls.Should().BeEmpty();
+        row.IsEditing.Should().BeFalse();
+        row.Name.Should().Be("至急");
+    }
+
+    [Fact]
+    public async Task Rename_Cancel_KeepsTheName()
+    {
+        var manage = await OpenAsync();
+        var row = manage.Projects.Single(r => r.Id == 100);
+
+        manage.BeginRenameCommand.Execute(row);
+        row.EditName = "別名";
+        manage.CancelRenameCommand.Execute(row);
+
+        row.IsEditing.Should().BeFalse();
+        row.Name.Should().Be("顧客A対応");
+        _service.RenameProjectCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Rename_Failure_ShowsErrorAndKeepsTheName_ThenClearsOnNextAction()
+    {
+        _service.OnRenameProject = _ => Task.FromResult(Result.Fail(Messages.ProjectNameDuplicate));
+        var manage = await OpenAsync();
+        var row = manage.Projects.Single(r => r.Id == 100);
+
+        manage.BeginRenameCommand.Execute(row);
+        row.EditName = "使っていない案件";
+        manage.CommitRenameCommand.Execute(row);
+        await manage.PendingChange;
+
+        manage.ErrorMessage.Should().Be(Messages.ProjectNameDuplicate);
+        manage.Projects.Single(r => r.Id == 100).Name.Should().Be("顧客A対応");
+        manage.Projects.Single(r => r.Id == 100).IsEditing.Should().BeFalse();
+
+        manage.BeginRenameCommand.Execute(manage.Projects.Single(r => r.Id == 100));
+        manage.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Swatches_MarkTheCurrentColor_AndNoneForOffPaletteColors()
+    {
+        _urgent.Color = "red-600";
+        _spare.Color = "accent-500"; // 見本の外（以前の自動の色）
+        var manage = await OpenAsync();
+
+        var urgent = manage.Labels.Single(r => r.Id == 200);
+        urgent.Swatches.Should().HaveCount(18);
+        urgent.Swatches.Single(s => s.IsSelected).Color.Should().Be("red-600");
+        manage.Labels.Single(r => r.Id == 201).Swatches.Should().OnlyContain(s => !s.IsSelected);
+    }
+
+    [Fact]
+    public async Task SetColor_CallsServiceAndRefreshes()
+    {
+        _service.OnSetLabelColor = call =>
+        {
+            _urgent.Color = call.Color;
+            return Task.FromResult(Result.Ok());
+        };
+        var manage = await OpenAsync();
+        var swatch = manage.Labels.Single(r => r.Id == 200).Swatches.Single(s => s.Color == "teal-300");
+
+        manage.SetColorCommand.Execute(swatch);
+        await manage.PendingChange;
+
+        _service.SetLabelColorCalls.Should().ContainSingle().Which.Should().Be(new SetLabelColorCall(200, "teal-300"));
+        manage.Labels.Single(r => r.Id == 200).Color.Should().Be("teal-300");
+    }
+
+    [Fact]
+    public async Task AddLabel_EmptyEnter_StaysOpen()
+    {
+        var manage = await OpenAsync();
+        manage.BeginAddLabelCommand.Execute(null);
+        manage.NewLabelName = "  ";
+
+        manage.CreateLabelCommand.Execute(null);
+        await manage.PendingChange;
+
+        manage.IsAddingLabel.Should().BeTrue();
+        _service.CreateLabelCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddProject_Success_ClosesAndAddsTheRow()
+    {
+        var created = new Project { Id = 102, Name = "新案件" };
+        _service.OnCreateProject = _ => Task.FromResult(Result.Ok(created));
+        _service.OnGetProjects = () => Task.FromResult<IReadOnlyList<Project>>(new[] { _projectA, _unused, created });
+        var manage = await OpenAsync();
+        manage.BeginAddProjectCommand.Execute(null);
+        manage.NewProjectName = " 新案件 ";
+
+        manage.CreateProjectCommand.Execute(null);
+        await manage.PendingChange;
+
+        _service.CreateProjectCalls.Should().ContainSingle().Which.Should().Be("新案件");
+        manage.IsAddingProject.Should().BeFalse();
+        manage.NewProjectName.Should().BeEmpty();
+        manage.Projects.Select(r => r.Id).Should().Contain(102);
+    }
+
+    [Fact]
+    public async Task AddLabel_SameNameAsArchived_RestoresInsteadOfAddingARow()
+    {
+        _urgent.Archived = true;
+        _service.OnCreateLabel = _ =>
+        {
+            _urgent.Archived = false; // 実サービスは同名のアーカイブ済みを復元して返す
+            return Task.FromResult(Result.Ok(_urgent));
+        };
+        var manage = await OpenAsync();
+        manage.BeginAddLabelCommand.Execute(null);
+        manage.NewLabelName = "至急";
+
+        manage.CreateLabelCommand.Execute(null);
+        await manage.PendingChange;
+
+        manage.Labels.Should().HaveCount(2);
+        manage.Labels.Single(r => r.Id == 200).IsArchived.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ProjectRows_OfferThePaletteAndNoColor()
+    {
+        _projectA.Color = "green-300";
+        var manage = await OpenAsync();
+
+        var colored = manage.Projects.Single(r => r.Id == 100);
+        colored.Color.Should().Be("green-300");
+        colored.Swatches.Should().HaveCount(18);
+        colored.Swatches.Single(s => s.IsSelected).Color.Should().Be("green-300");
+        colored.NoColorSwatch.Should().NotBeNull();
+        colored.NoColorSwatch!.IsSelected.Should().BeFalse();
+
+        var uncolored = manage.Projects.Single(r => r.Id == 101);
+        uncolored.Color.Should().BeNull();
+        uncolored.Swatches.Should().OnlyContain(s => !s.IsSelected);
+        uncolored.NoColorSwatch!.IsSelected.Should().BeTrue();
+
+        manage.Labels.Single(r => r.Id == 200).NoColorSwatch.Should().BeNull("ラベルは必ず色を持つ");
+    }
+
+    [Fact]
+    public async Task ProjectSetColor_AndClear_CallTheProjectService()
+    {
+        _projectA.Color = "green-300";
+        _service.OnSetProjectColor = call =>
+        {
+            _projectA.Color = call.Color;
+            return Task.FromResult(Result.Ok());
+        };
+        var manage = await OpenAsync();
+
+        manage.SetColorCommand.Execute(manage.Projects.Single(r => r.Id == 100).Swatches.Single(s => s.Color == "pink-600"));
+        await manage.PendingChange;
+        manage.Projects.Single(r => r.Id == 100).Color.Should().Be("pink-600");
+
+        manage.SetColorCommand.Execute(manage.Projects.Single(r => r.Id == 100).NoColorSwatch!);
+        await manage.PendingChange;
+
+        _service.SetProjectColorCalls.Should().Equal(new SetProjectColorCall(100, "pink-600"), new SetProjectColorCall(100, null));
+        manage.Projects.Single(r => r.Id == 100).Color.Should().BeNull();
+        _service.SetLabelColorCalls.Should().BeEmpty();
+    }
 }

@@ -21,6 +21,12 @@
   <data name="WipLimitMustBePositive" xml:space="preserve"><value>カードの上限は 1 以上の整数にしてください</value></data>
   <data name="ProjectNameRequired" xml:space="preserve"><value>プロジェクト名を入力してください</value></data>
   <data name="LabelNameRequired" xml:space="preserve"><value>ラベル名を入力してください</value></data>
+  <data name="ProjectNameDuplicate" xml:space="preserve"><value>同じ名前のプロジェクトがあります</value></data>
+  <data name="ProjectNameArchivedDuplicate" xml:space="preserve"><value>アーカイブ済みに同じ名前のプロジェクトがあります。復元して使ってください</value></data>
+  <data name="LabelNameDuplicate" xml:space="preserve"><value>同じ名前のラベルがあります</value></data>
+  <data name="LabelNameArchivedDuplicate" xml:space="preserve"><value>アーカイブ済みに同じ名前のラベルがあります。復元して使ってください</value></data>
+  <data name="LabelColorInvalid" xml:space="preserve"><value>その色は選べません</value></data>
+  <data name="ProjectColorInvalid" xml:space="preserve"><value>その色は選べません</value></data>
   <data name="WipExceededFormat" xml:space="preserve"><value>{0} のカードが上限 {1} 枚を超えています</value></data>
   <data name="SaveFailed" xml:space="preserve"><value>保存に失敗しました</value></data>
   <data name="DefaultBoardName" xml:space="preserve"><value>マイボード</value></data>

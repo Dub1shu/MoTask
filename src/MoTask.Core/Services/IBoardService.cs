@@ -28,13 +28,23 @@ public interface IBoardService
     Task<Result> DeleteColumnAsync(int columnId, CancellationToken ct = default);
 
     // 分類
+    /// <summary>同名（前後の空白・大文字小文字を無視）があれば作らずにそれを返す。アーカイブ済みなら復元する。</summary>
     Task<Result<Project>> CreateProjectAsync(string name, CancellationToken ct = default);
     Task<Result> ArchiveProjectAsync(int projectId, CancellationToken ct = default);
     Task<Result> UnarchiveProjectAsync(int projectId, CancellationToken ct = default);
     /// <summary>AI ジョブの cwd。空白だけなら null（既定ワークフォルダを使う）に戻す。</summary>
     Task<Result> SetProjectWorkingDirectoryAsync(int projectId, string? path, CancellationToken ct = default);
+    /// <summary>同名があれば作らずにそれを返す。アーカイブ済みなら復元し、色は元のまま。</summary>
     Task<Result<Label>> CreateLabelAsync(string name, string color, CancellationToken ct = default);
     /// <summary>一覧から退けるだけ。既にこのラベルが付いているタスクからは外さない。</summary>
     Task<Result> ArchiveLabelAsync(int labelId, CancellationToken ct = default);
     Task<Result> UnarchiveLabelAsync(int labelId, CancellationToken ct = default);
+    /// <summary>自分以外に同名（アーカイブ済みを含む）があれば失敗。大文字小文字だけの変更は通す。</summary>
+    Task<Result> RenameProjectAsync(int projectId, string name, CancellationToken ct = default);
+    /// <summary>LabelPalette の色か、null（色なし）だけを受け付ける。</summary>
+    Task<Result> SetProjectColorAsync(int projectId, string? color, CancellationToken ct = default);
+    /// <summary>自分以外に同名（アーカイブ済みを含む）があれば失敗。履歴の文言は書き換えない。</summary>
+    Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default);
+    /// <summary>LabelPalette の色だけを受け付ける。</summary>
+    Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default);
 }

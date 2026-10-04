@@ -64,8 +64,14 @@
                                      Margin="{StaticResource Gap.Left.2}" />
                           <StackPanel>
                             <TextBlock Text="{Binding Title}" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}"
-                                       Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}" />
+                            <StackPanel Orientation="Horizontal"
+                                        Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
+                              <!-- 色なしのプロジェクトは丸を出さない -->
+                              <Ellipse Width="8" Height="8" Margin="0,0,4,0" VerticalAlignment="Center"
+                                       Fill="{Binding ProjectColor, Converter={StaticResource RampBrush}}"
+                                       Visibility="{Binding ProjectColor, Converter={StaticResource NullToVisibility}}" />
+                              <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" />
+                            </StackPanel>
                           </StackPanel>
                         </DockPanel>
                       </Button>
@@ -94,7 +100,12 @@
 
             <StackPanel Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
               <TextBlock Text="{x:Static res:Strings.FieldProject}" Style="{StaticResource Text.Label}" Margin="{StaticResource Gap.Top.2}" />
-              <TextBlock Text="{Binding ProjectName}" />
+              <StackPanel Orientation="Horizontal">
+                <Ellipse Width="8" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                         Fill="{Binding ProjectColor, Converter={StaticResource RampBrush}}"
+                         Visibility="{Binding ProjectColor, Converter={StaticResource NullToVisibility}}" />
+                <TextBlock Text="{Binding ProjectName}" />
+              </StackPanel>
             </StackPanel>
 
             <StackPanel Visibility="{Binding HasLabels, Converter={StaticResource BoolToVisibility}}">

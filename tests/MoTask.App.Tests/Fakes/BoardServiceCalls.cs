@@ -24,5 +24,11 @@ public sealed record ReorderColumnsCall(IReadOnlyList<int> OrderedColumnIds);
 
 public sealed record SetWipLimitCall(int ColumnId, int? WipLimit);
 public sealed record CreateLabelCall(string Name, string Color);
+
+public sealed record RenameCall(int Id, string Name);
+
+public sealed record SetLabelColorCall(int LabelId, string Color);
+
+public sealed record SetProjectColorCall(int ProjectId, string? Color);
 public sealed record SetProjectWorkingDirectoryCall(int ProjectId, string? Path);
 public sealed record GetHistoryCall(int TaskId);

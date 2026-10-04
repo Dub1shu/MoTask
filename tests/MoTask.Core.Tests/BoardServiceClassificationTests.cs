@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MoTask.Core;
 using MoTask.Core.Abstractions;
 using MoTask.Core.Model;
@@ -179,5 +179,157 @@ public class BoardServiceClassificationTests
     public async Task SetProjectWorkingDirectory_UnknownProject_IsRejected()
     {
         (await _service.SetProjectWorkingDirectoryAsync(999, @"C:\x")).Error.Should().Be(Messages.ProjectNotFound);
+    }
+
+    [Fact]
+    public async Task CreateProject_SameNameAsArchived_RestoresIt()
+    {
+        var p = _store.SeedProject("合宿");
+        p.Archived = true;
+
+        var result = await _service.CreateProjectAsync(" 合宿 ");
+
+        result.Value!.Id.Should().Be(p.Id);
+        p.Archived.Should().BeFalse();
+        (await _service.GetProjectsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateProject_SameNameAsLive_ReturnsIt_IgnoringCase()
+    {
+        var p = _store.SeedProject("Alpha");
+
+        var result = await _service.CreateProjectAsync("alpha");
+
+        result.Value!.Id.Should().Be(p.Id);
+        result.Value.Name.Should().Be("Alpha");
+        (await _service.GetProjectsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateLabel_SameNameAsArchived_RestoresIt_KeepingItsColor()
+    {
+        var l = _store.SeedLabel("至急", "red-600");
+        l.Archived = true;
+
+        var result = await _service.CreateLabelAsync("至急", "green-300");
+
+        result.Value!.Id.Should().Be(l.Id);
+        l.Archived.Should().BeFalse();
+        l.Color.Should().Be("red-600");
+        (await _service.GetLabelsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task CreateLabel_SameNameAsLive_ReturnsIt()
+    {
+        var l = _store.SeedLabel("Bug");
+
+        var result = await _service.CreateLabelAsync(" BUG ", "green-300");
+
+        result.Value!.Id.Should().Be(l.Id);
+        (await _service.GetLabelsAsync()).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task RenameProject_TrimsAndSaves()
+    {
+        var p = _store.SeedProject("合宿");
+        (await _service.RenameProjectAsync(p.Id, " 秋合宿 ")).IsSuccess.Should().BeTrue();
+        p.Name.Should().Be("秋合宿");
+    }
+
+    [Fact]
+    public async Task RenameProject_Rejections()
+    {
+        var p = _store.SeedProject("A");
+        _store.SeedProject("B");
+        var archived = _store.SeedProject("C");
+        archived.Archived = true;
+
+        (await _service.RenameProjectAsync(p.Id, "  ")).Error.Should().Be(Messages.ProjectNameRequired);
+        (await _service.RenameProjectAsync(p.Id, "b")).Error.Should().Be(Messages.ProjectNameDuplicate);
+        (await _service.RenameProjectAsync(p.Id, "C")).Error.Should().Be(Messages.ProjectNameArchivedDuplicate);
+        (await _service.RenameProjectAsync(999, "D")).Error.Should().Be(Messages.ProjectNotFound);
+        p.Name.Should().Be("A");
+    }
+
+    [Fact]
+    public async Task RenameLabel_CaseOnlyChange_IsAllowed()
+    {
+        var l = _store.SeedLabel("bug");
+        (await _service.RenameLabelAsync(l.Id, "Bug")).IsSuccess.Should().BeTrue();
+        l.Name.Should().Be("Bug");
+    }
+
+    [Fact]
+    public async Task RenameLabel_Rejections()
+    {
+        var l = _store.SeedLabel("A");
+        _store.SeedLabel("B");
+        var archived = _store.SeedLabel("C");
+        archived.Archived = true;
+
+        (await _service.RenameLabelAsync(l.Id, "")).Error.Should().Be(Messages.LabelNameRequired);
+        (await _service.RenameLabelAsync(l.Id, " B ")).Error.Should().Be(Messages.LabelNameDuplicate);
+        (await _service.RenameLabelAsync(l.Id, "c")).Error.Should().Be(Messages.LabelNameArchivedDuplicate);
+        (await _service.RenameLabelAsync(999, "D")).Error.Should().Be(Messages.LabelNotFound);
+        l.Name.Should().Be("A");
+    }
+
+    [Fact]
+    public async Task RenameLabel_SameName_DoesNotSave()
+    {
+        var l = _store.SeedLabel("A");
+        var saves = _store.SaveCount;
+
+        (await _service.RenameLabelAsync(l.Id, " A ")).IsSuccess.Should().BeTrue();
+
+        _store.SaveCount.Should().Be(saves);
+    }
+
+    [Fact]
+    public async Task SetLabelColor_PaletteColor_IsSavedNormalized()
+    {
+        var l = _store.SeedLabel("A");
+        (await _service.SetLabelColorAsync(l.Id, "Teal-600")).IsSuccess.Should().BeTrue();
+        l.Color.Should().Be("teal-600");
+    }
+
+    [Fact]
+    public async Task SetLabelColor_Rejections()
+    {
+        var l = _store.SeedLabel("A", "accent-300");
+        (await _service.SetLabelColorAsync(l.Id, "accent-500")).Error.Should().Be(Messages.LabelColorInvalid);
+        (await _service.SetLabelColorAsync(999, "red-300")).Error.Should().Be(Messages.LabelNotFound);
+        l.Color.Should().Be("accent-300");
+    }
+
+    [Fact]
+    public async Task SetProjectColor_PaletteColor_IsSavedNormalized_AndNullClearsIt()
+    {
+        var p = _store.SeedProject("合宿");
+        p.Color.Should().BeNull("新しいプロジェクトは色なしで始まる");
+
+        (await _service.SetProjectColorAsync(p.Id, "Green-600")).IsSuccess.Should().BeTrue();
+        p.Color.Should().Be("green-600");
+
+        (await _service.SetProjectColorAsync(p.Id, null)).IsSuccess.Should().BeTrue();
+        p.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SetProjectColor_Rejections()
+    {
+        var p = _store.SeedProject("合宿");
+        (await _service.SetProjectColorAsync(p.Id, "accent-500")).Error.Should().Be(Messages.ProjectColorInvalid);
+        (await _service.SetProjectColorAsync(999, "red-300")).Error.Should().Be(Messages.ProjectNotFound);
+        p.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateProject_StartsWithoutColor()
+    {
+        (await _service.CreateProjectAsync("新案件")).Value!.Color.Should().BeNull();
     }
 }

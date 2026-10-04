@@ -211,4 +211,17 @@ public class ArchiveViewModelTests
 
         _vm.Weeks.SelectMany(w => w.Items).Select(i => i.Id).Should().Equal(40);
     }
+
+    [Fact]
+    public async Task Load_CarriesTheProjectColor()
+    {
+        var project = TestBoards.ProjectA();
+        project.Color = "teal-300";
+        _service.Projects = new[] { project };
+        AddDone(31, Noon(9, 12)).ProjectId = 100;
+
+        await _vm.LoadAsync();
+
+        _vm.Weeks[0].Items[0].ProjectColor.Should().Be("teal-300");
+    }
 }

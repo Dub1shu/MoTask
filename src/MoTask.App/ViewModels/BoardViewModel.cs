@@ -19,9 +19,6 @@ namespace MoTask.App.ViewModels;
 /// </summary>
 public sealed partial class BoardViewModel : ObservableObject
 {
-    private static readonly string[] LabelColors =
-        { "accent-300", "accent-500", "accent-200", "accent-700", "accent-400" };
-
     private readonly IBoardService _service;
     private readonly IClock _clock;
     private readonly SynchronizationContext? _ui;
@@ -123,7 +120,7 @@ public sealed partial class BoardViewModel : ObservableObject
         foreach (var column in _board.Columns.OrderBy(c => c.Order))
         {
             var vm = new ColumnViewModel(column, this);
-            vm.SyncCardsFromModel(ProjectName, Today);
+            vm.SyncCardsFromModel(ProjectOf, Today);
             Columns.Add(vm);
         }
         ApplyFilter();
@@ -149,8 +146,10 @@ public sealed partial class BoardViewModel : ObservableObject
         return history.Value!;
     }
 
-    public string? ProjectName(int? projectId)
-        => projectId is int id ? Projects.FirstOrDefault(p => p.Id == id)?.Name : null;
+    public string? ProjectName(int? projectId) => ProjectOf(projectId)?.Name;
+
+    public Project? ProjectOf(int? projectId)
+        => projectId is int id ? Projects.FirstOrDefault(p => p.Id == id) : null;
 
     public string ColumnName(int columnId)
         => _board?.Columns.FirstOrDefault(c => c.Id == columnId)?.Name ?? Strings.UnknownColumn;
@@ -437,12 +436,14 @@ public sealed partial class BoardViewModel : ObservableObject
         }
         Projects = projects.Value!;
         Filter.SetProjects(Projects);
+        // 管理ダイアログからの作成・復元は詳細パネルを通らないので、開いている詳細パネルの選択肢も入れ替える
+        Detail?.Refresh();
         return result.Value;
     }
 
     public async Task<Label?> CreateLabelAsync(string name)
     {
-        var color = LabelColors[Labels.Count % LabelColors.Length];
+        var color = LabelPalette.AutoColorFor(Labels.Count);
         var result = await GuardAsync(() => _service.CreateLabelAsync(name, color));
         if (!await HandleAsync(result)) return null;
         var labels = await QueryAsync(() => _service.GetLabelsAsync());
@@ -453,6 +454,7 @@ public sealed partial class BoardViewModel : ObservableObject
         }
         Labels = labels.Value!;
         Filter.SetLabels(Labels);
+        Detail?.Refresh();
         return result.Value;
     }
 
@@ -467,6 +469,30 @@ public sealed partial class BoardViewModel : ObservableObject
 
     public Task<bool> UnarchiveLabelAsync(int labelId)
         => RunClassificationChangeAsync(() => _service.UnarchiveLabelAsync(labelId));
+
+    public Task<bool> RenameProjectAsync(int projectId, string name)
+        => RunBoardWideClassificationChangeAsync(() => _service.RenameProjectAsync(projectId, name));
+
+    public Task<bool> SetProjectColorAsync(int projectId, string? color)
+        => RunBoardWideClassificationChangeAsync(() => _service.SetProjectColorAsync(projectId, color));
+
+    public Task<bool> RenameLabelAsync(int labelId, string name)
+        => RunBoardWideClassificationChangeAsync(() => _service.RenameLabelAsync(labelId, name));
+
+    public Task<bool> SetLabelColorAsync(int labelId, string color)
+        => RunBoardWideClassificationChangeAsync(() => _service.SetLabelColorAsync(labelId, color));
+
+    /// <summary>
+    /// 名前や色はカードのプロジェクト名とラベルのチップにも出る。カードが持つラベルは一覧と別のインスタンスでありうるので、
+    /// 分類だけでなくボード全体を読み直して確実に反映させる。
+    /// </summary>
+    private async Task<bool> RunBoardWideClassificationChangeAsync(Func<Task<Result>> action)
+    {
+        var result = await GuardAsync(action);
+        if (!await HandleAsync(result)) return false;
+        await ReloadAsync();
+        return true;
+    }
 
     /// <summary>
     /// プロジェクト・ラベルの一覧そのものを変える操作。タスクは動かないので履歴も再読み込みも要らないが、
@@ -690,7 +716,7 @@ public sealed partial class BoardViewModel : ObservableObject
 
     private void RefreshColumn(ColumnViewModel column)
     {
-        column.SyncCardsFromModel(ProjectName, Today);
+        column.SyncCardsFromModel(ProjectOf, Today);
         column.RefreshHeader();
         column.ApplyFilter(Filter.ToFilter(), Today);
     }

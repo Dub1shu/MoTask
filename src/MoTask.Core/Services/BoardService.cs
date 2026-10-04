@@ -324,6 +324,17 @@ public sealed class BoardService : IBoardService
         name = name.Trim();
         if (name.Length == 0) return Result.Fail<Project>(Messages.ProjectNameRequired);
 
+        // 同名は作らない（MCP が名前で引くので曖昧にしない）。アーカイブ済みなら復元して使う。
+        var projects = await _boards.GetProjectsAsync(ct).ConfigureAwait(false);
+        var existing = projects.FirstOrDefault(p => SameName(p.Name, name));
+        if (existing is not null)
+        {
+            if (!existing.Archived) return Result.Ok(existing);
+            existing.Archived = false;
+            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Result.Ok(existing);
+        }
+
         var project = new Project { Name = name };
         _boards.AddProject(project);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -371,6 +382,17 @@ public sealed class BoardService : IBoardService
         name = name.Trim();
         if (name.Length == 0) return Result.Fail<Label>(Messages.LabelNameRequired);
 
+        // 同名は作らない。アーカイブ済みなら復元し、色は元のまま（引数の色は使わない）。
+        var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+        var existing = labels.FirstOrDefault(l => SameName(l.Name, name));
+        if (existing is not null)
+        {
+            if (!existing.Archived) return Result.Ok(existing);
+            existing.Archived = false;
+            await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+            return Result.Ok(existing);
+        }
+
         var label = new Label { Name = name, Color = string.IsNullOrWhiteSpace(color) ? Label.DefaultColor : color.Trim() };
         _boards.AddLabel(label);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -400,7 +422,78 @@ public sealed class BoardService : IBoardService
         return Result.Ok();
     }, ct);
 
+    public Task<Result> RenameProjectAsync(int projectId, string name, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var projects = await _boards.GetProjectsAsync(ct).ConfigureAwait(false);
+        var project = projects.FirstOrDefault(p => p.Id == projectId);
+        if (project is null) return Result.Fail(Messages.ProjectNotFound);
+
+        name = name.Trim();
+        if (name.Length == 0) return Result.Fail(Messages.ProjectNameRequired);
+        if (project.Name == name) return Result.Ok();
+
+        var clash = projects.FirstOrDefault(p => p.Id != projectId && SameName(p.Name, name));
+        if (clash is not null)
+            return Result.Fail(clash.Archived ? Messages.ProjectNameArchivedDuplicate : Messages.ProjectNameDuplicate);
+
+        project.Name = name;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> SetProjectColorAsync(int projectId, string? color, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var project = await _boards.GetProjectAsync(projectId, ct).ConfigureAwait(false);
+        if (project is null) return Result.Fail(Messages.ProjectNotFound);
+        if (color is not null && !LabelPalette.Contains(color)) return Result.Fail(Messages.ProjectColorInvalid);
+
+        var normalized = color is null ? null : LabelPalette.Normalize(color);
+        if (project.Color == normalized) return Result.Ok();
+
+        project.Color = normalized;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+        var label = labels.FirstOrDefault(l => l.Id == labelId);
+        if (label is null) return Result.Fail(Messages.LabelNotFound);
+
+        name = name.Trim();
+        if (name.Length == 0) return Result.Fail(Messages.LabelNameRequired);
+        if (label.Name == name) return Result.Ok();
+
+        // 履歴は当時の名前を文字列で持っているので書き換えない
+        var clash = labels.FirstOrDefault(l => l.Id != labelId && SameName(l.Name, name));
+        if (clash is not null)
+            return Result.Fail(clash.Archived ? Messages.LabelNameArchivedDuplicate : Messages.LabelNameDuplicate);
+
+        label.Name = name;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var label = await _boards.GetLabelAsync(labelId, ct).ConfigureAwait(false);
+        if (label is null) return Result.Fail(Messages.LabelNotFound);
+        if (!LabelPalette.Contains(color)) return Result.Fail(Messages.LabelColorInvalid);
+
+        var normalized = LabelPalette.Normalize(color);
+        if (label.Color == normalized) return Result.Ok();
+
+        label.Color = normalized;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
     // ---------- 共通 ----------
+
+    /// <summary>分類の名前の同一判定。MCP の名前引き（BoardLookup）と同じく、前後の空白と大文字小文字を無視する。</summary>
+    private static bool SameName(string a, string b)
+        => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
 
     private void AddEditedHistory(TaskItem task, Dictionary<string, FieldChange> changes)
     {

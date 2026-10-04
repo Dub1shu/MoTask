@@ -16,6 +16,26 @@
       <Setter Property="Margin" Value="{StaticResource Gap.FieldLabel}" />
     </Style>
 
+    <!-- 色丸のボタン。Btn.Ghost は Button 用、Btn.Dropdown は矢印が付くので、ここだけの最小の見た目を持つ -->
+    <Style x:Key="Manage.ColorDot" TargetType="ToggleButton">
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ToggleButton">
+            <Border x:Name="Frame" Background="Transparent" CornerRadius="4" Padding="3">
+              <ContentPresenter />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- 1行分。ClassificationRow は種別を持つので、プロジェクトとラベルで同じテンプレートを使える。 -->
     <DataTemplate x:Key="Manage.Row">
       <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
@@ -35,20 +55,119 @@
               </Style>
             </Button.Style>
           </Button>
-          <StackPanel>
-            <TextBlock Text="{Binding Name}" TextWrapping="Wrap">
-              <TextBlock.Style>
-                <Style TargetType="TextBlock">
+
+          <!-- 色丸：押すと見本のポップアップ。色なしのプロジェクトは枠線だけの丸 -->
+          <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,6,0">
+            <ToggleButton x:Name="ColorDot" ToolTip="{x:Static res:Strings.ManageChangeColor}">
+              <ToggleButton.Style>
+                <Style TargetType="ToggleButton" BasedOn="{StaticResource Manage.ColorDot}">
                   <Style.Triggers>
-                    <!-- アーカイブ済みは淡くして、生きている行と見分けが付くようにする -->
-                    <DataTrigger Binding="{Binding IsArchived}" Value="True">
-                      <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                    <!-- StaysOpen=False は外側のクリックで閉じた直後に、そのクリックで ToggleButton が開き直す。
+                         開いている間は色丸がクリックを受けないようにして、色丸のクリックで閉じられるようにする -->
+                    <DataTrigger Binding="{Binding IsOpen, ElementName=ColorPopup}" Value="True">
+                      <Setter Property="IsHitTestVisible" Value="False" />
                     </DataTrigger>
                   </Style.Triggers>
                 </Style>
-              </TextBlock.Style>
-            </TextBlock>
-            <StackPanel Orientation="Horizontal">
+              </ToggleButton.Style>
+              <Ellipse Width="12" Height="12">
+                <Ellipse.Style>
+                  <Style TargetType="Ellipse">
+                    <Setter Property="Fill" Value="{Binding Color, Converter={StaticResource RampBrush}}" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding Color}" Value="{x:Null}">
+                        <Setter Property="Fill" Value="Transparent" />
+                        <Setter Property="Stroke" Value="{StaticResource Brush.TextMuted}" />
+                        <Setter Property="StrokeThickness" Value="1" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </Ellipse.Style>
+              </Ellipse>
+            </ToggleButton>
+            <Popup x:Name="ColorPopup" IsOpen="{Binding IsChecked, ElementName=ColorDot}" StaysOpen="False"
+                   PlacementTarget="{Binding ElementName=ColorDot}" Placement="Bottom" AllowsTransparency="True">
+              <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
+                      BorderThickness="1" CornerRadius="6" Padding="6">
+                <StackPanel>
+                  <ItemsControl ItemsSource="{Binding Swatches}">
+                    <ItemsControl.ItemsPanel>
+                      <ItemsPanelTemplate><UniformGrid Columns="9" Rows="2" /></ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate>
+                        <!-- Popup の中は別のビジュアルツリーで、AncestorType=Window が引けない。コマンドはコードビハインドから呼ぶ -->
+                        <Button Margin="2" Padding="0" Cursor="Hand" Style="{StaticResource Btn.Ghost}"
+                                ToolTip="{Binding Color}" Click="OnSwatchClick">
+                          <Border x:Name="Ring" Width="22" Height="22" CornerRadius="11" BorderThickness="2"
+                                  BorderBrush="Transparent" Padding="2">
+                            <Ellipse Fill="{Binding Color, Converter={StaticResource RampBrush}}" />
+                          </Border>
+                        </Button>
+                        <DataTemplate.Triggers>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource Brush.Text}" />
+                          </DataTrigger>
+                        </DataTemplate.Triggers>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                  <!-- プロジェクトだけ：既定の「色なし」へ戻す。DataContext は NoColorSwatch なので、見本と同じ Click で扱える -->
+                  <Button DataContext="{Binding NoColorSwatch}" Content="{x:Static res:Strings.ManageNoColor}"
+                          HorizontalAlignment="Left" Margin="0,4,0,0" Click="OnSwatchClick"
+                          Visibility="{Binding Converter={StaticResource NullToVisibility}}">
+                    <Button.Style>
+                      <Style TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
+                        <Style.Triggers>
+                          <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                          </DataTrigger>
+                        </Style.Triggers>
+                      </Style>
+                    </Button.Style>
+                  </Button>
+                </StackPanel>
+              </Border>
+            </Popup>
+          </Grid>
+
+          <StackPanel>
+            <!-- 名前：普段は文字、クリックで TextBox -->
+            <Grid>
+              <Border Cursor="Hand" Padding="2,0" CornerRadius="3" HorizontalAlignment="Left"
+                      ToolTip="{x:Static res:Strings.ManageRenameHint}" MouseLeftButtonUp="OnNameClick"
+                      Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibilityInverse}}">
+                <Border.Style>
+                  <Style TargetType="Border">
+                    <!-- Transparent でないとクリックが文字の隙間を素通りする。ローカル値にするとトリガーが効かないので Setter で置く -->
+                    <Setter Property="Background" Value="Transparent" />
+                    <Style.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                      </Trigger>
+                    </Style.Triggers>
+                  </Style>
+                </Border.Style>
+                <TextBlock Text="{Binding Name}" TextWrapping="Wrap">
+                  <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                      <Style.Triggers>
+                        <!-- アーカイブ済みは淡くして、生きている行と見分けが付くようにする -->
+                        <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                          <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                        </DataTrigger>
+                      </Style.Triggers>
+                    </Style>
+                  </TextBlock.Style>
+                </TextBlock>
+              </Border>
+              <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                       Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}"
+                       KeyDown="OnRenameBoxKeyDown" LostFocus="OnRenameBoxLostFocus"
+                       IsVisibleChanged="OnEditBoxIsVisibleChanged" />
+            </Grid>
+            <StackPanel Orientation="Horizontal" Margin="2,0,0,0">
               <TextBlock Text="{Binding UsageText}" Style="{StaticResource Text.Caption}" />
               <TextBlock Text="{x:Static res:Strings.ManageArchivedNote}" Style="{StaticResource Text.Caption}"
                          Margin="{StaticResource Gap.Left.2}"
@@ -69,6 +188,11 @@
   <DockPanel Margin="{StaticResource Pad.Board}">
     <Button DockPanel.Dock="Bottom" HorizontalAlignment="Right" Style="{StaticResource Btn.Primary}"
             Content="{x:Static res:Strings.Close}" Margin="{StaticResource Gap.Top.4}" Click="OnCloseClick" />
+    <!-- ダイアログはモーダルで裏のバナーが見えないので、失敗はここに出す -->
+    <TextBlock DockPanel.Dock="Bottom" Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+               Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Danger}"
+               Margin="{StaticResource Gap.Top.2}"
+               Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
     <ScrollViewer VerticalScrollBarVisibility="Auto">
       <StackPanel>
         <TextBlock Text="{x:Static res:Strings.ManageProjectsHeading}" Style="{StaticResource Manage.Heading}" />
@@ -84,6 +208,12 @@
             </Style>
           </TextBlock.Style>
         </TextBlock>
+        <Button Content="{x:Static res:Strings.ManageAddProject}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
+                Margin="{StaticResource Gap.Top.2}" Command="{Binding BeginAddProjectCommand}"
+                Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibilityInverse}}" />
+        <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Margin="{StaticResource Gap.Top.2}"
+                 Tag="Project" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
+                 KeyDown="OnNewBoxKeyDown" LostFocus="OnNewBoxLostFocus" IsVisibleChanged="OnEditBoxIsVisibleChanged" />
 
         <TextBlock Text="{x:Static res:Strings.ManageLabelsHeading}" Style="{StaticResource Manage.Heading}" />
         <ItemsControl ItemsSource="{Binding Labels}" ItemTemplate="{StaticResource Manage.Row}" />
@@ -98,6 +228,12 @@
             </Style>
           </TextBlock.Style>
         </TextBlock>
+        <Button Content="{x:Static res:Strings.ManageAddLabel}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
+                Margin="{StaticResource Gap.Top.2}" Command="{Binding BeginAddLabelCommand}"
+                Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />
+        <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" Margin="{StaticResource Gap.Top.2}"
+                 Tag="Label" Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibility}}"
+                 KeyDown="OnNewBoxKeyDown" LostFocus="OnNewBoxLostFocus" IsVisibleChanged="OnEditBoxIsVisibleChanged" />
       </StackPanel>
     </ScrollViewer>
   </DockPanel>
