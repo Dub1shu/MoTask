@@ -164,13 +164,15 @@
        12=メタ（フィールドのラベル・補足文・時刻）
        13=副次本文（ログ・履歴・チップ）
        15=本文と操作（入力欄・ボタン・コンボ）
-       18=詳細のタイトル
+       16=詳細のタイトル
        以前あった 14（FontSize.Control）は 15 と見分けが付かず、階層ではなく不揃いにしか
-       見えなかったので Body に統合して廃止した。 -->
+       見えなかったので Body に統合して廃止した。
+       詳細のタイトルは 18 だと狭い詳細パネルで大きすぎたので 16 に下げた。本文との差は 1px だが、
+       見出し書体と SemiBold で描き分けるので段として読める。 -->
   <sys:Double x:Key="FontSize.Body">15</sys:Double>
   <sys:Double x:Key="FontSize.Small">13</sys:Double>
   <sys:Double x:Key="FontSize.Caption">12</sys:Double>
-  <sys:Double x:Key="FontSize.DetailTitle">18</sys:Double>
+  <sys:Double x:Key="FontSize.DetailTitle">16</sys:Double>
   <sys:Double x:Key="FontSize.H4">20</sys:Double>
   <sys:Double x:Key="FontSize.H5">16</sys:Double>
 
