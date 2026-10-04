@@ -149,6 +149,17 @@ public class ThemeMarkupTests
         }
     }
 
+    [Fact]
+    public void DeletedCard_DashedOutlineUsesTheStrongStroke()
+    {
+        // 削除済みカードは枠を 0 にするので、点線がカードの唯一の輪郭になる。
+        // ControlStrokeColorDefaultBrush は 6〜7% の不透明度しかなく、どちらのテーマでもほぼ見えない。
+        var dashed = Load(Path.Combine("Views", "ColumnView.xaml")).Descendants(Presentation + "Rectangle")
+            .Single(r => (string?)r.Attribute(X + "Name") == "Dashed");
+
+        ((string?)dashed.Attribute("Stroke")).Should().Be("{DynamicResource ControlStrongStrokeColorDefaultBrush}");
+    }
+
     private static IEnumerable<XElement> ImplicitStyles(XDocument doc)
         => doc.Root!.Elements(Presentation + "Style").Where(s => s.Attribute(X + "Key") is null);
 

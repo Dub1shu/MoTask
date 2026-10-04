@@ -107,7 +107,7 @@
                             BorderThickness="1" Padding="{StaticResource Pad.Box}" CornerRadius="{StaticResource OverlayCornerRadius}" SnapsToDevicePixels="True">
                       <ContentPresenter />
                     </Border>
-                    <Rectangle x:Name="Dashed" Stroke="{DynamicResource ControlStrokeColorDefaultBrush}" StrokeThickness="1"
+                    <Rectangle x:Name="Dashed" Stroke="{DynamicResource ControlStrongStrokeColorDefaultBrush}" StrokeThickness="1"
                                StrokeDashArray="3 2" Visibility="Collapsed" IsHitTestVisible="False" />
                   </Grid>
                   <ControlTemplate.Triggers>

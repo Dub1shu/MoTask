@@ -17,7 +17,7 @@ public sealed class InsertionAdorner : Adorner
         : base(adornedElement)
     {
         _orientation = orientation;
-        _pen = CreatePen();
+        _pen = CreatePen(Application.Current?.TryFindResource("AccentFillColorDefaultBrush") as Brush);
         IsHitTestVisible = false;
     }
 
@@ -50,12 +50,13 @@ public sealed class InsertionAdorner : Adorner
     /// 線の色はテーマのアクセント色。Adorner はドラッグのたびに作られるので、ここで引けば
     /// OS のテーマやアクセント色を切り替えたあとの次のドラッグから追従する。見つからなければ既定色で描く。
     /// </summary>
-    private static Pen CreatePen()
+    internal static Pen CreatePen(Brush? themeBrush)
     {
-        var brush = Application.Current?.TryFindResource("AccentFillColorDefaultBrush") as Brush
-                    ?? new SolidColorBrush(Color.FromRgb(0x4C, 0x8E, 0xFF));
-        // 辞書の共有ブラシそのものを凍らせないよう、凍結した複製を使う。
-        if (brush.CanFreeze) brush = brush.GetAsFrozen() as Brush ?? brush;
+        var brush = themeBrush ?? new SolidColorBrush(Color.FromRgb(0x4C, 0x8E, 0xFF));
+        // Fluent のブラシは色がアクセント色への動的参照で、凍結できない（そのまま Pen に渡すと Pen.Freeze が投げる）。
+        // 今の値だけを写した複製を凍らせて使う。辞書の共有ブラシそのものには触らない。
+        brush = brush.CloneCurrentValue();
+        brush.Freeze();
         var pen = new Pen(brush, 2);
         pen.Freeze();
         return pen;
