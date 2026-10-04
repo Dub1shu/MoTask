@@ -19,8 +19,8 @@
       <Setter Property="Padding" Value="6.8,5" />
     </Style>
   </UserControl.Resources>
-  <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
-          Background="{StaticResource Brush.Surface}">
+  <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
+          Background="{DynamicResource LayerFillColorDefaultBrush}">
     <DockPanel>
       <DockPanel DockPanel.Dock="Top">
         <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource Btn.Ghost}" Command="{Binding CloseCommand}"
@@ -38,7 +38,7 @@
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibilityInverse}}" />
         <Button Content="{x:Static res:Strings.Restore}" Style="{StaticResource Btn.Primary}" Command="{Binding RestoreCommand}"
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
-        <TextBlock Text="{x:Static res:Strings.Deleted}" Style="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Danger}" Margin="{StaticResource Gap.Left.3}"
+        <TextBlock Text="{x:Static res:Strings.Deleted}" Style="{StaticResource Text.Body}" Foreground="{DynamicResource SystemFillColorCriticalBrush}" Margin="{StaticResource Gap.Left.3}"
                    VerticalAlignment="Center" Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
       </StackPanel>
 
@@ -52,7 +52,7 @@
               <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding HasTitleError}" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                   </DataTrigger>
                 </Style.Triggers>
               </Style>
@@ -137,7 +137,7 @@
 
             <!-- 指示文の確認・編集 -->
             <Border Visibility="{Binding IsComposing, Converter={StaticResource BoolToVisibility}}"
-                    BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
+                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
               <StackPanel>
                 <TextBlock Text="{Binding ComposingTitle}" Style="{StaticResource Text.Label}" />
                 <TextBox Text="{Binding Instruction, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap"
@@ -154,7 +154,7 @@
               <DockPanel>
                 <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Body}" FontWeight="Medium" VerticalAlignment="Center" />
               </DockPanel>
-              <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource Text.Prose}" Foreground="{StaticResource Brush.Danger}"
+              <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource Text.Prose}" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                          Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
 
               <TextBlock Text="{x:Static res:Strings.AiResult}" Style="{StaticResource Field.Label}"
@@ -219,7 +219,7 @@
                           <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Prose}">
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding IsError}" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                               </DataTrigger>
                             </Style.Triggers>
                           </Style>

@@ -6,7 +6,7 @@
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:BoardViewModel}">
-  <Border Background="{StaticResource Brush.Surface}" BorderBrush="{StaticResource Brush.Divider}"
+  <Border Background="{DynamicResource LayerFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
           BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}">
     <DockPanel>
       <!-- DockPanel は既定で縦に引き伸ばすので、そのままだと隣の TextBox の高さまで太る。
@@ -25,7 +25,7 @@
             <Style TargetType="ToggleButton" BasedOn="{StaticResource Btn.Dropdown}">
               <Style.Triggers>
                 <DataTrigger Binding="{Binding Filter.HasSelectedLabels}" Value="True">
-                  <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                  <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
                 </DataTrigger>
                 <!-- 開いている間は押せなくする。StaysOpen="False" のポップアップは外側の押下で閉じ、
                      そのクリックがこのボタンにも届いて開き直してしまうため。 -->
@@ -38,10 +38,10 @@
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="{x:Static res:Strings.Labels}" VerticalAlignment="Center" />
             <Border Margin="{StaticResource Gap.Left.1}" MinWidth="16" Padding="4,0" CornerRadius="8" VerticalAlignment="Center"
-                    Background="{StaticResource Brush.Accent}"
+                    Background="{DynamicResource AccentFillColorDefaultBrush}"
                     Visibility="{Binding Filter.HasSelectedLabels, Converter={StaticResource BoolToVisibility}}">
               <TextBlock Text="{Binding Filter.SelectedLabelCount}" Style="{StaticResource Text.Caption}"
-                         Foreground="{StaticResource Brush.OnAccent}" HorizontalAlignment="Center" />
+                         Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" HorizontalAlignment="Center" />
             </Border>
             <ItemsControl ItemsSource="{Binding Filter.SelectedLabelsPreview}" Margin="{StaticResource Gap.Left.2}" VerticalAlignment="Center">
               <ItemsControl.ItemsPanel>
@@ -67,7 +67,7 @@
                StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade"
                IsOpen="{Binding IsChecked, ElementName=LabelToggle, Mode=TwoWay}">
           <Border Width="420" Margin="0,4,0,0" Padding="{StaticResource Pad.Box}"
-                  Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
+                  Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                   BorderThickness="1" CornerRadius="6" PreviewKeyDown="LabelPopup_PreviewKeyDown">
             <DockPanel>
               <DockPanel DockPanel.Dock="Bottom" Margin="{StaticResource Gap.Top.2}" LastChildFill="False">

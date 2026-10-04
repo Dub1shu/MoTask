@@ -9,14 +9,14 @@
   <DockPanel Margin="{StaticResource Pad.Board}">
 
     <!-- バナー -->
-    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.AccentSubtle}"
-            BorderBrush="{StaticResource Brush.Danger}" BorderThickness="0,0,0,1"
+    <Border DockPanel.Dock="Top" Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+            BorderBrush="{DynamicResource SystemFillColorCriticalBrush}" BorderThickness="0,0,0,1"
             Padding="{StaticResource Pad.BarTight}"
             Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}">
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource Btn.Ghost}"
                 Command="{Binding DismissBannerCommand}" />
-        <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}"
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                    VerticalAlignment="Center" TextWrapping="Wrap" />
       </DockPanel>
     </Border>
@@ -51,7 +51,7 @@
       CanControl（= IsRunning）と IsFailed は排他なので、行を 2 本に分けても同時には出ない。
       どちらの条件も満たさないときは Border ごと消えるため、空の行は残らない。
     -->
-    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,1,0,0"
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0"
             Padding="{StaticResource Pad.SectionHeader}" Margin="{StaticResource Gap.Top.4}"
             Visibility="{Binding CanControl, Converter={StaticResource BoolToVisibility}}">
       <StackPanel Orientation="Horizontal">
@@ -63,7 +63,7 @@
                 Command="{Binding StopTrackingCommand}" Margin="{StaticResource Gap.Left.2}" />
       </StackPanel>
     </Border>
-    <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,1,0,0"
+    <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0"
             Padding="{StaticResource Pad.SectionHeader}" Margin="{StaticResource Gap.Top.4}"
             Visibility="{Binding IsFailed, Converter={StaticResource BoolToVisibility}}">
       <Button Content="{x:Static res:Strings.PlanOpenJobFolder}" Style="{StaticResource Btn.Ghost}"
@@ -91,8 +91,8 @@
                 <TextBlock Text="{Binding PositionText}" Style="{StaticResource Text.Caption}" />
 
                 <StackPanel Orientation="Horizontal" Margin="{StaticResource Gap.Top.4}">
-                  <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}" CornerRadius="3">
-                    <TextBlock Text="{Binding Selected.Source}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+                  <Border Background="{DynamicResource SubtleFillColorTertiaryBrush}" Padding="{StaticResource Pad.Chip}" CornerRadius="3">
+                    <TextBlock Text="{Binding Selected.Source}" Style="{StaticResource Text.Caption}" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
                   </Border>
                   <TextBlock Text="{Binding Selected.From}" Style="{StaticResource Text.Caption}"
                              VerticalAlignment="Center" Margin="{StaticResource Gap.Left.2}" />
@@ -194,7 +194,7 @@
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}">
               <ListBox.ItemContainerStyle>
                 <Style TargetType="ListBoxItem">
-                  <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                  <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                   <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
                   <Setter Property="Padding" Value="0" />
                   <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -202,17 +202,17 @@
                   <Setter Property="Template">
                     <Setter.Value>
                       <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}"
-                                BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1"
-                                Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
+                        <Border x:Name="Frame" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}" BorderThickness="1"
+                                Padding="{StaticResource Pad.Box}" CornerRadius="{StaticResource OverlayCornerRadius}" SnapsToDevicePixels="True">
                           <ContentPresenter />
                         </Border>
                         <ControlTemplate.Triggers>
                           <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                            <Setter TargetName="Frame" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                           </Trigger>
                           <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                            <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
                           </Trigger>
                         </ControlTemplate.Triggers>
                       </ControlTemplate>
@@ -223,9 +223,9 @@
               <ListBox.ItemTemplate>
                 <DataTemplate>
                   <DockPanel Margin="0,2">
-                    <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
+                    <Border DockPanel.Dock="Right" Background="{DynamicResource SubtleFillColorTertiaryBrush}" Padding="{StaticResource Pad.Chip}"
                             CornerRadius="3" VerticalAlignment="Top">
-                      <TextBlock Text="{Binding SuggestionText}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+                      <TextBlock Text="{Binding SuggestionText}" Style="{StaticResource Text.Caption}" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
                     </Border>
                     <StackPanel>
                       <TextBlock Text="{Binding Source}" Style="{StaticResource Text.Caption}" />
@@ -244,8 +244,8 @@
           <!-- 計画: 01 最初にやる1件 ＋ 02〜05 の区分 -->
           <TextBlock Text="{x:Static res:Strings.PlanHeading}" Style="{StaticResource Text.Label}"
                      Margin="{StaticResource Gap.Section}" />
-          <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
-                  BorderThickness="1" CornerRadius="8" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
+          <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                  BorderThickness="1" CornerRadius="{StaticResource OverlayCornerRadius}" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
             <StackPanel>
               <TextBlock Text="{Binding FirstThingHeadingText}" Style="{StaticResource Text.Caption}" />
               <TextBlock Text="{Binding FirstThing.Title}" FontWeight="Medium" TextWrapping="Wrap"
@@ -275,21 +275,21 @@
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
                           <DockPanel>
-                            <Border DockPanel.Dock="Right" Background="{StaticResource Brush.AccentSubtle}"
+                            <Border DockPanel.Dock="Right" Background="{DynamicResource SubtleFillColorTertiaryBrush}"
                                     Padding="{StaticResource Pad.Chip}" CornerRadius="3" VerticalAlignment="Top"
                                     Visibility="{Binding HasBadge, Converter={StaticResource BoolToVisibility}}">
                               <TextBlock Text="{Binding BadgeText}" Style="{StaticResource Text.Caption}"
-                                         Foreground="{StaticResource Brush.Accent}" />
+                                         Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
                             </Border>
                             <StackPanel>
                               <TextBlock Text="{Binding Title}" TextWrapping="Wrap">
                                 <TextBlock.Style>
                                   <Style TargetType="TextBlock">
-                                    <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                                     <Style.Triggers>
                                       <DataTrigger Binding="{Binding IsDone}" Value="True">
                                         <Setter Property="TextDecorations" Value="Strikethrough" />
-                                        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                                       </DataTrigger>
                                     </Style.Triggers>
                                   </Style>

@@ -26,8 +26,8 @@
       </ItemsControl>
 
       <!-- 列を追加 -->
-      <Border Width="{StaticResource Size.Column}" VerticalAlignment="Top" Background="{StaticResource Brush.Surface}"
-              BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1" CornerRadius="10"
+      <Border Width="{StaticResource Size.Column}" VerticalAlignment="Top" Background="{DynamicResource LayerFillColorDefaultBrush}"
+              BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10"
               Padding="{StaticResource Pad.Box}">
         <Grid>
           <Button Content="{x:Static res:Strings.AddColumn}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"

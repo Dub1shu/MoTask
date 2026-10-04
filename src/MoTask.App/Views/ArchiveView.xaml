@@ -9,14 +9,14 @@
   <DockPanel Margin="{StaticResource Pad.Board}">
 
     <!-- 読み込みの失敗。PlanView のバナーと同じ形。 -->
-    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.AccentSubtle}"
-            BorderBrush="{StaticResource Brush.Danger}" BorderThickness="0,0,0,1"
+    <Border DockPanel.Dock="Top" Background="{DynamicResource SubtleFillColorTertiaryBrush}"
+            BorderBrush="{DynamicResource SystemFillColorCriticalBrush}" BorderThickness="0,0,0,1"
             Padding="{StaticResource Pad.BarTight}"
             Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}">
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="×" ToolTip="{x:Static res:Strings.Close}"
                 Style="{StaticResource Btn.Ghost}" Command="{Binding DismissBannerCommand}" />
-        <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}"
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                    VerticalAlignment="Center" TextWrapping="Wrap" />
       </DockPanel>
     </Border>
@@ -53,7 +53,7 @@
                           <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                                <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
                               </DataTrigger>
                             </Style.Triggers>
                           </Style>
@@ -86,7 +86,7 @@
 
       <!-- 右: 読み取り専用の詳細。ボードの TaskDetailPanel は編集用なので使い回さない。 -->
       <Border Grid.Column="1" Margin="{StaticResource Gap.Left.4}"
-              Background="{StaticResource Brush.Surface}" BorderBrush="{StaticResource Brush.Divider}"
+              Background="{DynamicResource LayerFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
               BorderThickness="1" CornerRadius="8" Padding="{StaticResource Pad.Box}"
               Visibility="{Binding SelectedItem, Converter={StaticResource NullToVisibility}}">
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

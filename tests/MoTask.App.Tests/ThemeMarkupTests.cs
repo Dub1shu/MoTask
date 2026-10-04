@@ -102,6 +102,19 @@ public class ThemeMarkupTests
             .Count.Should().Be(2);
     }
 
+    [Fact]
+    public void ThemeColors_AreLookedUpDynamically()
+    {
+        // StaticResource は一度しか評価されないので、OS のテーマを切り替えてもその部分だけ色が変わらない。
+        // ラベルの段は RampBrushConverter 経由でしか引かないので、Industry.xaml の外に例外は無い。
+        var offenders = AllXaml()
+            .SelectMany(path => Regex.Matches(File.ReadAllText(path), @"StaticResource\s+(Brush\.[A-Za-z0-9.]+)")
+                .Select(m => $"{Path.GetFileName(path)}: {m.Groups[1].Value}"))
+            .ToList();
+
+        offenders.Should().BeEmpty();
+    }
+
     private static IEnumerable<XElement> ImplicitStyles(XDocument doc)
         => doc.Root!.Elements(Presentation + "Style").Where(s => s.Attribute(X + "Key") is null);
 

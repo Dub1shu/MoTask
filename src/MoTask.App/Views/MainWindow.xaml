@@ -9,13 +9,13 @@
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:BoardViewModel}"
         Title="{x:Static res:Strings.AppTitle}" Width="1280" Height="800" MinWidth="900" MinHeight="600"
         Icon="/Resources/motodo_icon.ico"
-        Foreground="{StaticResource Brush.Text}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>
     <!-- アプリの基準面。黒の濃淡と細い境界線でボードから分離する。 -->
-    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.Surface}"
-            BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
+    <Border DockPanel.Dock="Top" Background="{DynamicResource LayerFillColorDefaultBrush}"
+            BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
             Padding="{StaticResource Pad.Bar}">
       <DockPanel>
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
@@ -33,11 +33,11 @@
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{x:Static res:Strings.ViewPlan}" FontWeight="Medium" VerticalAlignment="Center" />
               <!-- 候補件数のバッジ（ワイヤー 4c）。同じ画面への導線を 2 つ作らず、タブに付ける（仕様 §3） -->
-              <Border Background="{StaticResource Brush.Accent}" CornerRadius="8" Padding="{StaticResource Pad.Chip}"
+              <Border Background="{DynamicResource AccentFillColorDefaultBrush}" CornerRadius="8" Padding="{StaticResource Pad.Chip}"
                       Margin="{StaticResource Gap.Left.1}" VerticalAlignment="Center"
                       Visibility="{Binding DataContext.HasPendingCandidates, ElementName=PlanHost, Converter={StaticResource BoolToVisibility}}">
                 <TextBlock Text="{Binding DataContext.PendingCount, ElementName=PlanHost}"
-                           Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.OnAccent}" />
+                           Style="{StaticResource Text.Caption}" Foreground="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
               </Border>
             </StackPanel>
           </Button>
@@ -50,13 +50,13 @@
     </Border>
 
     <!-- 保存失敗などの非モーダルバナー -->
-    <Border DockPanel.Dock="Top" Background="{StaticResource Brush.AccentSubtle}" BorderBrush="{StaticResource Brush.Danger}"
+    <Border DockPanel.Dock="Top" Background="{DynamicResource SubtleFillColorTertiaryBrush}" BorderBrush="{DynamicResource SystemFillColorCriticalBrush}"
             BorderThickness="0,0,0,1" Padding="{StaticResource Pad.BarTight}"
             Visibility="{Binding BannerMessage, Converter={StaticResource NullToVisibility}}">
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="×" ToolTip="{x:Static res:Strings.Close}"
                 Style="{StaticResource Btn.Ghost}" Command="{Binding DismissBannerCommand}" />
-        <TextBlock Text="{Binding BannerMessage}" Foreground="{StaticResource Brush.Danger}" VerticalAlignment="Center" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding BannerMessage}" Foreground="{DynamicResource SystemFillColorCriticalBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
       </DockPanel>
     </Border>
 
