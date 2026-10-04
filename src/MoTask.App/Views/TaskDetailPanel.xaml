@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="clr-namespace:MoTask.App.Behaviors"
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:TaskDetailViewModel}">
@@ -69,7 +70,7 @@
                     Command="{Binding BeginAddProjectCommand}" ToolTip="{x:Static res:Strings.AddProject}" />
             <ComboBox ItemsSource="{Binding Projects}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedProject}" />
           </DockPanel>
-          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Tag="{x:Static res:Strings.NewProjectHint}"
+          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" behaviors:Watermark.Text="{x:Static res:Strings.NewProjectHint}"
                    Style="{StaticResource Field.SingleLine}"
                    Margin="{StaticResource Gap.Top.1}" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
                    KeyDown="NewProjectBox_KeyDown" LostFocus="NewProjectBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
@@ -95,7 +96,7 @@
                   <Button Content="{x:Static res:Strings.AddTaskInline}" Style="{StaticResource Btn.Ghost}" Padding="6.8,2"
                           FontSize="{StaticResource FontSize.Small}" Command="{Binding BeginAddLabelCommand}"
                           Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />
-                  <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" Tag="{x:Static res:Strings.NewLabelHint}"
+                  <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" behaviors:Watermark.Text="{x:Static res:Strings.NewLabelHint}"
                            MinWidth="160" Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibility}}"
                            KeyDown="NewLabelBox_KeyDown" LostFocus="NewLabelBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
                 </Grid>

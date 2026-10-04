@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using FluentAssertions;
 using Xunit;
@@ -87,6 +88,18 @@ public class ThemeMarkupTests
         {
             File.ReadAllText(path).Should().NotContain("Focus.Ring", because: $"{Path.GetFileName(path)} が消したスタイルを参照している");
         }
+    }
+
+    [Fact]
+    public void DetailPanel_HintsUseTheWatermarkBehavior()
+    {
+        // TextBox のテンプレートは Fluent に任せたので、Tag に入れた文字はもう透かし文字にならない。
+        var panel = File.ReadAllText(Path.Combine(XamlRoot, "Views", "TaskDetailPanel.xaml"));
+
+        panel.Should().NotContain("Tag=\"{x:Static res:Strings.NewProjectHint}\"");
+        panel.Should().NotContain("Tag=\"{x:Static res:Strings.NewLabelHint}\"");
+        Regex.Matches(panel, @"behaviors:Watermark\.Text=""\{x:Static res:Strings\.New(Project|Label)Hint\}""")
+            .Count.Should().Be(2);
     }
 
     private static IEnumerable<XElement> ImplicitStyles(XDocument doc)
