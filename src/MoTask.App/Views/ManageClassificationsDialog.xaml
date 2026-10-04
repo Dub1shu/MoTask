@@ -19,7 +19,7 @@
     <!-- 色丸のボタン。Btn.Ghost は Button 用、Btn.Dropdown は矢印が付くので、ここだけの最小の見た目を持つ -->
     <Style x:Key="Manage.ColorDot" TargetType="ToggleButton">
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+      <Setter Property="FocusVisualStyle" Value="{StaticResource DefaultControlFocusVisualStyle}" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ToggleButton">
