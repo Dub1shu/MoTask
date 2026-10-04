@@ -46,12 +46,16 @@ public sealed class InsertionAdorner : Adorner
         }
     }
 
-    /// <summary>線の色はテーマの Brush.Accent。見つからなければ既定色で描く。</summary>
+    /// <summary>
+    /// 線の色はテーマのアクセント色。Adorner はドラッグのたびに作られるので、ここで引けば
+    /// OS のテーマやアクセント色を切り替えたあとの次のドラッグから追従する。見つからなければ既定色で描く。
+    /// </summary>
     private static Pen CreatePen()
     {
-        var brush = Application.Current?.TryFindResource("Brush.Accent") as Brush
+        var brush = Application.Current?.TryFindResource("AccentFillColorDefaultBrush") as Brush
                     ?? new SolidColorBrush(Color.FromRgb(0x4C, 0x8E, 0xFF));
-        if (brush.CanFreeze) brush.Freeze();
+        // 辞書の共有ブラシそのものを凍らせないよう、凍結した複製を使う。
+        if (brush.CanFreeze) brush = brush.GetAsFrozen() as Brush ?? brush;
         var pen = new Pen(brush, 2);
         pen.Freeze();
         return pen;

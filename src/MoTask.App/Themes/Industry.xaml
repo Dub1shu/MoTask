@@ -2,19 +2,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=System.Runtime">
 
-  <!-- Graphite Blue: 黒の濃淡で階層を作り、操作箇所だけ青で強調する。 -->
-  <Color x:Key="Color.Bg">#0D0F12</Color>
-  <Color x:Key="Color.Surface">#15181D</Color>
-  <Color x:Key="Color.SurfaceRaised">#1D2128</Color>
-  <Color x:Key="Color.SurfaceHover">#252B35</Color>
-  <Color x:Key="Color.Input">#111419</Color>
-  <Color x:Key="Color.Text">#ECEEF2</Color>
-  <Color x:Key="Color.TextMuted">#9BA3B2</Color>
-  <Color x:Key="Color.Accent">#7DA7FF</Color>
-  <Color x:Key="Color.AccentSubtle">#263756</Color>
-  <Color x:Key="Color.Divider">#343943</Color>
-  <Color x:Key="Color.Danger">#FF7373</Color>
-  <Color x:Key="Color.OnAccent">#0C1424</Color>
+  <!-- ラベルとプロジェクトの色見本（RampBrushConverter が引く）。テーマに関係なく同じ色。
+       UI の色はここではなく Fluent のキー（DynamicResource）で引く。 -->
 
   <Color x:Key="Color.Neutral.100">#F5F5F8</Color>
   <Color x:Key="Color.Neutral.200">#E7E7EA</Color>
@@ -51,19 +40,6 @@
   <Color x:Key="Color.Purple.600">#7A64A8</Color>
   <Color x:Key="Color.Pink.300">#F4BFD9</Color>
   <Color x:Key="Color.Pink.600">#A35C80</Color>
-
-  <SolidColorBrush x:Key="Brush.Bg" Color="{StaticResource Color.Bg}" />
-  <SolidColorBrush x:Key="Brush.Surface" Color="{StaticResource Color.Surface}" />
-  <SolidColorBrush x:Key="Brush.SurfaceRaised" Color="{StaticResource Color.SurfaceRaised}" />
-  <SolidColorBrush x:Key="Brush.SurfaceHover" Color="{StaticResource Color.SurfaceHover}" />
-  <SolidColorBrush x:Key="Brush.Input" Color="{StaticResource Color.Input}" />
-  <SolidColorBrush x:Key="Brush.Text" Color="{StaticResource Color.Text}" />
-  <SolidColorBrush x:Key="Brush.TextMuted" Color="{StaticResource Color.TextMuted}" />
-  <SolidColorBrush x:Key="Brush.Accent" Color="{StaticResource Color.Accent}" />
-  <SolidColorBrush x:Key="Brush.AccentSubtle" Color="{StaticResource Color.AccentSubtle}" />
-  <SolidColorBrush x:Key="Brush.Divider" Color="{StaticResource Color.Divider}" />
-  <SolidColorBrush x:Key="Brush.Danger" Color="{StaticResource Color.Danger}" />
-  <SolidColorBrush x:Key="Brush.OnAccent" Color="{StaticResource Color.OnAccent}" />
 
   <SolidColorBrush x:Key="Brush.Neutral.100" Color="{StaticResource Color.Neutral.100}" />
   <SolidColorBrush x:Key="Brush.Neutral.200" Color="{StaticResource Color.Neutral.200}" />

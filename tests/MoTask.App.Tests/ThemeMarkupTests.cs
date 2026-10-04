@@ -115,6 +115,40 @@ public class ThemeMarkupTests
         offenders.Should().BeEmpty();
     }
 
+    /// <summary>Fluent のキーへ移して廃止した意味色。ラベルの段（Accent / Neutral などの数字付き）は残す。</summary>
+    private static readonly string[] RetiredSemanticColors =
+    {
+        "Bg", "Surface", "SurfaceRaised", "SurfaceHover", "Input", "Text", "TextMuted",
+        "Accent", "AccentSubtle", "Divider", "Danger", "OnAccent",
+    };
+
+    [Fact]
+    public void Industry_NoLongerDefinesSemanticColors()
+    {
+        var keys = Load(Path.Combine("Themes", "Industry.xaml")).Descendants()
+            .Select(e => (string?)e.Attribute(X + "Key"))
+            .Where(k => k is not null)
+            .ToHashSet();
+
+        foreach (var name in RetiredSemanticColors)
+        {
+            keys.Should().NotContain($"Brush.{name}", "テーマの色は Fluent のキーで引く");
+            keys.Should().NotContain($"Color.{name}");
+        }
+        keys.Should().Contain(new[] { "Brush.Neutral.100", "Brush.Neutral.900", "Brush.Accent.300" },
+            "ラベルの段は文字色と既定色に使うので残す");
+    }
+
+    [Fact]
+    public void DueDateColor_FollowsTheTheme()
+    {
+        // コンバーターで一度だけ引いた色は、OS のテーマを切り替えても変わらない。
+        foreach (var path in AllXaml())
+        {
+            File.ReadAllText(path).Should().NotContain("DueStatusBrush", because: Path.GetFileName(path));
+        }
+    }
+
     private static IEnumerable<XElement> ImplicitStyles(XDocument doc)
         => doc.Root!.Elements(Presentation + "Style").Where(s => s.Attribute(X + "Key") is null);
 

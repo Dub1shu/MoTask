@@ -7,7 +7,6 @@
        色は必ず Fluent のキーを DynamicResource で引く。StaticResource だと OS のテーマ切り替えに追従しない。 -->
 
   <conv:RampBrushConverter x:Key="RampBrush" />
-  <conv:DueStatusBrushConverter x:Key="DueStatusBrush" />
   <conv:BoolToVisibilityConverter x:Key="BoolToVisibility" />
   <conv:BoolToVisibilityConverter x:Key="BoolToVisibilityInverse" Invert="True" />
   <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
