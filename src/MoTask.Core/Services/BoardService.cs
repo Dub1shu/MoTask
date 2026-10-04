@@ -441,6 +441,20 @@ public sealed class BoardService : IBoardService
         return Result.Ok();
     }, ct);
 
+    public Task<Result> SetProjectColorAsync(int projectId, string? color, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var project = await _boards.GetProjectAsync(projectId, ct).ConfigureAwait(false);
+        if (project is null) return Result.Fail(Messages.ProjectNotFound);
+        if (color is not null && !LabelPalette.Contains(color)) return Result.Fail(Messages.ProjectColorInvalid);
+
+        var normalized = color is null ? null : LabelPalette.Normalize(color);
+        if (project.Color == normalized) return Result.Ok();
+
+        project.Color = normalized;
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
     public Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default) => RunAsync(async () =>
     {
         var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);

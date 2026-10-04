@@ -32,6 +32,7 @@ public static class Messages
     public static string LabelNameDuplicate => Get(nameof(LabelNameDuplicate));
     public static string LabelNameArchivedDuplicate => Get(nameof(LabelNameArchivedDuplicate));
     public static string LabelColorInvalid => Get(nameof(LabelColorInvalid));
+    public static string ProjectColorInvalid => Get(nameof(ProjectColorInvalid));
     public static string WipExceededFormat => Get(nameof(WipExceededFormat));
     public static string SaveFailed => Get(nameof(SaveFailed));
     public static string DefaultBoardName => Get(nameof(DefaultBoardName));

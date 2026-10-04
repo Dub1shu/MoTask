@@ -304,4 +304,32 @@ public class BoardServiceClassificationTests
         (await _service.SetLabelColorAsync(999, "red-300")).Error.Should().Be(Messages.LabelNotFound);
         l.Color.Should().Be("accent-300");
     }
+
+    [Fact]
+    public async Task SetProjectColor_PaletteColor_IsSavedNormalized_AndNullClearsIt()
+    {
+        var p = _store.SeedProject("合宿");
+        p.Color.Should().BeNull("新しいプロジェクトは色なしで始まる");
+
+        (await _service.SetProjectColorAsync(p.Id, "Green-600")).IsSuccess.Should().BeTrue();
+        p.Color.Should().Be("green-600");
+
+        (await _service.SetProjectColorAsync(p.Id, null)).IsSuccess.Should().BeTrue();
+        p.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SetProjectColor_Rejections()
+    {
+        var p = _store.SeedProject("合宿");
+        (await _service.SetProjectColorAsync(p.Id, "accent-500")).Error.Should().Be(Messages.ProjectColorInvalid);
+        (await _service.SetProjectColorAsync(999, "red-300")).Error.Should().Be(Messages.ProjectNotFound);
+        p.Color.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CreateProject_StartsWithoutColor()
+    {
+        (await _service.CreateProjectAsync("新案件")).Value!.Color.Should().BeNull();
+    }
 }

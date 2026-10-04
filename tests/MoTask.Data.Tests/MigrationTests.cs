@@ -144,6 +144,24 @@ public class MigrationTests : IDisposable
     }
 
     [Fact]
+    public async Task Project_Color_RoundTrips()
+    {
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+            ctx.Projects.Add(new Project { Name = "p", Color = "green-600" });
+            ctx.Projects.Add(new Project { Name = "q" });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            (await ctx.Projects.SingleAsync(p => p.Name == "p")).Color.Should().Be("green-600");
+            (await ctx.Projects.SingleAsync(p => p.Name == "q")).Color.Should().BeNull();
+        }
+    }
+
+    [Fact]
     public void DbPaths_SettingsSitNextToTheDatabase()
     {
         DbPaths.DefaultSettings.Should().EndWith(Path.Combine("MoTask", "settings.json"));

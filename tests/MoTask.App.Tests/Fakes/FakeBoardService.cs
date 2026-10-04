@@ -338,6 +338,19 @@ public sealed class FakeBoardService : IBoardService
         return OnRenameLabel?.Invoke(call) ?? Task.FromResult(Result.Ok());
     }
 
+    /// <summary>SetProjectColorAsync に渡された引数を呼ばれた順に。</summary>
+    public List<SetProjectColorCall> SetProjectColorCalls { get; } = new();
+
+    /// <summary>SetProjectColorAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
+    public Func<SetProjectColorCall, Task<Result>>? OnSetProjectColor { get; set; }
+
+    public Task<Result> SetProjectColorAsync(int projectId, string? color, CancellationToken ct = default)
+    {
+        var call = new SetProjectColorCall(projectId, color);
+        SetProjectColorCalls.Add(call);
+        return OnSetProjectColor?.Invoke(call) ?? Task.FromResult(Result.Ok());
+    }
+
     public Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default)
     {
         var call = new SetLabelColorCall(labelId, color);
