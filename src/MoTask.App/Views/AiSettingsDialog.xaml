@@ -53,11 +53,8 @@
         <TextBox Text="{Binding PlanningInstruction, UpdateSourceTrigger=PropertyChanged}"
                  AcceptsReturn="True" TextWrapping="Wrap" Height="160"
                  VerticalScrollBarVisibility="Auto" />
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="{StaticResource Gap.Top.1}">
-          <Button Content="{x:Static res:Strings.SettingsPlanningInstructionReset}" Command="{Binding ResetPlanningInstructionCommand}"
-                  Margin="{StaticResource Gap.Right.4}" />
-          <Button Content="{x:Static res:Strings.SettingsPlanningInstructionApply}" Command="{Binding ApplyPlanningInstructionCommand}" />
-        </StackPanel>
+        <Button Content="{x:Static res:Strings.SettingsPlanningInstructionReset}" Command="{Binding ResetPlanningInstructionCommand}"
+                HorizontalAlignment="Right" Margin="{StaticResource Gap.Top.1}" />
       </StackPanel>
     </ScrollViewer>
   </DockPanel>

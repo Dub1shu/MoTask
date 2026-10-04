@@ -171,30 +171,14 @@ public class AiSettingsViewModelTests
         _store.SaveCalls.Should().ContainSingle().Which.PlanningInstruction.Should().BeNull();
     }
 
-    /// <summary>適用は指示文だけを差し替える。ほかの欄は保存済みの値のまま。</summary>
     [Fact]
-    public void ApplyPlanningInstruction_ReplacesOnlyTheInstruction()
-    {
-        var vm = Open();
-        vm.DefaultWorkingDirectory = "  ";
-        vm.Model = "書きかけのモデル";
-        vm.PlanningInstruction = "  私の方針  ";
-
-        vm.ApplyPlanningInstructionCommand.Execute(null);
-
-        _store.SaveCalls.Should().ContainSingle().Which.Should().Be(_store.Settings with { PlanningInstruction = "私の方針" });
-        vm.StatusMessage.Should().Be(Strings.SettingsPlanningInstructionApplied);
-        vm.ErrorMessage.Should().BeNull();
-    }
-
-    [Fact]
-    public void ApplyPlanningInstruction_StoresNull_WhenItIsTheDefault()
+    public void Save_StoresNull_AfterResettingThePlanningInstruction()
     {
         _store.Settings = _store.Settings with { PlanningInstruction = "私の方針" };
         var vm = Open();
 
         vm.ResetPlanningInstructionCommand.Execute(null);
-        vm.ApplyPlanningInstructionCommand.Execute(null);
+        vm.SaveCommand.Execute(null);
 
         _store.SaveCalls.Should().ContainSingle().Which.PlanningInstruction.Should().BeNull();
     }
