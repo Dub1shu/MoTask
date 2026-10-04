@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using MoTask.App.Themes;
 using MoTask.App.ViewModels;
 
 namespace MoTask.App.Views;
@@ -14,7 +13,6 @@ public partial class ManageClassificationsDialog : Window
     public ManageClassificationsDialog()
     {
         InitializeComponent();
-        DarkWindowChrome.Apply(this);
     }
 
     private ManageClassificationsViewModel Vm => (ManageClassificationsViewModel)DataContext;

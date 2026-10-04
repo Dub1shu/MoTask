@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:AiSettingsViewModel}"
         Title="{x:Static res:Strings.AiSettings}" Width="560" Height="640"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
+        Foreground="{StaticResource Brush.Text}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         PreviewKeyDown="OnPreviewKeyDown">
   <Window.Resources>

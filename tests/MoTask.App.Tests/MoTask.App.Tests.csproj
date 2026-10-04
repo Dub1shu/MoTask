@@ -30,5 +30,10 @@
           CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\MoTask.App\Views\ManageClassificationsDialog.xaml" Link="Fixtures\ManageClassificationsDialog.xaml"
           CopyToOutputDirectory="PreserveNewest" />
+    <!-- テーマの配線（ThemeMarkupTests）は App の XAML 全体を見る。フォルダ構成ごと Fixtures\Xaml\ に写す。 -->
+    <None Include="..\..\src\MoTask.App\**\*.xaml"
+          Exclude="..\..\src\MoTask.App\bin\**;..\..\src\MoTask.App\obj\**"
+          Link="Fixtures\Xaml\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ManageClassificationsViewModel}"
         Title="{x:Static res:Strings.ManageClassifications}" Width="480" Height="560"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
+        Foreground="{StaticResource Brush.Text}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         PreviewKeyDown="OnPreviewKeyDown">
   <Window.Resources>

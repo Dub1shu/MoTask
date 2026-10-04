@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Input;
-using MoTask.App.Themes;
 
 namespace MoTask.App.Views;
 
@@ -10,7 +9,6 @@ public partial class AiSettingsDialog : Window
     public AiSettingsDialog()
     {
         InitializeComponent();
-        DarkWindowChrome.Apply(this);
     }
 
     private void OnCloseClick(object sender, RoutedEventArgs e) => Close();

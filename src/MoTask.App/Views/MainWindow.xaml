@@ -9,7 +9,7 @@
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:BoardViewModel}"
         Title="{x:Static res:Strings.AppTitle}" Width="1280" Height="800" MinWidth="900" MinHeight="600"
         Icon="/Resources/motodo_icon.ico"
-        Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
+        Foreground="{StaticResource Brush.Text}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         Loaded="OnLoaded" PreviewKeyDown="OnPreviewKeyDown">
   <DockPanel>

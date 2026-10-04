@@ -566,7 +566,7 @@
     </Border>
   </ControlTemplate>
   <Style TargetType="ScrollBar">
-    <Setter Property="Background" Value="{StaticResource Brush.Bg}" />
+    <Setter Property="Background" Value="Transparent" />
     <Setter Property="Width" Value="12" />
     <Setter Property="Template" Value="{StaticResource ScrollBar.Vertical}" />
     <Style.Triggers>
