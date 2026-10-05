@@ -122,6 +122,50 @@ public class PlanningServiceTodayTests
         result.Warnings.Should().NotBeEmpty("今日中の列が上限を超えた");
     }
 
+    /// <summary>選んでから移すまでの間に消されたタスクは移さず、理由を警告に出す。残りは移す。</summary>
+    [Fact]
+    public async Task ATaskDeletedAfterSelection_IsSkippedWithAWarning()
+    {
+        Plan(_a.Id, _b.Id);
+        var interrupted = false;
+        _store.OnGetTask = id =>
+        {
+            if (id != _a.Id || interrupted) return;
+            interrupted = true;
+            _b.DeletedAt = new DateTime(2026, 10, 5, 0, 0, 0, DateTimeKind.Utc);
+        };
+
+        var result = await WithinLimitAsync(_service.MoveTodayToColumnAsync(_run.Id));
+
+        result.Value.Should().Be(1);
+        result.Warnings.Should().Contain(Messages.TaskAlreadyDeleted);
+        IdsIn(_today).Should().Equal(_alreadyToday.Id, _a.Id);
+        _b.ColumnId.Should().Be(_backlog.Id, "消されたタスクは今日中へ移さない");
+    }
+
+    /// <summary>選んでから移すまでの間に人が進行中へ動かしたタスクは、今日中へ引き戻さない。</summary>
+    [Fact]
+    public async Task ATaskMovedOutOfTheBacklogAfterSelection_StaysWhereItWent()
+    {
+        Plan(_a.Id, _b.Id);
+        var interrupted = false;
+        _store.OnGetTask = id =>
+        {
+            if (id != _a.Id || interrupted) return;
+            interrupted = true;
+            _backlog.Tasks.Remove(_b);
+            _active.Tasks.Add(_b);
+            _b.ColumnId = _active.Id;
+            _b.Position = 1;
+        };
+
+        var result = await WithinLimitAsync(_service.MoveTodayToColumnAsync(_run.Id));
+
+        result.Value.Should().Be(1);
+        result.Warnings.Should().BeEmpty("人が自分で動かしたので知らせることは無い");
+        _b.ColumnId.Should().Be(_active.Id);
+    }
+
     [Fact]
     public async Task AnUnknownRun_Fails()
     {

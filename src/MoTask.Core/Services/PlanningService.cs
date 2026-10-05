@@ -830,6 +830,22 @@ public sealed class PlanningService : IPlanningService
         var warnings = new List<string>();
         foreach (var taskId in picked.TaskIds)
         {
+            // 選んだのは前の移動のゲートより前なので、その間に消されたり人が動かしたりしていないか確かめ直す。
+            // 消されていたら知らせ、未着手から出ていたら人の操作を優先して黙って飛ばす。
+            var state = await _gate.RunAsync(async () =>
+            {
+                var task = await _boards.GetTaskAsync(taskId, ct).ConfigureAwait(false);
+                if (task is null || task.IsDeleted) return TodayMoveState.Deleted;
+                var column = await _boards.GetColumnAsync(task.ColumnId, ct).ConfigureAwait(false);
+                return column?.Role == ColumnRole.Backlog ? TodayMoveState.Movable : TodayMoveState.Elsewhere;
+            }, ct).ConfigureAwait(false);
+            if (state == TodayMoveState.Elsewhere) continue;
+            if (state == TodayMoveState.Deleted)
+            {
+                if (!warnings.Contains(Messages.TaskAlreadyDeleted)) warnings.Add(Messages.TaskAlreadyDeleted);
+                continue;
+            }
+
             // position は末尾に丸められる（BoardService.MoveTaskAsync が Clamp する）
             var result = await _boardService.MoveTaskAsync(taskId, targetId, int.MaxValue, ct).ConfigureAwait(false);
             if (!result.IsSuccess)
@@ -844,6 +860,8 @@ public sealed class PlanningService : IPlanningService
         if (moved > 0) BoardChanged?.Invoke(this, EventArgs.Empty);
         return Result.Ok(moved, warnings);
     }
+
+    private enum TodayMoveState { Movable, Deleted, Elsewhere }
 
     private async Task<Result> RegisterBySuggestionAsync(TriageCandidate candidate, int columnId, CancellationToken ct)
         => await RegisterAsync(new CandidateDecision(
