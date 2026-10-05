@@ -30,9 +30,9 @@ public class TriagePanelViewModelTests
             new[] { new Label { Id = 200, Name = "至急" }, new Label { Id = 201, Name = "経理" } });
     }
 
-    private static CandidateItemViewModel Candidate(int? mergeTarget = null, int[]? labels = null) => new(new TriageCandidate
+    private static CandidateItemViewModel Candidate(int? mergeTarget = null, int[]? labels = null, int id = 1) => new(new TriageCandidate
     {
-        Id = 1, PlanningRunId = 1, ExternalId = "outlook:001", Source = "Outlook", Title = "請求先情報を更新する",
+        Id = id, PlanningRunId = 1, ExternalId = "outlook:001", Source = "Outlook", Title = "請求先情報を更新する",
         Evidence = "「9月8日までに」", Link = "https://outlook.office.com/x",
         SuggestedDueDate = new DateOnly(2026, 9, 8), SuggestedProject = "顧客A",
         SuggestedAction = mergeTarget is null ? TriageAction.Register : TriageAction.Merge, SuggestedMergeTaskId = mergeTarget,
@@ -58,9 +58,21 @@ public class TriagePanelViewModelTests
     {
         _panel.Show(Candidate(labels: new[] { 201 }), 0, 2);
 
-        _panel.Show(Candidate(labels: new[] { 200 }), 1, 2);
+        _panel.Show(Candidate(labels: new[] { 200 }, id: 2), 1, 2);
 
         SelectedLabelIds().Should().Equal(200);
+    }
+
+    /// <summary>読み直しで同じ候補が新しいインスタンスで来ても、人の切り替えは推薦へ戻さない。</summary>
+    [Fact]
+    public void Show_KeepsTheToggledLabels_WhenTheSameCandidateIsShownAgain()
+    {
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 1);
+        _panel.LabelChoices.Single(l => l.Id == 200).IsSelected = true;
+
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 2);
+
+        SelectedLabelIds().Should().BeEquivalentTo(new[] { 200, 201 });
     }
 
     [Fact]

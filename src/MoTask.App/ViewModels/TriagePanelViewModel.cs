@@ -101,6 +101,9 @@ public sealed partial class TriagePanelViewModel : ObservableObject
     /// <summary>候補を 1 件見せる。推薦された統合先が一覧にあれば初期選択にする。</summary>
     public void Show(CandidateItemViewModel? candidate, int index, int count)
     {
+        // キューの読み直しでは同じ候補が新しいインスタンスで来る。そのときチップは SetChoices が
+        // 引き継いだ人の選択のままにする（推薦へ戻すと、外したラベルを付けて登録してしまう）。
+        var sameCandidate = candidate is not null && candidate.CandidateId == Selected?.CandidateId;
         Selected = candidate;
         EditTitle = candidate?.Title ?? "";
         EditDueDate = candidate?.SuggestedDueDate?.ToDateTime(TimeOnly.MinValue);
@@ -108,8 +111,11 @@ public sealed partial class TriagePanelViewModel : ObservableObject
         EditMergeTargetId = candidate?.SuggestedMergeTaskId is int suggested && MergeTargets.Any(t => t.Id == suggested)
             ? suggested
             : null;
-        var suggestedLabels = candidate?.SuggestedLabelIds ?? Array.Empty<int>();
-        foreach (var label in LabelChoices) label.IsSelected = suggestedLabels.Contains(label.Id);
+        if (!sameCandidate)
+        {
+            var suggestedLabels = candidate?.SuggestedLabelIds ?? Array.Empty<int>();
+            foreach (var label in LabelChoices) label.IsSelected = suggestedLabels.Contains(label.Id);
+        }
         PositionText = candidate is null ? "" : string.Format(Strings.PlanPositionFormat, index + 1, count);
     }
 

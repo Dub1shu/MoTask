@@ -342,6 +342,31 @@ public class PlanViewModelTests
         _vm.Candidates.Should().ContainSingle();
     }
 
+    /// <summary>
+    /// AI が候補を積むたびにキューは読み直される。表示中の候補が同じなら、人が切り替えたチップを
+    /// 推薦の状態へ戻さない（戻すと外したラベルを付けて登録してしまう）。
+    /// </summary>
+    [Fact]
+    public async Task RunChanged_KeepsTheLabelsThePersonToggled_OnTheSameCandidate()
+    {
+        _boards.Labels = new[] { new Label { Id = 200, Name = "至急" }, new Label { Id = 201, Name = "経理" } };
+        var run = IngestedRun();
+        _service.Current = run;
+        var candidate = Candidate();
+        candidate.SuggestedLabelIds = new List<int> { 201 };
+        _service.Candidates.Add(candidate);
+        await _vm.LoadAsync();
+        _vm.Triage.LabelChoices.Single(l => l.Id == 201).IsSelected = false;
+        _vm.Triage.LabelChoices.Single(l => l.Id == 200).IsSelected = true;
+
+        _service.Candidates.Add(Candidate(id: 2));
+        _service.Raise(run, candidates: true);
+        await _vm.PendingLoad;
+
+        _vm.Selected!.CandidateId.Should().Be(1);
+        _vm.Triage.LabelChoices.Where(l => l.IsSelected).Select(l => l.Id).Should().Equal(200);
+    }
+
     [Fact]
     public async Task ErrorMessage_ClearsOnTheNextSuccessfulAction()
     {
