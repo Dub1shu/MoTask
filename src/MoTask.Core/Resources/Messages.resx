@@ -79,6 +79,8 @@
    一度片づけた候補を二度出さないための鍵である。
    accepted:false が返ったら reason を読み、直せるなら直して呼び直す。
    直せないなら、その候補は諦めて次へ進んでよい。
+   suggestedLabels には planning_get_context の labels にある名前だけを入れること。
+   ふさわしいラベルが無ければ付けなくてよい。新しいラベルは作られない。
 3. mcp__motask__planning_submit_plan({{"runId":{1},"plan":{{...}}}}) で計画を出す。
    plan の groups[].key は today / ifTime / aiReady / waiting のいずれかにする。
    aiReady には、planning_get_context の hasActiveAiJob が false で AI に任せられるものを入れる。

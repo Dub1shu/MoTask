@@ -79,4 +79,20 @@ public class PlanningInstructionTests
     {
         Build().Should().Contain("候補が 0 件の日もある");
     }
+
+    /// <summary>ラベルは既存のものから選ばせる。人が方針を書き換えても消えないよう、契約の側に置く。</summary>
+    [Fact]
+    public void Build_TellsToPickLabelsFromTheContext_EvenWithACustomPolicy()
+    {
+        var text = Build("私の方針");
+
+        text.Should().Contain("suggestedLabels には planning_get_context の labels にある名前だけを入れること。");
+        text.Should().Contain("ふさわしいラベルが無ければ付けなくてよい。新しいラベルは作られない。");
+    }
+
+    [Fact]
+    public void DefaultPolicy_SaysNothingAboutLabels()
+    {
+        PlanningInstruction.DefaultTemplate.Should().NotContain("suggestedLabels");
+    }
 }
