@@ -46,8 +46,8 @@
 
     <!--
       端末セッションの後始末（仕様 §5）。計画そのものの操作ではないので計画本体より下に退け、
-      控えめな見た目にする。Btn.Ghost は既に Brush.TextMuted なので、字の大きさだけ
-      Text.Caption に合わせる。
+      控えめな見た目にする。Btn.Ghost は既に控えめな文字色（TextFillColorSecondaryBrush）なので、
+      字の大きさだけ Text.Caption に合わせる。
       CanControl（= IsRunning）と IsFailed は排他なので、行を 2 本に分けても同時には出ない。
       どちらの条件も満たさないときは Border ごと消えるため、空の行は残らない。
     -->
@@ -184,10 +184,9 @@
                       Margin="{StaticResource Gap.Top.4}">
             <TextBlock Text="{x:Static res:Strings.PlanQueueHeading}" Style="{StaticResource Text.Label}" />
             <!--
-              候補キュー。ListBox には暗黙スタイルが無い（Controls.xaml は Button / TextBox /
-              ComboBox / DatePicker などを持つが ListBox は持たない）ので、既定のままだと
-              白地・黒文字のまま暗い画面に浮く。ColumnView の CardList と同じく、背景と枠を
-              自分で消し、項目の見た目もここで与える。
+              候補キュー。項目はカードとして描くので、ColumnView の CardList と同じく、
+              ListBox の背景と枠を消し、項目の見た目もここで与える（Fluent の ListBoxItem の
+              選択表示を使わず、カードの枠で選択を示す）。
             -->
             <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding Selected}"
                      Background="Transparent" BorderThickness="0" Margin="{StaticResource Gap.Top.2}"
@@ -268,9 +267,9 @@
                   <ItemsControl ItemsSource="{Binding Rows}">
                     <ItemsControl.ItemTemplate>
                       <DataTemplate>
-                        <!-- 行の境界はカードで示す。Btn.Ghost（透明・枠なし）だと余白しか手がかりが
-                             無く、行が続いて見える。既定の Button スタイルは SurfaceRaised の塗りと
-                             Divider の枠を持つので、候補キューや「01 最初にやる1件」と同じ見た目に揃う。 -->
+                        <!-- 行の境界は面と枠で示す。Btn.Ghost（透明・枠なし）だと余白しか手がかりが
+                             無く、行が続いて見える。既定の Button（Fluent）は塗りと枠を持つので、
+                             1 行ずつの塊として読める。 -->
                         <Button Command="{Binding OpenCommand}"
                                 HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                                 Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
