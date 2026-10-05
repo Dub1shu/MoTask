@@ -15,8 +15,11 @@ public interface IDropContext
     /// <summary>ドロップ先の ItemsControl が束ねている一覧。</summary>
     IEnumerable? TargetCollection { get; }
 
-    /// <summary>この添字の項目の手前に挿す、という意味の値。末尾なら項目数。</summary>
-    int InsertIndex { get; }
+    /// <summary>
+    /// この添字の項目の手前に挿す、という意味の値。末尾なら項目数。
+    /// DragOver でハンドラが書き換えると、挿入線もその位置に出る。
+    /// </summary>
+    int InsertIndex { get; set; }
 
     /// <summary>
     /// 受けなかったドロップに立てる。DragDropBehavior が e.Handled = !NotHandled を書くので、
@@ -66,7 +69,7 @@ public sealed class DropContext : IDropContext
 
     public object? Data { get; }
     public IEnumerable? TargetCollection { get; }
-    public int InsertIndex { get; }
+    public int InsertIndex { get; set; }
     public bool NotHandled { get; set; }
     public DragDropEffects Effects { get; set; } = DragDropEffects.None;
 }

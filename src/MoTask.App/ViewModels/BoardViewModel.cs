@@ -496,8 +496,14 @@ public sealed partial class BoardViewModel : ObservableObject
     public Task<bool> SetLabelColorAsync(int labelId, string color)
         => RunBoardWideClassificationChangeAsync(() => _service.SetLabelColorAsync(labelId, color));
 
+    public Task<bool> ReorderProjectsAsync(IReadOnlyList<int> orderedLiveIds)
+        => RunBoardWideClassificationChangeAsync(() => _service.ReorderProjectsAsync(orderedLiveIds));
+
+    public Task<bool> ReorderLabelsAsync(IReadOnlyList<int> orderedLiveIds)
+        => RunBoardWideClassificationChangeAsync(() => _service.ReorderLabelsAsync(orderedLiveIds));
+
     /// <summary>
-    /// 名前や色はカードのプロジェクト名とラベルのチップにも出る。カードが持つラベルは一覧と別のインスタンスでありうるので、
+    /// 名前や色、並び順はカードのプロジェクト名とラベルのチップにも出る。カードが持つラベルは一覧と別のインスタンスでありうるので、
     /// 分類だけでなくボード全体を読み直して確実に反映させる。
     /// </summary>
     private async Task<bool> RunBoardWideClassificationChangeAsync(Func<Task<Result>> action)

@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:res="clr-namespace:MoTask.App.Resources"
+        xmlns:dd="clr-namespace:MoTask.App.DragDrop"
         xmlns:vm="clr-namespace:MoTask.App.ViewModels"
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ManageClassificationsViewModel}"
         Title="{Binding Title}" Width="480" Height="560"
@@ -36,8 +37,21 @@
     <DataTemplate x:Key="Manage.Row">
       <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
               Padding="{StaticResource Pad.BarTight}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Style.Triggers>
+              <!-- 並べ替えは生きている行だけ。名前の入力中に掴むと文字の選択と取り合うので止める -->
+              <DataTrigger Binding="{Binding IsArchived}" Value="True">
+                <Setter Property="dd:DragDropBehavior.DragSourceIgnore" Value="True" />
+              </DataTrigger>
+              <DataTrigger Binding="{Binding IsEditing}" Value="True">
+                <Setter Property="dd:DragDropBehavior.DragSourceIgnore" Value="True" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
         <DockPanel>
-          <Button DockPanel.Dock="Right" VerticalAlignment="Center"
+          <Button DockPanel.Dock="Right" VerticalAlignment="Center" dd:DragDropBehavior.DragSourceIgnore="True"
                   Command="{Binding DataContext.ToggleCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                   CommandParameter="{Binding}">
             <Button.Style>
@@ -53,7 +67,7 @@
           </Button>
 
           <!-- 色丸：押すと見本のポップアップ。色なしのプロジェクトは枠線だけの丸 -->
-          <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,6,0">
+          <Grid DockPanel.Dock="Left" VerticalAlignment="Top" Margin="0,1,6,0" dd:DragDropBehavior.DragSourceIgnore="True">
             <ToggleButton x:Name="ColorDot" ToolTip="{x:Static res:Strings.ManageChangeColor}">
               <ToggleButton.Style>
                 <Style TargetType="ToggleButton" BasedOn="{StaticResource Manage.ColorDot}">
@@ -84,7 +98,7 @@
             <Popup x:Name="ColorPopup" IsOpen="{Binding IsChecked, ElementName=ColorDot}" StaysOpen="False"
                    PlacementTarget="{Binding ElementName=ColorDot}" Placement="Bottom" AllowsTransparency="True">
               <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
-                      BorderThickness="1" CornerRadius="6" Padding="6">
+                      BorderThickness="1" CornerRadius="6" Padding="6" dd:DragDropBehavior.DragSourceIgnore="True">
                 <StackPanel>
                   <ItemsControl ItemsSource="{Binding Swatches}">
                     <ItemsControl.ItemsPanel>
@@ -158,7 +172,7 @@
                   </TextBlock.Style>
                 </TextBlock>
               </Border>
-              <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+              <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}" dd:DragDropBehavior.DragSourceIgnore="True"
                        Visibility="{Binding IsEditing, Converter={StaticResource BoolToVisibility}}"
                        KeyDown="OnRenameBoxKeyDown" LostFocus="OnRenameBoxLostFocus"
                        IsVisibleChanged="OnEditBoxIsVisibleChanged" />
@@ -170,7 +184,7 @@
                          Visibility="{Binding IsArchived, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
             <!-- 作業フォルダ（AI ジョブの cwd）。プロジェクトの行だけ。未設定なら既定のフォルダを淡く出す -->
-            <DockPanel Margin="2,2,0,0" Visibility="{Binding IsProject, Converter={StaticResource BoolToVisibility}}"
+            <DockPanel Margin="2,2,0,0" Visibility="{Binding IsProject, Converter={StaticResource BoolToVisibility}}" dd:DragDropBehavior.DragSourceIgnore="True"
                        ToolTip="{x:Static res:Strings.ManageWorkingDirectoryHint}">
               <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                       Content="{x:Static res:Strings.ManageResetWorkingDirectory}"
@@ -216,7 +230,8 @@
       <!-- プロジェクト設定とラベル設定は別の入口から開く。どちらで開いたかは題名が示すので、見出しは置かない -->
       <Grid>
         <StackPanel Visibility="{Binding IsProjects, Converter={StaticResource BoolToVisibility}}">
-          <ItemsControl ItemsSource="{Binding Projects}" ItemTemplate="{StaticResource Manage.Row}" />
+          <ItemsControl x:Name="ProjectList" ItemsSource="{Binding Projects}" ItemTemplate="{StaticResource Manage.Row}"
+                        dd:DragDropBehavior.IsDragSource="True" dd:DragDropBehavior.IsDropTarget="True" />
           <TextBlock Text="{x:Static res:Strings.ManageEmpty}">
             <TextBlock.Style>
               <Style TargetType="TextBlock" BasedOn="{StaticResource Manage.Empty}">
@@ -237,7 +252,8 @@
         </StackPanel>
 
         <StackPanel Visibility="{Binding IsLabels, Converter={StaticResource BoolToVisibility}}">
-          <ItemsControl ItemsSource="{Binding Labels}" ItemTemplate="{StaticResource Manage.Row}" />
+          <ItemsControl x:Name="LabelList" ItemsSource="{Binding Labels}" ItemTemplate="{StaticResource Manage.Row}"
+                        dd:DragDropBehavior.IsDragSource="True" dd:DragDropBehavior.IsDropTarget="True" />
           <TextBlock Text="{x:Static res:Strings.ManageEmpty}">
             <TextBlock.Style>
               <Style TargetType="TextBlock" BasedOn="{StaticResource Manage.Empty}">

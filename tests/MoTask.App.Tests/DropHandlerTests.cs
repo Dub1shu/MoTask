@@ -213,4 +213,98 @@ public class DropHandlerTests
         info.NotHandled.Should().BeTrue();
         info.Effects.Should().Be(DragDropEffects.None);
     }
+
+    // ---- 管理ダイアログの行 ----
+
+    private async Task<ManageClassificationsViewModel> ManageAsync()
+    {
+        _service.Projects = new[]
+        {
+            new Project { Id = 100, Name = "A", Order = 0 },
+            new Project { Id = 101, Name = "B", Order = 1 },
+            new Project { Id = 102, Name = "C", Order = 2 },
+            new Project { Id = 103, Name = "Z", Order = 3, Archived = true },
+        };
+        _service.Labels = new[] { new Label { Id = 200, Name = "x" }, new Label { Id = 201, Name = "y" } };
+        await _vm.LoadAsync();
+        return new ManageClassificationsViewModel(_vm, ClassificationKind.Project);
+    }
+
+    [Fact]
+    public async Task ClassificationDrop_MovesTheRow_AndSavesTheLiveIds()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+
+        handler.Drop(Info(manage.Projects[2], manage.Projects, 0)); // C を先頭へ
+        await manage.PendingChange;
+
+        _service.ReorderProjectsCalls.Single().OrderedIds.Should().Equal(102, 100, 101);
+    }
+
+    [Fact]
+    public async Task DragOver_PastTheLiveRows_ClampsToTheLiveEnd()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+        var context = Info(manage.Projects[0], manage.Projects, 4); // アーカイブ済み Z の下
+
+        handler.DragOver(context);
+
+        context.NotHandled.Should().BeFalse();
+        context.Effects.Should().Be(DragDropEffects.Move);
+        context.InsertIndex.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task ClassificationDrop_BelowTheArchived_PutsItLastAmongTheLive()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+
+        handler.Drop(Info(manage.Projects[0], manage.Projects, 4));
+        await manage.PendingChange;
+
+        _service.ReorderProjectsCalls.Single().OrderedIds.Should().Equal(101, 102, 100);
+    }
+
+    [Fact]
+    public async Task ClassificationDrop_InPlace_DoesNotSave()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+        var context = Info(manage.Projects[1], manage.Projects, 1);
+
+        handler.Drop(context);
+
+        context.NotHandled.Should().BeTrue();
+        _service.ReorderProjectsCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Drop_OnTheOtherList_IsRefused()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+        var context = Info(manage.Projects[0], manage.Labels, 0);
+
+        handler.DragOver(context);
+        handler.Drop(context);
+
+        context.NotHandled.Should().BeTrue();
+        _service.ReorderProjectsCalls.Should().BeEmpty();
+        _service.ReorderLabelsCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ArchivedRow_IsNotAccepted()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+        var context = Info(manage.Projects[3], manage.Projects, 0);
+
+        handler.DragOver(context);
+
+        context.NotHandled.Should().BeTrue();
+    }
 }
