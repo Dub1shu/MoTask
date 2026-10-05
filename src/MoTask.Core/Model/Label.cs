@@ -1,6 +1,6 @@
 namespace MoTask.Core.Model;
 
-public sealed class Label
+public sealed class Label : IClassification
 {
     public const string DefaultColor = "accent-300";
 
@@ -13,4 +13,6 @@ public sealed class Label
     /// 過去のタスクの表示と履歴の文言を壊さないため、削除ではなくアーカイブにしている。
     /// </summary>
     public bool Archived { get; set; }
+    /// <summary>表示順（管理ダイアログのドラッグで決める）。</summary>
+    public int Order { get; set; }
 }
