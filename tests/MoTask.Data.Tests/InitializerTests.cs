@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using MoTask.Core.Model;
 using Xunit;
@@ -10,7 +10,7 @@ public class InitializerTests : IDisposable
     private readonly SqliteTestDatabase _db = new();
 
     [Fact]
-    public async Task Initialize_OnEmptyDb_SeedsDefaultBoardAndFourColumns()
+    public async Task Initialize_OnEmptyDb_SeedsDefaultBoardAndFiveColumns()
     {
         await using (var ctx = _db.CreateContext())
         {
@@ -24,9 +24,10 @@ public class InitializerTests : IDisposable
             board.Name.Should().Be(DefaultBoard.Name);
             board.Columns.Select(c => (c.Name, c.Role, c.Order)).Should().Equal(
                 ("未着手", ColumnRole.Backlog, 0),
-                ("進行中", ColumnRole.Active, 1),
-                ("確認待ち", ColumnRole.Review, 2),
-                ("完了", ColumnRole.Done, 3));
+                ("今日中", ColumnRole.Today, 1),
+                ("進行中", ColumnRole.Active, 2),
+                ("確認待ち", ColumnRole.Review, 3),
+                ("完了", ColumnRole.Done, 4));
             board.Columns.Should().OnlyContain(c => c.WipLimit == null);
         }
     }
@@ -40,7 +41,7 @@ public class InitializerTests : IDisposable
         await initializer.InitializeAsync();
 
         (await ctx.Boards.CountAsync()).Should().Be(1);
-        (await ctx.Columns.CountAsync()).Should().Be(4);
+        (await ctx.Columns.CountAsync()).Should().Be(5);
     }
 
     /// <summary>

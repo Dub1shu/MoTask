@@ -70,6 +70,14 @@ public class BoardServiceColumnTests
         _backlog.Role.Should().Be(ColumnRole.Review);
     }
 
+    /// <summary>今日中は完了と違って特別扱いしない。役割として付け外しできる。</summary>
+    [Fact]
+    public async Task SetColumnRole_AcceptsToday()
+    {
+        (await _service.SetColumnRoleAsync(_active.Id, ColumnRole.Today)).IsSuccess.Should().BeTrue();
+        _active.Role.Should().Be(ColumnRole.Today);
+    }
+
     [Fact]
     public async Task SetColumnRole_OnDoneColumn_IsRejected()
     {
