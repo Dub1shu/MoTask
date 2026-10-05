@@ -32,3 +32,4 @@ public sealed record SetLabelColorCall(int LabelId, string Color);
 public sealed record SetProjectColorCall(int ProjectId, string? Color);
 public sealed record SetProjectWorkingDirectoryCall(int ProjectId, string? Path);
 public sealed record GetHistoryCall(int TaskId);
+public sealed record ReorderClassificationsCall(IReadOnlyList<int> OrderedIds);

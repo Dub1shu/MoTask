@@ -132,4 +132,18 @@ public class BoardServiceUpdateTests
         var result = await _service.SetTaskLabelsAsync(_task.Id, new[] { 999 });
         result.Error.Should().Be(Messages.LabelNotFound);
     }
+
+    [Fact]
+    public async Task SetTaskLabels_RecordsNamesInDisplayOrder()
+    {
+        var a = _store.SeedLabel("A");
+        var b = _store.SeedLabel("B");
+        b.Order = 0;
+        a.Order = 1;
+
+        await _service.SetTaskLabelsAsync(_task.Id, new[] { a.Id, b.Id });
+
+        var detail = HistoryDetail.Deserialize(_store.History.Single().Detail);
+        detail["Labels"].Should().Be(new FieldChange("", "B, A"));
+    }
 }

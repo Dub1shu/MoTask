@@ -357,4 +357,30 @@ public sealed class FakeBoardService : IBoardService
         SetLabelColorCalls.Add(call);
         return OnSetLabelColor?.Invoke(call) ?? Task.FromResult(Result.Ok());
     }
+
+    /// <summary>ReorderProjectsAsync に渡された引数を呼ばれた順に。</summary>
+    public List<ReorderClassificationsCall> ReorderProjectsCalls { get; } = new();
+
+    /// <summary>ReorderLabelsAsync に渡された引数を呼ばれた順に。</summary>
+    public List<ReorderClassificationsCall> ReorderLabelsCalls { get; } = new();
+
+    /// <summary>ReorderProjectsAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
+    public Func<ReorderClassificationsCall, Task<Result>>? OnReorderProjects { get; set; }
+
+    /// <summary>ReorderLabelsAsync の既定応答を差し替える。null なら Result.Ok を返す。</summary>
+    public Func<ReorderClassificationsCall, Task<Result>>? OnReorderLabels { get; set; }
+
+    public Task<Result> ReorderProjectsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default)
+    {
+        var call = new ReorderClassificationsCall(orderedLiveIds.ToList());
+        ReorderProjectsCalls.Add(call);
+        return OnReorderProjects?.Invoke(call) ?? Task.FromResult(Result.Ok());
+    }
+
+    public Task<Result> ReorderLabelsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default)
+    {
+        var call = new ReorderClassificationsCall(orderedLiveIds.ToList());
+        ReorderLabelsCalls.Add(call);
+        return OnReorderLabels?.Invoke(call) ?? Task.FromResult(Result.Ok());
+    }
 }

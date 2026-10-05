@@ -335,7 +335,7 @@ public sealed class BoardService : IBoardService
             return Result.Ok(existing);
         }
 
-        var project = new Project { Name = name };
+        var project = new Project { Name = name, Order = NextOrder(projects) };
         _boards.AddProject(project);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
         return Result.Ok(project);
@@ -393,7 +393,7 @@ public sealed class BoardService : IBoardService
             return Result.Ok(existing);
         }
 
-        var label = new Label { Name = name, Color = string.IsNullOrWhiteSpace(color) ? Label.DefaultColor : color.Trim() };
+        var label = new Label { Name = name, Order = NextOrder(labels), Color = string.IsNullOrWhiteSpace(color) ? Label.DefaultColor : color.Trim() };
         _boards.AddLabel(label);
         await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
         return Result.Ok(label);
@@ -489,6 +489,50 @@ public sealed class BoardService : IBoardService
         return Result.Ok();
     }, ct);
 
+    public Task<Result> ReorderProjectsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var projects = await _boards.GetProjectsAsync(ct).ConfigureAwait(false);
+        if (!TryReorder(projects, orderedLiveIds)) return Result.Fail(Messages.ReorderMustIncludeAllProjects);
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    public Task<Result> ReorderLabelsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default) => RunAsync(async () =>
+    {
+        var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+        if (!TryReorder(labels, orderedLiveIds)) return Result.Fail(Messages.ReorderMustIncludeAllLabels);
+        await _uow.SaveChangesAsync(ct).ConfigureAwait(false);
+        return Result.Ok();
+    }, ct);
+
+    /// <summary>
+    /// 生きている行を orderedLiveIds の順に並べ直す。まず全件を今の表示順で 0 から振り直して
+    /// （既存の行は全部 0 で重なっている）、生きている行が占める番号の枠だけを新しい順に配り直す。
+    /// アーカイブ済みの番号は動かないので、復元するとアーカイブ前の場所に戻る。
+    /// 引数が生きている行の ID ちょうど全件でなければ何も変えずに false。
+    /// </summary>
+    private static bool TryReorder<T>(IReadOnlyList<T> all, IReadOnlyList<int> orderedLiveIds) where T : IClassification
+    {
+        var sorted = all.InDisplayOrder().ToList();
+        var live = sorted.Where(x => !x.Archived).ToList();
+        if (orderedLiveIds.Count != live.Count
+            || orderedLiveIds.Distinct().Count() != orderedLiveIds.Count
+            || !orderedLiveIds.ToHashSet().SetEquals(live.Select(x => x.Id)))
+        {
+            return false;
+        }
+
+        for (var i = 0; i < sorted.Count; i++) sorted[i].Order = i;
+        var slots = live.Select(x => x.Order).ToList();
+        var byId = live.ToDictionary(x => x.Id);
+        for (var i = 0; i < orderedLiveIds.Count; i++) byId[orderedLiveIds[i]].Order = slots[i];
+        return true;
+    }
+
+    /// <summary>新しく作るものの表示順。アーカイブ済みも含めた末尾。</summary>
+    private static int NextOrder<T>(IReadOnlyList<T> all) where T : IClassification
+        => all.Count == 0 ? 0 : all.Max(x => x.Order) + 1;
+
     // ---------- 共通 ----------
 
     /// <summary>分類の名前の同一判定。MCP の名前引き（BoardLookup）と同じく、前後の空白と大文字小文字を無視する。</summary>
@@ -509,7 +553,7 @@ public sealed class BoardService : IBoardService
     private static string? FormatDate(DateOnly? date) => date?.ToString("yyyy-MM-dd");
 
     private static string JoinNames(IEnumerable<Label> labels)
-        => string.Join(", ", labels.OrderBy(l => l.Name).Select(l => l.Name));
+        => string.Join(", ", labels.InDisplayOrder().Select(l => l.Name));
 
     private static string[] WipWarnings(Column column)
         => column.IsOverWip

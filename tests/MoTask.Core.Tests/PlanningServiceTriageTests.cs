@@ -203,6 +203,8 @@ public class PlanningServiceTriageTests
         public Task<Result> SetProjectColorAsync(int projectId, string? color, CancellationToken ct = default) => _inner.SetProjectColorAsync(projectId, color, ct);
         public Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default) => _inner.RenameLabelAsync(labelId, name, ct);
         public Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default) => _inner.SetLabelColorAsync(labelId, color, ct);
+        public Task<Result> ReorderProjectsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default) => _inner.ReorderProjectsAsync(orderedLiveIds, ct);
+        public Task<Result> ReorderLabelsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default) => _inner.ReorderLabelsAsync(orderedLiveIds, ct);
     }
 
     // ---- 統合 ----

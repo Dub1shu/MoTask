@@ -24,6 +24,8 @@ public static class Messages
     public static string DoneColumnCannotBeDeleted => Get(nameof(DoneColumnCannotBeDeleted));
     public static string ColumnHasTasks => Get(nameof(ColumnHasTasks));
     public static string ReorderMustIncludeAllColumns => Get(nameof(ReorderMustIncludeAllColumns));
+    public static string ReorderMustIncludeAllProjects => Get(nameof(ReorderMustIncludeAllProjects));
+    public static string ReorderMustIncludeAllLabels => Get(nameof(ReorderMustIncludeAllLabels));
     public static string WipLimitMustBePositive => Get(nameof(WipLimitMustBePositive));
     public static string ProjectNameRequired => Get(nameof(ProjectNameRequired));
     public static string LabelNameRequired => Get(nameof(LabelNameRequired));
