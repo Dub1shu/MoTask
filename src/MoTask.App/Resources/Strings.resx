@@ -238,6 +238,10 @@
   <data name="PlanBulkAppliedFormat" xml:space="preserve"><value>{0} 件を処理しました</value></data>
   <data name="PlanBulkResultFormat" xml:space="preserve"><value>{0} 件を処理、{1} 件を見送り: {2}</value></data>
   <data name="PlanBulkNoColumn" xml:space="preserve"><value>登録先の列がありません</value></data>
+  <data name="PlanMoveToday" xml:space="preserve"><value>今日中の列へ移す</value></data>
+  <data name="PlanMoveTodayToolTipFormat" xml:space="preserve"><value>未着手にあるものを「{0}」の列へ移します</value></data>
+  <data name="PlanMoveTodayNoColumn" xml:space="preserve"><value>役割が「今日中」の列がありません</value></data>
+  <data name="PlanMoveTodayDoneFormat" xml:space="preserve"><value>{0} 件を今日中の列へ移しました</value></data>
   <data name="PlanTemplateFallsBackToDefault" xml:space="preserve"><value>wt.exe を経由すると完了時に端末を閉じられないので、計画づくりでは既定の起動（cmd.exe /s /c）を使います。AI 遂行にはこのテンプレートがそのまま効きます。</value></data>
   <data name="McpPlanningRunIdRequired" xml:space="preserve"><value>runId（整数）を渡してください。instruction.md に書いてある値です</value></data>
   <data name="McpPlanningPlanRequired" xml:space="preserve"><value>plan（JSON オブジェクト）を渡してください</value></data>

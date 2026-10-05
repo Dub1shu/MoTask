@@ -657,4 +657,78 @@ public class PlanViewModelTests
         _vm.PendingCount.Should().Be(1);
         _vm.Triage.PositionText.Should().Be("1 / 1");
     }
+
+    // ---------- 今日中の列へ移す（仕様 2026-10-05-today-column §5.2） ----------
+
+    private void AddTodayColumn()
+        => _boards.Board.Columns.Add(new Column { Id = 4, BoardId = 1, Name = "今日中", Order = 5, Role = ColumnRole.Today });
+
+    [Fact]
+    public async Task MoveToday_IsEnabled_WhenABacklogTaskIsInTodayAndThereIsATodayColumn()
+    {
+        AddTodayColumn();
+        _service.Current = IngestedRunWithPlan(today: "{\"taskId\":10},{\"taskId\":12}");
+
+        await _vm.LoadAsync();
+
+        _vm.CanMoveToday.Should().BeTrue();
+        _vm.MoveTodayToColumnCommand.CanExecute(null).Should().BeTrue();
+        _vm.MoveTodayToolTip.Should().Be(string.Format(Strings.PlanMoveTodayToolTipFormat, "今日中"));
+    }
+
+    [Fact]
+    public async Task MoveToday_IsDisabled_WithoutATodayColumn_AndSaysWhy()
+    {
+        _service.Current = IngestedRunWithPlan(today: "{\"taskId\":10}");
+
+        await _vm.LoadAsync();
+
+        _vm.CanMoveToday.Should().BeFalse();
+        _vm.MoveTodayToolTip.Should().Be(Strings.PlanMoveTodayNoColumn);
+    }
+
+    [Fact]
+    public async Task MoveToday_IsDisabled_WhenNothingInTodayIsInTheBacklog()
+    {
+        AddTodayColumn();
+        _service.Current = IngestedRunWithPlan(today: "{\"taskId\":12}");
+
+        await _vm.LoadAsync();
+
+        _vm.CanMoveToday.Should().BeFalse("進行中のものは移さない");
+    }
+
+    [Fact]
+    public async Task MoveToday_CallsTheService_ReportsTheCount_AndReloads()
+    {
+        AddTodayColumn();
+        _service.Current = IngestedRunWithPlan(today: "{\"taskId\":10}");
+        await _vm.LoadAsync();
+        var loadsBefore = _boards.GetBoardCalls;
+        _service.MoveTodayResult = Result.Ok(1, new[] { "WIP 超過" });
+
+        await _vm.MoveTodayToColumnCommand.ExecuteAsync(null);
+
+        _service.Calls.Should().Contain("MoveToday:1");
+        _vm.WarningMessage.Should().Be(string.Format(Strings.PlanMoveTodayDoneFormat, 1) + " / WIP 超過");
+        _vm.ErrorMessage.Should().BeNull();
+        _boards.GetBoardCalls.Should().BeGreaterThan(loadsBefore, "移した後は盤面と計画を読み直す");
+    }
+
+    [Fact]
+    public async Task MoveToday_ShowsTheError_WhenTheServiceFails()
+    {
+        AddTodayColumn();
+        _service.Current = IngestedRunWithPlan(today: "{\"taskId\":10}");
+        await _vm.LoadAsync();
+        _service.MoveTodayResult = Result.Fail<int>("だめでした");
+
+        await _vm.MoveTodayToColumnCommand.ExecuteAsync(null);
+
+        _vm.ErrorMessage.Should().Be("だめでした");
+    }
+
+    [Fact]
+    public void OnlyTheTodaySection_HasTheMoveButton()
+        => _vm.Sections.Select(s => s.IsToday).Should().Equal(true, false, false, false);
 }

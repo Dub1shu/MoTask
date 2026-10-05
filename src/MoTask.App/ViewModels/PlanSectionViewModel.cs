@@ -20,6 +20,9 @@ public sealed partial class PlanSectionViewModel : ObservableObject
 
     public PlanGroupKey Key { get; }
 
+    /// <summary>「今日中の列へ移す」ボタンを出す区分か。</summary>
+    public bool IsToday => Key == PlanGroupKey.Today;
+
     public string Heading => Key switch
     {
         PlanGroupKey.Today => Strings.PlanGroupToday,

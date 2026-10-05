@@ -259,8 +259,16 @@
               <DataTemplate>
                 <StackPanel Margin="{StaticResource Gap.Top.4}">
                   <DockPanel>
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Text.Caption}" />
-                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Text.Label}" />
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Style="{StaticResource Text.Caption}"
+                               VerticalAlignment="Center" />
+                    <!-- 今日中の区分だけに出す。押せないときも理由が読めるよう ShowOnDisabled にする。 -->
+                    <Button DockPanel.Dock="Right" Content="{x:Static res:Strings.PlanMoveToday}"
+                            Style="{StaticResource Btn.Ghost}" Margin="{StaticResource Gap.Right.4}"
+                            Command="{Binding DataContext.MoveTodayToColumnCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            ToolTip="{Binding DataContext.MoveTodayToolTip, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                            ToolTipService.ShowOnDisabled="True"
+                            Visibility="{Binding IsToday, Converter={StaticResource BoolToVisibility}}" />
+                    <TextBlock Text="{Binding Heading}" Style="{StaticResource Text.Label}" VerticalAlignment="Center" />
                   </DockPanel>
                   <TextBlock Text="{Binding EmptyText}" Style="{StaticResource Text.Caption}"
                              Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}" />

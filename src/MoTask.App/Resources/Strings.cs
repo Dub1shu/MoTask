@@ -229,6 +229,10 @@ public static class Strings
     public static string PlanBulkAppliedFormat => Get(nameof(PlanBulkAppliedFormat));
     public static string PlanBulkResultFormat => Get(nameof(PlanBulkResultFormat));
     public static string PlanBulkNoColumn => Get(nameof(PlanBulkNoColumn));
+    public static string PlanMoveToday => Get(nameof(PlanMoveToday));
+    public static string PlanMoveTodayToolTipFormat => Get(nameof(PlanMoveTodayToolTipFormat));
+    public static string PlanMoveTodayNoColumn => Get(nameof(PlanMoveTodayNoColumn));
+    public static string PlanMoveTodayDoneFormat => Get(nameof(PlanMoveTodayDoneFormat));
     public static string PlanTemplateFallsBackToDefault => Get(nameof(PlanTemplateFallsBackToDefault));
     public static string McpPlanningRunIdRequired => Get(nameof(McpPlanningRunIdRequired));
     public static string McpPlanningPlanRequired => Get(nameof(McpPlanningPlanRequired));
