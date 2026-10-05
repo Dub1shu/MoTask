@@ -412,6 +412,20 @@ public sealed partial class BoardViewModel : ObservableObject
         if (card is not null) await CompleteCardAsync(card);
     }
 
+    /// <summary>カードの右クリック「先頭へ移動」。同じ列の先頭（隠れたカードも含めた AllCards の 0 番目）へ移す。</summary>
+    [RelayCommand(CanExecute = nameof(CanMoveCardToTop))]
+    private async Task MoveCardToTopAsync(TaskCardViewModel? card)
+    {
+        if (!CanMoveCardToTop(card)) return;
+        await MoveCardAsync(card!, ColumnOf(card!)!, 0);
+    }
+
+    /// <summary>削除済みは動かさない（✓ と同じ扱い）。既に先頭なら並べ直さない。</summary>
+    private bool CanMoveCardToTop(TaskCardViewModel? card)
+        => card is { IsDeleted: false }
+           && ColumnOf(card) is { } column
+           && !ReferenceEquals(column.AllCards.FirstOrDefault(), card);
+
     public Task<bool> DeleteTaskAsync(TaskCardViewModel card)
         => RunTaskChangeAsync(card, () => _service.DeleteTaskAsync(card.Id));
 

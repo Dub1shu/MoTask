@@ -92,8 +92,19 @@
                Background="Transparent" BorderThickness="0" Padding="{StaticResource Pad.Section}"
                ScrollViewer.HorizontalScrollBarVisibility="Disabled" FocusVisualStyle="{x:Null}"
                dd:DragDropBehavior.IsDragSource="True" dd:DragDropBehavior.IsDropTarget="True">
+        <ListBox.Resources>
+          <!-- カードの右クリックメニュー。ContextMenu はビジュアルツリーの外にあり列の DataContext を辿れないので、
+               ListBoxItem の Tag に列を載せ、PlacementTarget 経由で引く。x:Shared="False" でカードごとに作る。 -->
+          <ContextMenu x:Key="CardMenu" x:Shared="False" Opened="CardMenu_Opened">
+            <MenuItem Header="{x:Static res:Strings.MoveToTop}"
+                      Command="{Binding PlacementTarget.Tag.Board.MoveCardToTopCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                      CommandParameter="{Binding}" />
+          </ContextMenu>
+        </ListBox.Resources>
         <ListBox.ItemContainerStyle>
           <Style TargetType="ListBoxItem">
+            <Setter Property="Tag" Value="{Binding DataContext, RelativeSource={RelativeSource AncestorType=views:ColumnView}}" />
+            <Setter Property="ContextMenu" Value="{StaticResource CardMenu}" />
             <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
             <Setter Property="Padding" Value="0" />
