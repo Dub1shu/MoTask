@@ -149,8 +149,8 @@ public sealed partial class PlanViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 盤面とプロジェクトを読み、登録先の列（完了以外）と統合先のタスク（完了列と論理削除済み以外）を
-    /// Triage に渡す。盤面の取得に失敗したら理由を警告に出し、盤面なしで続ける（候補の仕分けは
+    /// 盤面・プロジェクト・ラベルを読み、登録先の列（完了以外）と統合先のタスク（完了列と論理削除済み以外）と
+    /// 付けられるラベル（アーカイブ済み以外）を Triage に渡す。盤面の取得に失敗したら理由を警告に出し、盤面なしで続ける（候補の仕分けは
     /// 盤面が無くても動く・仕様 §8）。generation は呼び出し元(ReloadQueueAsync)の世代。await から
     /// 戻るたびに確かめ、その間に新しい読み直しが始まっていたら以降のフィールド書き換えをやめる
     /// (このメソッドは ReloadQueueAsync からしか呼ばない)。
@@ -163,17 +163,20 @@ public sealed partial class PlanViewModel : ObservableObject
         {
             _board = null;
             WarningMessage = board.Error;
-            Triage.SetChoices(Array.Empty<ColumnChoice>(), Array.Empty<TaskChoice>());
+            Triage.SetChoices(Array.Empty<ColumnChoice>(), Array.Empty<TaskChoice>(), Array.Empty<Label>());
             return;
         }
         _board = board.Value!;
         _projects = await _boardService.GetProjectsAsync().ConfigureAwait(true);
         if (generation != _reloadGeneration) return;
+        var labels = await _boardService.GetLabelsAsync().ConfigureAwait(true);
+        if (generation != _reloadGeneration) return;
         var columns = _board.Columns.Where(c => c.Role != ColumnRole.Done).OrderBy(c => c.Order).ToList();
         Triage.SetChoices(
             columns.Select(c => new ColumnChoice(c.Id, c.Name)),
             columns.SelectMany(c => c.Tasks.Where(t => !t.IsDeleted).OrderBy(t => t.Position)
-                .Select(t => new TaskChoice(t.Id, t.Title, c.Name))));
+                .Select(t => new TaskChoice(t.Id, t.Title, c.Name))),
+            labels.Where(l => !l.Archived));
     }
 
     private string? ProjectName(int? projectId)

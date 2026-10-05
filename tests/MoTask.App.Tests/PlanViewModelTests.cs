@@ -34,6 +34,20 @@ public class PlanViewModelTests
         _vm.Triage.EditColumnId.Should().Be(1, "既定は先頭の列");
     }
 
+    [Fact]
+    public async Task Load_OffersTheLabelsThatAreNotArchived()
+    {
+        _boards.Labels = new[]
+        {
+            new Label { Id = 200, Name = "至急" },
+            new Label { Id = 201, Name = "昔の分類", Archived = true },
+        };
+
+        await _vm.LoadAsync();
+
+        _vm.Triage.LabelChoices.Select(l => l.Id).Should().Equal(200);
+    }
+
     private TriageCandidate Candidate(int id = 1, TriageAction suggested = TriageAction.Register)
         => new()
         {
@@ -146,7 +160,8 @@ public class PlanViewModelTests
 
         await _vm.Triage.RegisterCommand.ExecuteAsync(null);
 
-        _service.LastDecision.Should().Be(new CandidateDecision(1, "書き換えた題名",
+        // LabelIds は一覧なので record の等値に乗らない。外して比べる
+        (_service.LastDecision! with { LabelIds = null }).Should().Be(new CandidateDecision(1, "書き換えた題名",
             new DateOnly(2026, 9, 10), "別プロジェクト", 2));
         _vm.Candidates.Should().ContainSingle();
         _vm.Selected!.CandidateId.Should().Be(2);

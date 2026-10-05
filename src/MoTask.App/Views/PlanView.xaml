@@ -123,6 +123,23 @@
                 <TextBlock Text="{x:Static res:Strings.Project}" Style="{StaticResource Text.Label}" />
                 <TextBox Text="{Binding EditProjectName, UpdateSourceTrigger=PropertyChanged}" />
 
+                <!-- 推薦されたラベルは最初からオン。ラベルが 1 つも無ければ見出しごと隠す。
+                     チップの作りは TaskDetailPanel と同じ（新しいラベルはここでは作らない）。 -->
+                <TextBlock Text="{x:Static res:Strings.Labels}" Style="{StaticResource Text.Label}"
+                           Visibility="{Binding HasLabelChoices, Converter={StaticResource BoolToVisibility}}" />
+                <ItemsControl ItemsSource="{Binding LabelChoices}"
+                              Visibility="{Binding HasLabelChoices, Converter={StaticResource BoolToVisibility}}">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                      <ToggleButton Content="{Binding Name}" IsChecked="{Binding IsSelected}"
+                                    Style="{StaticResource Chip.Toggle}" Margin="{StaticResource Gap.Chip}" />
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
                 <TextBlock Text="{x:Static res:Strings.Column}" Style="{StaticResource Text.Label}" />
                 <ComboBox ItemsSource="{Binding ColumnChoices}" DisplayMemberPath="Name"
                           SelectedValuePath="Id" SelectedValue="{Binding EditColumnId}" />

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MoTask.App.Resources;
 using MoTask.Core;
+using MoTask.Core.Model;
 using MoTask.Core.Services;
 
 namespace MoTask.App.ViewModels;
@@ -11,6 +12,21 @@ namespace MoTask.App.ViewModels;
 public sealed record TaskChoice(int Id, string Title, string ColumnName)
 {
     public string Display => string.Format(Strings.PlanTaskChoiceFormat, Title, ColumnName);
+}
+
+/// <summary>登録欄のラベルのチップ。推薦されたものが最初からオンになる。</summary>
+public sealed partial class LabelChoiceViewModel : ObservableObject
+{
+    public LabelChoiceViewModel(int id, string name)
+    {
+        Id = id;
+        Name = name;
+    }
+
+    public int Id { get; }
+    public string Name { get; }
+
+    [ObservableProperty] private bool _isSelected;
 }
 
 /// <summary>
@@ -40,6 +56,12 @@ public sealed partial class TriagePanelViewModel : ObservableObject
     /// <summary>統合先に選べるタスク。</summary>
     public ObservableCollection<TaskChoice> MergeTargets { get; } = new();
 
+    /// <summary>付けられるラベル（アーカイブ済みは PlanViewModel が除く）。</summary>
+    public ObservableCollection<LabelChoiceViewModel> LabelChoices { get; } = new();
+
+    /// <summary>ラベルが 1 つも無ければ、登録欄のラベル欄ごと隠す。</summary>
+    public bool HasLabelChoices => LabelChoices.Count > 0;
+
     [ObservableProperty] private CandidateItemViewModel? _selected;
     [ObservableProperty] private string _positionText = "";
 
@@ -57,7 +79,7 @@ public sealed partial class TriagePanelViewModel : ObservableObject
     /// <summary>統合先が選ばれているか。E キーと「統合」ボタンの活性。</summary>
     public bool CanMerge => EditMergeTargetId is not null;
 
-    public void SetChoices(IEnumerable<ColumnChoice> columns, IEnumerable<TaskChoice> targets)
+    public void SetChoices(IEnumerable<ColumnChoice> columns, IEnumerable<TaskChoice> targets, IEnumerable<Label>? labels = null)
     {
         ColumnChoices.Clear();
         foreach (var column in columns) ColumnChoices.Add(column);
@@ -65,6 +87,15 @@ public sealed partial class TriagePanelViewModel : ObservableObject
         foreach (var target in targets) MergeTargets.Add(target);
         if (ColumnChoices.All(c => c.Id != EditColumnId)) EditColumnId = ColumnChoices.FirstOrDefault()?.Id ?? 0;
         if (EditMergeTargetId is int chosen && MergeTargets.All(t => t.Id != chosen)) EditMergeTargetId = null;
+
+        // 読み直しで作り直しても、人が切り替えたチップは残す
+        var on = LabelChoices.Where(l => l.IsSelected).Select(l => l.Id).ToHashSet();
+        LabelChoices.Clear();
+        foreach (var label in labels ?? Array.Empty<Label>())
+        {
+            LabelChoices.Add(new LabelChoiceViewModel(label.Id, label.Name) { IsSelected = on.Contains(label.Id) });
+        }
+        OnPropertyChanged(nameof(HasLabelChoices));
     }
 
     /// <summary>候補を 1 件見せる。推薦された統合先が一覧にあれば初期選択にする。</summary>
@@ -77,6 +108,8 @@ public sealed partial class TriagePanelViewModel : ObservableObject
         EditMergeTargetId = candidate?.SuggestedMergeTaskId is int suggested && MergeTargets.Any(t => t.Id == suggested)
             ? suggested
             : null;
+        var suggestedLabels = candidate?.SuggestedLabelIds ?? Array.Empty<int>();
+        foreach (var label in LabelChoices) label.IsSelected = suggestedLabels.Contains(label.Id);
         PositionText = candidate is null ? "" : string.Format(Strings.PlanPositionFormat, index + 1, count);
     }
 
@@ -86,7 +119,8 @@ public sealed partial class TriagePanelViewModel : ObservableObject
         if (Selected is null) return;
         var due = EditDueDate is DateTime date ? DateOnly.FromDateTime(date) : (DateOnly?)null;
         var registered = await _service.RegisterAsync(new CandidateDecision(
-            Selected.CandidateId, EditTitle, due, EditProjectName, EditColumnId)).ConfigureAwait(true);
+            Selected.CandidateId, EditTitle, due, EditProjectName, EditColumnId,
+            LabelChoices.Where(l => l.IsSelected).Select(l => l.Id).ToList())).ConfigureAwait(true);
         await _afterDecision(registered).ConfigureAwait(true);
     }
 

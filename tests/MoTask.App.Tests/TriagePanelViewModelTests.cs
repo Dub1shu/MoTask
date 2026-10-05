@@ -26,16 +26,87 @@ public class TriagePanelViewModelTests
         _panel = new TriagePanelViewModel(_service, r => { _decisions.Add(r); return Task.CompletedTask; }, _opened.Add);
         _panel.SetChoices(
             new[] { new ColumnChoice(1, "未着手"), new ColumnChoice(2, "進行中") },
-            new[] { new TaskChoice(10, "請求先情報を更新する", "未着手"), new TaskChoice(12, "週次レポートを作成する", "進行中") });
+            new[] { new TaskChoice(10, "請求先情報を更新する", "未着手"), new TaskChoice(12, "週次レポートを作成する", "進行中") },
+            new[] { new Label { Id = 200, Name = "至急" }, new Label { Id = 201, Name = "経理" } });
     }
 
-    private static CandidateItemViewModel Candidate(int? mergeTarget = null) => new(new TriageCandidate
+    private static CandidateItemViewModel Candidate(int? mergeTarget = null, int[]? labels = null) => new(new TriageCandidate
     {
         Id = 1, PlanningRunId = 1, ExternalId = "outlook:001", Source = "Outlook", Title = "請求先情報を更新する",
         Evidence = "「9月8日までに」", Link = "https://outlook.office.com/x",
         SuggestedDueDate = new DateOnly(2026, 9, 8), SuggestedProject = "顧客A",
         SuggestedAction = mergeTarget is null ? TriageAction.Register : TriageAction.Merge, SuggestedMergeTaskId = mergeTarget,
+        SuggestedLabelIds = (labels ?? Array.Empty<int>()).ToList(),
     });
+
+    // ---- ラベル ----
+
+    private IEnumerable<int> SelectedLabelIds() => _panel.LabelChoices.Where(l => l.IsSelected).Select(l => l.Id);
+
+    [Fact]
+    public void Show_SelectsTheSuggestedLabels()
+    {
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 1);
+
+        _panel.LabelChoices.Select(l => l.Name).Should().Equal("至急", "経理");
+        SelectedLabelIds().Should().Equal(201);
+        _panel.HasLabelChoices.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Show_ReplacesTheSelection_WhenTheCandidateChanges()
+    {
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 2);
+
+        _panel.Show(Candidate(labels: new[] { 200 }), 1, 2);
+
+        SelectedLabelIds().Should().Equal(200);
+    }
+
+    [Fact]
+    public void Show_ClearsTheSelection_WhenThereIsNoCandidate()
+    {
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 1);
+
+        _panel.Show(null, 0, 0);
+
+        SelectedLabelIds().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Register_SendsTheLabelsThePersonLeftOn()
+    {
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 1);
+        _panel.LabelChoices.Single(l => l.Id == 201).IsSelected = false;
+        _panel.LabelChoices.Single(l => l.Id == 200).IsSelected = true;
+
+        await _panel.RegisterCommand.ExecuteAsync(null);
+
+        _service.LastDecision!.LabelIds.Should().Equal(200);
+    }
+
+    /// <summary>盤面の読み直しで選択肢を作り直しても、人が切り替えたチップはそのまま（Review Focus 3）。</summary>
+    [Fact]
+    public void SetChoices_KeepsTheLabelsThePersonHasTurnedOn()
+    {
+        _panel.Show(Candidate(labels: new[] { 201 }), 0, 1);
+        _panel.LabelChoices.Single(l => l.Id == 200).IsSelected = true;
+
+        _panel.SetChoices(
+            new[] { new ColumnChoice(1, "未着手") }, Array.Empty<TaskChoice>(),
+            new[] { new Label { Id = 200, Name = "至急" }, new Label { Id = 201, Name = "経理" }, new Label { Id = 202, Name = "新顔" } });
+
+        SelectedLabelIds().Should().BeEquivalentTo(new[] { 200, 201 });
+        _panel.LabelChoices.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void HasLabelChoices_IsFalse_WhenThereAreNoLabels()
+    {
+        _panel.SetChoices(new[] { new ColumnChoice(1, "未着手") }, Array.Empty<TaskChoice>(), Array.Empty<Label>());
+
+        _panel.HasLabelChoices.Should().BeFalse();
+    }
 
     [Fact]
     public void SetChoices_DefaultsToTheFirstColumn_AndFormatsTargets()
@@ -108,8 +179,11 @@ public class TriagePanelViewModelTests
 
         await _panel.RegisterCommand.ExecuteAsync(null);
 
-        _service.RegisterCalls.Should().ContainSingle().Which.Should()
+        // LabelIds は一覧なので record の等値に乗らない。外して比べ、中身は別に見る
+        var decision = _service.RegisterCalls.Should().ContainSingle().Subject;
+        (decision with { LabelIds = null }).Should()
             .Be(new CandidateDecision(1, "書き換えた題名", new DateOnly(2026, 9, 10), "別プロジェクト", 2));
+        decision.LabelIds.Should().BeEmpty();
     }
 
     [Fact]
