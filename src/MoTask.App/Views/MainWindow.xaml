@@ -21,7 +21,9 @@
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
                 Content="{x:Static res:Strings.AiSettings}" Click="OnAiSettingsClick" Margin="{StaticResource Gap.Left.2}" />
         <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
-                Content="{x:Static res:Strings.ManageClassifications}" Click="OnManageClassificationsClick" />
+                Content="{x:Static res:Strings.ManageLabels}" Click="OnManageLabelsClick" Margin="{StaticResource Gap.Left.2}" />
+        <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
+                Content="{x:Static res:Strings.ManageProjects}" Click="OnManageProjectsClick" />
         <StackPanel Orientation="Horizontal">
           <!-- どれが今の画面かは Click ハンドラ側(ShowView)が Tag を切り替えて示す。
                下線と文字色そのものは Btn.Tab スタイルが持つ。 -->

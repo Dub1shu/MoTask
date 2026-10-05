@@ -50,9 +50,8 @@ public static class Strings
     public static string Column => Get(nameof(Column));
     public static string ColumnMenu => Get(nameof(ColumnMenu));
     public static string CompletedAt => Get(nameof(CompletedAt));
-    public static string ManageClassifications => Get(nameof(ManageClassifications));
-    public static string ManageProjectsHeading => Get(nameof(ManageProjectsHeading));
-    public static string ManageLabelsHeading => Get(nameof(ManageLabelsHeading));
+    public static string ManageProjects => Get(nameof(ManageProjects));
+    public static string ManageLabels => Get(nameof(ManageLabels));
     public static string ManageUsageFormat => Get(nameof(ManageUsageFormat));
     public static string ManageAddProject => Get(nameof(ManageAddProject));
     public static string ManageAddLabel => Get(nameof(ManageAddLabel));
