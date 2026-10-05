@@ -28,8 +28,11 @@ public sealed record TaskRow(
     string? ProjectName,
     DateOnly? DueDate,
     string ColumnName,
-    bool IsDone,
-    TaskRowOrigin Origin) : PlanRow(Title);
+    ColumnRole ColumnRole,
+    TaskRowOrigin Origin) : PlanRow(Title)
+{
+    public bool IsDone => ColumnRole == ColumnRole.Done;
+}
 
 public sealed record CandidateRow(
     int CandidateId,

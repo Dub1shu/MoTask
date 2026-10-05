@@ -39,6 +39,7 @@ public static class Messages
     public static string SaveFailed => Get(nameof(SaveFailed));
     public static string DefaultBoardName => Get(nameof(DefaultBoardName));
     public static string DefaultColumnBacklog => Get(nameof(DefaultColumnBacklog));
+    public static string DefaultColumnToday => Get(nameof(DefaultColumnToday));
     public static string DefaultColumnActive => Get(nameof(DefaultColumnActive));
     public static string DefaultColumnReview => Get(nameof(DefaultColumnReview));
     public static string DefaultColumnDone => Get(nameof(DefaultColumnDone));

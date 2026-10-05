@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace MoTask.Data;
 
-/// <summary>起動時に呼ぶ。マイグレーションを適用し、ボードが無ければ既定のボードと4列を投入する。</summary>
+/// <summary>起動時に呼ぶ。マイグレーションを適用し、ボードが無ければ既定のボードと列を投入する。</summary>
 public sealed class DatabaseInitializer
 {
     private readonly MoTaskDbContext _db;

@@ -986,6 +986,24 @@ public class BoardViewModelTests
     }
 
     [Fact]
+    public async Task SetRole_ToToday_ChecksTodayInTheColumnMenu()
+    {
+        _service.OnSetColumnRole = call =>
+        {
+            if (call is { ColumnId: 1, Role: ColumnRole.Today }) _board.Columns[0].Role = ColumnRole.Today;
+            return Task.FromResult(Result.Ok());
+        };
+        await _vm.LoadAsync();
+        var column = _vm.Columns[0];   // 未着手
+        column.IsToday.Should().BeFalse();
+
+        await column.SetRoleCommand.ExecuteAsync(ColumnRole.Today);
+
+        column.IsToday.Should().BeTrue();
+        column.IsBacklog.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task SelectTask_SelectsTheCardById_AndOpensTheDetail()
     {
         await _vm.LoadAsync();

@@ -222,6 +222,15 @@ public sealed class FakePlanningService : IPlanningService
         return Task.FromResult(BulkResult);
     }
 
+    /// <summary>MoveTodayToColumnAsync が返す結果。</summary>
+    public Result<int> MoveTodayResult { get; set; } = Result.Ok(0);
+
+    public Task<Result<int>> MoveTodayToColumnAsync(int runId, CancellationToken ct = default)
+    {
+        Calls.Add($"MoveToday:{runId}");
+        return Task.FromResult(MoveTodayResult);
+    }
+
     /// <summary>CompleteRunAsync が返す結果。</summary>
     public Result<PlanningOutcome> CompleteRunResult { get; set; } = Result.Ok(new PlanningOutcome(true, null));
 
