@@ -53,6 +53,10 @@
   <data name="ManageAddLabel" xml:space="preserve"><value>＋ ラベルを追加</value></data>
   <data name="ManageChangeColor" xml:space="preserve"><value>色を変更</value></data>
   <data name="ManageRenameHint" xml:space="preserve"><value>クリックで名前を変更</value></data>
+  <data name="ManageDefaultWorkingDirectoryFormat" xml:space="preserve"><value>既定のフォルダ（{0}）</value></data>
+  <data name="ManageWorkingDirectoryHint" xml:space="preserve"><value>AI がこのプロジェクトのタスクを実行するフォルダ</value></data>
+  <data name="ManageChooseWorkingDirectory" xml:space="preserve"><value>変更…</value></data>
+  <data name="ManageResetWorkingDirectory" xml:space="preserve"><value>既定に戻す</value></data>
   <data name="ManageNoColor" xml:space="preserve"><value>色なし</value></data>
   <data name="ColumnMenu" xml:space="preserve"><value>列のメニュー</value></data>
   <data name="History" xml:space="preserve"><value>履歴</value></data>
@@ -155,8 +159,6 @@
   <data name="AiStopTracking" xml:space="preserve"><value>追跡をやめる</value></data>
   <data name="AiStopTrackingHint" xml:space="preserve"><value>「追跡をやめる」は端末を閉じません。端末はご自分で閉じてください</value></data>
   <data name="AiResult" xml:space="preserve"><value>結果</value></data>
-  <data name="ProjectWorkingDirectory" xml:space="preserve"><value>作業フォルダ</value></data>
-  <data name="ProjectWorkingDirectoryHint" xml:space="preserve"><value>AI がこのプロジェクトのタスクを実行するフォルダ。空なら設定の既定フォルダ</value></data>
   <data name="AiSettings" xml:space="preserve"><value>AI 設定</value></data>
   <data name="SettingsDefaultWorkingDirectory" xml:space="preserve"><value>既定の作業フォルダ（プロジェクトに作業フォルダが無いときに使う）</value></data>
   <data name="SettingsClaudePath" xml:space="preserve"><value>claude 実行ファイルのパス（空なら PATH から探す）</value></data>

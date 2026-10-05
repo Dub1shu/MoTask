@@ -1,8 +1,10 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using Microsoft.Win32;
 using MoTask.App.ViewModels;
 
 namespace MoTask.App.Views;
@@ -76,6 +78,15 @@ public partial class ManageClassificationsDialog : Window
 
     private void OnEditBoxIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         => BoardView.FocusWhenVisible(sender, e);
+
+    /// <summary>OS のフォルダ選択を開き、選ばれたら保存する。今のフォルダがあればそこから開く。</summary>
+    private void OnChooseWorkingDirectoryClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ClassificationRow row }) return;
+        var dialog = new OpenFolderDialog { Title = row.Name };
+        if (row.WorkingDirectory is { } current && Directory.Exists(current)) dialog.InitialDirectory = current;
+        if (dialog.ShowDialog(this) == true) Vm.SetWorkingDirectory(row, dialog.FolderName);
+    }
 
     /// <summary>見本を選んだら色を変えてポップアップを閉じる。</summary>
     private void OnSwatchClick(object sender, RoutedEventArgs e)

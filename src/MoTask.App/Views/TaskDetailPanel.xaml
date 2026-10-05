@@ -75,14 +75,6 @@
                    Margin="{StaticResource Gap.Top.1}" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
                    KeyDown="NewProjectBox_KeyDown" LostFocus="NewProjectBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
 
-          <!-- プロジェクトの作業フォルダ（AI ジョブの cwd）。プロジェクトが選ばれているときだけ -->
-          <StackPanel Visibility="{Binding HasProject, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="{x:Static res:Strings.ProjectWorkingDirectory}" Style="{StaticResource Field.Label}" />
-            <TextBox Text="{Binding ProjectWorkingDirectory, UpdateSourceTrigger=LostFocus}" Style="{StaticResource Field.SingleLine}"
-                     KeyDown="EditBox_KeyDown" />
-            <TextBlock Text="{x:Static res:Strings.ProjectWorkingDirectoryHint}" Style="{StaticResource Text.Hint}" />
-          </StackPanel>
-
           <!-- 末尾に「＋ 追加」を並べるため、チップと同じ WrapPanel に入れる（CompositeCollection）。
                CompositeCollection の中身はパネルの DataContext を継がないので、Labels と
                「＋ 追加」の DataContext はコードビハインドで渡す。

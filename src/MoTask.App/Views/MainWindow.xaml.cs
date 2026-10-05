@@ -58,7 +58,7 @@ public partial class MainWindow : Window
         var dialog = new ManageClassificationsDialog
         {
             Owner = this,
-            DataContext = new ManageClassificationsViewModel(_vm),
+            DataContext = new ManageClassificationsViewModel(_vm, _settings.Load().DefaultWorkingDirectory),
         };
         dialog.ShowDialog();
     }

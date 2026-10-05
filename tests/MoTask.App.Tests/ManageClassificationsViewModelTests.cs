@@ -1,4 +1,5 @@
 using FluentAssertions;
+using MoTask.App.Resources;
 using MoTask.App.Tests.Fakes;
 using MoTask.App.ViewModels;
 using MoTask.Core;
@@ -49,8 +50,10 @@ public class ManageClassificationsViewModelTests
     private async Task<ManageClassificationsViewModel> OpenAsync()
     {
         await _vm.LoadAsync();
-        return new ManageClassificationsViewModel(_vm);
+        return new ManageClassificationsViewModel(_vm, DefaultFolder);
     }
+
+    private const string DefaultFolder = @"C:\Users\me\MoTask";
 
     /// <summary>使用件数は読み込み済みのボードから数える。論理削除済みのタスクは含めない。</summary>
     [Fact]
@@ -382,5 +385,74 @@ public class ManageClassificationsViewModelTests
         _service.SetProjectColorCalls.Should().Equal(new SetProjectColorCall(100, "pink-600"), new SetProjectColorCall(100, null));
         manage.Projects.Single(r => r.Id == 100).Color.Should().BeNull();
         _service.SetLabelColorCalls.Should().BeEmpty();
+    }
+
+    // ---------- 作業フォルダ ----------
+
+    /// <summary>未設定のプロジェクトは既定のフォルダを添えて出す。ラベルの行にはフォルダが無い。</summary>
+    [Fact]
+    public async Task ProjectRows_ShowTheWorkingDirectory_OrTheDefault()
+    {
+        _projectA.WorkingDirectory = @"D:\repo\a";
+        var manage = await OpenAsync();
+
+        var set = manage.Projects.Single(r => r.Id == 100);
+        set.HasWorkingDirectory.Should().BeTrue();
+        set.WorkingDirectory.Should().Be(@"D:\repo\a");
+        set.WorkingDirectoryText.Should().Be(@"D:\repo\a");
+
+        var unset = manage.Projects.Single(r => r.Id == 101);
+        unset.HasWorkingDirectory.Should().BeFalse();
+        unset.WorkingDirectoryText.Should().Be(string.Format(Strings.ManageDefaultWorkingDirectoryFormat, DefaultFolder));
+
+        manage.Labels.Should().OnlyContain(r => !r.IsProject);
+        manage.Projects.Should().OnlyContain(r => r.IsProject);
+    }
+
+    [Fact]
+    public async Task SetWorkingDirectory_AndReset_CallTheServiceAndRefresh()
+    {
+        _service.OnSetProjectWorkingDirectory = call =>
+        {
+            _projectA.WorkingDirectory = call.Path;
+            return Task.FromResult(Result.Ok());
+        };
+        var manage = await OpenAsync();
+
+        manage.SetWorkingDirectory(manage.Projects.Single(r => r.Id == 100), @"D:\repo\a");
+        await manage.PendingChange;
+        manage.Projects.Single(r => r.Id == 100).WorkingDirectory.Should().Be(@"D:\repo\a");
+
+        manage.ClearWorkingDirectoryCommand.Execute(manage.Projects.Single(r => r.Id == 100));
+        await manage.PendingChange;
+
+        _service.SetProjectWorkingDirectoryCalls.Should().Equal(
+            new SetProjectWorkingDirectoryCall(100, @"D:\repo\a"), new SetProjectWorkingDirectoryCall(100, null));
+        manage.Projects.Single(r => r.Id == 100).HasWorkingDirectory.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SetWorkingDirectory_SameFolder_DoesNothing()
+    {
+        _projectA.WorkingDirectory = @"D:\repo\a";
+        var manage = await OpenAsync();
+
+        manage.SetWorkingDirectory(manage.Projects.Single(r => r.Id == 100), @"D:\repo\a");
+        await manage.PendingChange;
+
+        _service.SetProjectWorkingDirectoryCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SetWorkingDirectory_Failure_ShowsTheError()
+    {
+        _service.OnSetProjectWorkingDirectory = _ => Task.FromResult(Result.Fail(Messages.ProjectNotFound));
+        var manage = await OpenAsync();
+
+        manage.SetWorkingDirectory(manage.Projects.Single(r => r.Id == 100), @"D:\repo\a");
+        await manage.PendingChange;
+
+        manage.ErrorMessage.Should().Contain(Messages.ProjectNotFound);
+        manage.Projects.Single(r => r.Id == 100).HasWorkingDirectory.Should().BeFalse();
     }
 }
