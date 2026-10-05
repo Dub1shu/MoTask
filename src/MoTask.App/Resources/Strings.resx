@@ -27,6 +27,7 @@
   <data name="ClearWip" xml:space="preserve"><value>カードの上限をなくす</value></data>
   <data name="DeleteColumn" xml:space="preserve"><value>列を削除</value></data>
   <data name="RoleBacklog" xml:space="preserve"><value>未着手</value></data>
+  <data name="RoleToday" xml:space="preserve"><value>今日中（計画の「今日中」を移す先）</value></data>
   <data name="RoleActive" xml:space="preserve"><value>進行中（MCP でタスクを足すときの既定）</value></data>
   <data name="RoleReview" xml:space="preserve"><value>確認待ち（AI が終えたタスクの移動先）</value></data>
   <data name="RoleDone" xml:space="preserve"><value>完了</value></data>

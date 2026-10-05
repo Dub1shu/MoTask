@@ -24,6 +24,7 @@ public sealed partial class ColumnViewModel : ObservableObject
     [ObservableProperty] private bool _isDone;
     // 列メニューで今の役割にチェックを付けるため。
     [ObservableProperty] private bool _isBacklog;
+    [ObservableProperty] private bool _isToday;
     [ObservableProperty] private bool _isActive;
     [ObservableProperty] private bool _isReview;
     [ObservableProperty] private int _activeCount;
@@ -58,6 +59,7 @@ public sealed partial class ColumnViewModel : ObservableObject
         Role = Model.Role;
         IsDone = Role == ColumnRole.Done;
         IsBacklog = Role == ColumnRole.Backlog;
+        IsToday = Role == ColumnRole.Today;
         IsActive = Role == ColumnRole.Active;
         IsReview = Role == ColumnRole.Review;
         // 完了列は今週分だけを表示するので、件数と上限の判定も表示と同じ数で見る

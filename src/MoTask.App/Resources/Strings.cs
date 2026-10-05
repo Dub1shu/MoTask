@@ -33,6 +33,7 @@ public static class Strings
     public static string ClearWip => Get(nameof(ClearWip));
     public static string DeleteColumn => Get(nameof(DeleteColumn));
     public static string RoleBacklog => Get(nameof(RoleBacklog));
+    public static string RoleToday => Get(nameof(RoleToday));
     public static string RoleActive => Get(nameof(RoleActive));
     public static string RoleReview => Get(nameof(RoleReview));
     public static string RoleDone => Get(nameof(RoleDone));
