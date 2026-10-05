@@ -6,16 +6,12 @@
         xmlns:res="clr-namespace:MoTask.App.Resources"
         xmlns:vm="clr-namespace:MoTask.App.ViewModels"
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ManageClassificationsViewModel}"
-        Title="{x:Static res:Strings.ManageClassifications}" Width="480" Height="560"
+        Title="{Binding Title}" Width="480" Height="560"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         PreviewKeyDown="OnPreviewKeyDown">
   <Window.Resources>
-    <Style x:Key="Manage.Heading" TargetType="TextBlock" BasedOn="{StaticResource Text.Label}">
-      <Setter Property="Margin" Value="{StaticResource Gap.FieldLabel}" />
-    </Style>
-
     <!-- 色丸のボタン。Btn.Ghost は Button 用、Btn.Dropdown は矢印が付くので、ここだけの最小の見た目を持つ -->
     <Style x:Key="Manage.ColorDot" TargetType="ToggleButton">
       <Setter Property="Cursor" Value="Hand" />
@@ -217,47 +213,50 @@
                Margin="{StaticResource Gap.Top.2}"
                Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-      <StackPanel>
-        <TextBlock Text="{x:Static res:Strings.ManageProjectsHeading}" Style="{StaticResource Manage.Heading}" />
-        <ItemsControl ItemsSource="{Binding Projects}" ItemTemplate="{StaticResource Manage.Row}" />
-        <TextBlock Text="{x:Static res:Strings.ManageEmpty}">
-          <TextBlock.Style>
-            <Style TargetType="TextBlock" BasedOn="{StaticResource Manage.Empty}">
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding Projects.Count}" Value="0">
-                  <Setter Property="Visibility" Value="Visible" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </TextBlock.Style>
-        </TextBlock>
-        <Button Content="{x:Static res:Strings.ManageAddProject}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
-                Margin="{StaticResource Gap.Top.2}" Command="{Binding BeginAddProjectCommand}"
-                Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibilityInverse}}" />
-        <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Margin="{StaticResource Gap.Top.2}"
-                 Tag="Project" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
-                 KeyDown="OnNewBoxKeyDown" LostFocus="OnNewBoxLostFocus" IsVisibleChanged="OnEditBoxIsVisibleChanged" />
+      <!-- プロジェクト設定とラベル設定は別の入口から開く。どちらで開いたかは題名が示すので、見出しは置かない -->
+      <Grid>
+        <StackPanel Visibility="{Binding IsProjects, Converter={StaticResource BoolToVisibility}}">
+          <ItemsControl ItemsSource="{Binding Projects}" ItemTemplate="{StaticResource Manage.Row}" />
+          <TextBlock Text="{x:Static res:Strings.ManageEmpty}">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource Manage.Empty}">
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding Projects.Count}" Value="0">
+                    <Setter Property="Visibility" Value="Visible" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+          <Button Content="{x:Static res:Strings.ManageAddProject}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
+                  Margin="{StaticResource Gap.Top.2}" Command="{Binding BeginAddProjectCommand}"
+                  Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibilityInverse}}" />
+          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Margin="{StaticResource Gap.Top.2}"
+                   Tag="Project" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
+                   KeyDown="OnNewBoxKeyDown" LostFocus="OnNewBoxLostFocus" IsVisibleChanged="OnEditBoxIsVisibleChanged" />
+        </StackPanel>
 
-        <TextBlock Text="{x:Static res:Strings.ManageLabelsHeading}" Style="{StaticResource Manage.Heading}" />
-        <ItemsControl ItemsSource="{Binding Labels}" ItemTemplate="{StaticResource Manage.Row}" />
-        <TextBlock Text="{x:Static res:Strings.ManageEmpty}">
-          <TextBlock.Style>
-            <Style TargetType="TextBlock" BasedOn="{StaticResource Manage.Empty}">
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding Labels.Count}" Value="0">
-                  <Setter Property="Visibility" Value="Visible" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </TextBlock.Style>
-        </TextBlock>
-        <Button Content="{x:Static res:Strings.ManageAddLabel}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
-                Margin="{StaticResource Gap.Top.2}" Command="{Binding BeginAddLabelCommand}"
-                Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />
-        <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" Margin="{StaticResource Gap.Top.2}"
-                 Tag="Label" Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibility}}"
-                 KeyDown="OnNewBoxKeyDown" LostFocus="OnNewBoxLostFocus" IsVisibleChanged="OnEditBoxIsVisibleChanged" />
-      </StackPanel>
+        <StackPanel Visibility="{Binding IsLabels, Converter={StaticResource BoolToVisibility}}">
+          <ItemsControl ItemsSource="{Binding Labels}" ItemTemplate="{StaticResource Manage.Row}" />
+          <TextBlock Text="{x:Static res:Strings.ManageEmpty}">
+            <TextBlock.Style>
+              <Style TargetType="TextBlock" BasedOn="{StaticResource Manage.Empty}">
+                <Style.Triggers>
+                  <DataTrigger Binding="{Binding Labels.Count}" Value="0">
+                    <Setter Property="Visibility" Value="Visible" />
+                  </DataTrigger>
+                </Style.Triggers>
+              </Style>
+            </TextBlock.Style>
+          </TextBlock>
+          <Button Content="{x:Static res:Strings.ManageAddLabel}" Style="{StaticResource Btn.Ghost}" HorizontalAlignment="Left"
+                  Margin="{StaticResource Gap.Top.2}" Command="{Binding BeginAddLabelCommand}"
+                  Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />
+          <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" Margin="{StaticResource Gap.Top.2}"
+                   Tag="Label" Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibility}}"
+                   KeyDown="OnNewBoxKeyDown" LostFocus="OnNewBoxLostFocus" IsVisibleChanged="OnEditBoxIsVisibleChanged" />
+        </StackPanel>
+      </Grid>
     </ScrollViewer>
   </DockPanel>
 </Window>

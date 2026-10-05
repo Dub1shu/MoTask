@@ -9,7 +9,7 @@ using MoTask.App.ViewModels;
 
 namespace MoTask.App.Views;
 
-/// <summary>プロジェクトとラベルの管理ダイアログ。キー操作とフォーカスの配線だけを持ち、操作は ViewModel 側にある。</summary>
+/// <summary>プロジェクト設定／ラベル設定のダイアログ（どちらを出すかは ViewModel の種別で決まる）。キー操作とフォーカスの配線だけを持ち、操作は ViewModel 側にある。</summary>
 public partial class ManageClassificationsDialog : Window
 {
     public ManageClassificationsDialog()
