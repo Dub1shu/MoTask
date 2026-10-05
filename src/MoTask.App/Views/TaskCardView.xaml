@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:dd="clr-namespace:MoTask.App.DragDrop"
+             xmlns:filtering="clr-namespace:MoTask.Core.Filtering;assembly=MoTask.Core"
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              xmlns:views="clr-namespace:MoTask.App.Views"
@@ -18,22 +19,31 @@
     <!-- 子要素はヒットテストしない: クリックと D&D は ListBoxItem が受ける -->
     <StackPanel Grid.Column="0" IsHitTestVisible="False">
       <StackPanel.Resources>
+        <!-- 期限超過は危険色、当日はアクセント、それ以外は Text.Caption の控えめな文字色。
+             DynamicResource で引くので OS のテーマ切り替えに追従する。 -->
         <Style x:Key="Card.Due" TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
-          <Setter Property="Foreground" Value="{Binding DueStatus, Converter={StaticResource DueStatusBrush}}" />
           <Setter Property="FontWeight" Value="Medium" />
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding DueStatus}" Value="{x:Static filtering:DueStatus.Today}">
+              <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+            </DataTrigger>
+            <DataTrigger Binding="{Binding DueStatus}" Value="{x:Static filtering:DueStatus.Overdue}">
+              <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            </DataTrigger>
+          </Style.Triggers>
         </Style>
       </StackPanel.Resources>
       <!-- 上段はプロジェクトがあるときだけ。無いときは行ごと消し、期日はタイトルの右へ回す。 -->
       <DockPanel Visibility="{Binding ProjectName, Converter={StaticResource NullToVisibility}}">
         <TextBlock DockPanel.Dock="Right" Text="{Binding DueText}" Style="{StaticResource Card.Due}" />
-        <Border Background="{StaticResource Brush.AccentSubtle}" Padding="{StaticResource Pad.Chip}"
+        <Border Background="{DynamicResource SubtleFillColorTertiaryBrush}" Padding="{StaticResource Pad.Chip}"
                 CornerRadius="3" HorizontalAlignment="Left">
           <StackPanel Orientation="Horizontal">
             <!-- 色なしのプロジェクトは丸を出さない（文字色は変えず、濃い色を選んでも読みやすさを保つ） -->
             <Ellipse Width="8" Height="8" Margin="0,0,4,0" VerticalAlignment="Center"
                      Fill="{Binding ProjectColor, Converter={StaticResource RampBrush}}"
                      Visibility="{Binding ProjectColor, Converter={StaticResource NullToVisibility}}" />
-            <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Accent}" />
+            <TextBlock Text="{Binding ProjectName}" Style="{StaticResource Text.Caption}" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
           </StackPanel>
         </Border>
       </DockPanel>
@@ -64,17 +74,17 @@
             </Style>
           </TextBlock.Style>
         </TextBlock>
-        <TextBlock Text="{Binding Title}" Foreground="{StaticResource Brush.Text}" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Title}" Foreground="{DynamicResource TextFillColorPrimaryBrush}" TextWrapping="Wrap" />
       </DockPanel>
       <!-- AI 稼働中・入力待ちのバッジ（仕様 §10）。入力待ちは濃い段で目立たせる -->
       <Border Margin="{StaticResource Gap.Top.1}" Padding="{StaticResource Pad.Chip}" CornerRadius="3" HorizontalAlignment="Left"
               Visibility="{Binding HasAiBadge, Converter={StaticResource BoolToVisibility}}">
         <Border.Style>
           <Style TargetType="Border">
-            <Setter Property="Background" Value="{StaticResource Brush.AccentSubtle}" />
+            <Setter Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
             <Style.Triggers>
               <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
-                <Setter Property="Background" Value="{StaticResource Brush.Accent}" />
+                <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
@@ -82,10 +92,10 @@
         <TextBlock Text="{Binding AiBadgeText}" FontWeight="Medium">
           <TextBlock.Style>
             <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
-              <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+              <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
               <Style.Triggers>
                 <DataTrigger Binding="{Binding IsWaitingForInput}" Value="True">
-                  <Setter Property="Foreground" Value="{StaticResource Brush.OnAccent}" />
+                  <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
                 </DataTrigger>
               </Style.Triggers>
             </Style>

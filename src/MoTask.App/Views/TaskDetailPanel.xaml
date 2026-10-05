@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:behaviors="clr-namespace:MoTask.App.Behaviors"
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:TaskDetailViewModel}">
@@ -18,8 +19,8 @@
       <Setter Property="Padding" Value="6.8,5" />
     </Style>
   </UserControl.Resources>
-  <Border BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
-          Background="{StaticResource Brush.Surface}">
+  <Border BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1,0,0,0" Padding="{StaticResource Pad.Board}"
+          Background="{DynamicResource LayerFillColorDefaultBrush}">
     <DockPanel>
       <DockPanel DockPanel.Dock="Top">
         <Button DockPanel.Dock="Right" Content="×" Style="{StaticResource Btn.Ghost}" Command="{Binding CloseCommand}"
@@ -37,7 +38,7 @@
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibilityInverse}}" />
         <Button Content="{x:Static res:Strings.Restore}" Style="{StaticResource Btn.Primary}" Command="{Binding RestoreCommand}"
                 Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
-        <TextBlock Text="{x:Static res:Strings.Deleted}" Style="{StaticResource Text.Body}" Foreground="{StaticResource Brush.Danger}" Margin="{StaticResource Gap.Left.3}"
+        <TextBlock Text="{x:Static res:Strings.Deleted}" Style="{StaticResource Text.Body}" Foreground="{DynamicResource SystemFillColorCriticalBrush}" Margin="{StaticResource Gap.Left.3}"
                    VerticalAlignment="Center" Visibility="{Binding IsDeleted, Converter={StaticResource BoolToVisibility}}" />
       </StackPanel>
 
@@ -51,7 +52,7 @@
               <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                 <Style.Triggers>
                   <DataTrigger Binding="{Binding HasTitleError}" Value="True">
-                    <Setter Property="BorderBrush" Value="{StaticResource Brush.Danger}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                   </DataTrigger>
                 </Style.Triggers>
               </Style>
@@ -69,7 +70,7 @@
                     Command="{Binding BeginAddProjectCommand}" ToolTip="{x:Static res:Strings.AddProject}" />
             <ComboBox ItemsSource="{Binding Projects}" DisplayMemberPath="Name" SelectedItem="{Binding SelectedProject}" />
           </DockPanel>
-          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" Tag="{x:Static res:Strings.NewProjectHint}"
+          <TextBox Text="{Binding NewProjectName, UpdateSourceTrigger=PropertyChanged}" behaviors:Watermark.Text="{x:Static res:Strings.NewProjectHint}"
                    Style="{StaticResource Field.SingleLine}"
                    Margin="{StaticResource Gap.Top.1}" Visibility="{Binding IsAddingProject, Converter={StaticResource BoolToVisibility}}"
                    KeyDown="NewProjectBox_KeyDown" LostFocus="NewProjectBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
@@ -95,7 +96,7 @@
                   <Button Content="{x:Static res:Strings.AddTaskInline}" Style="{StaticResource Btn.Ghost}" Padding="6.8,2"
                           FontSize="{StaticResource FontSize.Small}" Command="{Binding BeginAddLabelCommand}"
                           Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibilityInverse}}" />
-                  <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" Tag="{x:Static res:Strings.NewLabelHint}"
+                  <TextBox Text="{Binding NewLabelName, UpdateSourceTrigger=PropertyChanged}" behaviors:Watermark.Text="{x:Static res:Strings.NewLabelHint}"
                            MinWidth="160" Visibility="{Binding IsAddingLabel, Converter={StaticResource BoolToVisibility}}"
                            KeyDown="NewLabelBox_KeyDown" LostFocus="NewLabelBox_LostFocus" IsVisibleChanged="EditBox_IsVisibleChanged" />
                 </Grid>
@@ -136,7 +137,7 @@
 
             <!-- 指示文の確認・編集 -->
             <Border Visibility="{Binding IsComposing, Converter={StaticResource BoolToVisibility}}"
-                    BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
+                    BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1" Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
               <StackPanel>
                 <TextBlock Text="{Binding ComposingTitle}" Style="{StaticResource Text.Label}" />
                 <TextBox Text="{Binding Instruction, UpdateSourceTrigger=PropertyChanged}" AcceptsReturn="True" TextWrapping="Wrap"
@@ -153,7 +154,7 @@
               <DockPanel>
                 <TextBlock Text="{Binding StatusText}" Style="{StaticResource Text.Body}" FontWeight="Medium" VerticalAlignment="Center" />
               </DockPanel>
-              <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource Text.Prose}" Foreground="{StaticResource Brush.Danger}"
+              <TextBlock Text="{Binding ErrorMessage}" Style="{StaticResource Text.Prose}" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                          Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
 
               <TextBlock Text="{x:Static res:Strings.AiResult}" Style="{StaticResource Field.Label}"
@@ -218,7 +219,7 @@
                           <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Prose}">
                             <Style.Triggers>
                               <DataTrigger Binding="{Binding IsError}" Value="True">
-                                <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                               </DataTrigger>
                             </Style.Triggers>
                           </Style>

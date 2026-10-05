@@ -4,7 +4,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using MoTask.App.Resources;
-using MoTask.App.Themes;
 using MoTask.App.ViewModels;
 using MoTask.Core.Ai;
 
@@ -31,7 +30,6 @@ public partial class MainWindow : Window
         PlanHost.DataContext = plan;
         ArchiveHost.DataContext = archive;
         plan.NavigateToTask += OnNavigateToTask;
-        DarkWindowChrome.Apply(this);
         // 起動直後はボード表示。タブの選択状態もそれに合わせておく(切り替えと同じコード経路で決める)。
         ShowView(View.Board);
     }

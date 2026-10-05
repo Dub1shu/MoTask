@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ManageClassificationsViewModel}"
         Title="{x:Static res:Strings.ManageClassifications}" Width="480" Height="560"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         PreviewKeyDown="OnPreviewKeyDown">
   <Window.Resources>
@@ -19,7 +19,7 @@
     <!-- 色丸のボタン。Btn.Ghost は Button 用、Btn.Dropdown は矢印が付くので、ここだけの最小の見た目を持つ -->
     <Style x:Key="Manage.ColorDot" TargetType="ToggleButton">
       <Setter Property="Cursor" Value="Hand" />
-      <Setter Property="FocusVisualStyle" Value="{StaticResource Focus.Ring}" />
+      <Setter Property="FocusVisualStyle" Value="{StaticResource DefaultControlFocusVisualStyle}" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ToggleButton">
@@ -28,7 +28,7 @@
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                <Setter TargetName="Frame" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -38,7 +38,7 @@
 
     <!-- 1行分。ClassificationRow は種別を持つので、プロジェクトとラベルで同じテンプレートを使える。 -->
     <DataTemplate x:Key="Manage.Row">
-      <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
+      <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
               Padding="{StaticResource Pad.BarTight}">
         <DockPanel>
           <Button DockPanel.Dock="Right" VerticalAlignment="Center"
@@ -77,7 +77,7 @@
                     <Style.Triggers>
                       <DataTrigger Binding="{Binding Color}" Value="{x:Null}">
                         <Setter Property="Fill" Value="Transparent" />
-                        <Setter Property="Stroke" Value="{StaticResource Brush.TextMuted}" />
+                        <Setter Property="Stroke" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                         <Setter Property="StrokeThickness" Value="1" />
                       </DataTrigger>
                     </Style.Triggers>
@@ -87,7 +87,7 @@
             </ToggleButton>
             <Popup x:Name="ColorPopup" IsOpen="{Binding IsChecked, ElementName=ColorDot}" StaysOpen="False"
                    PlacementTarget="{Binding ElementName=ColorDot}" Placement="Bottom" AllowsTransparency="True">
-              <Border Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
+              <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}"
                       BorderThickness="1" CornerRadius="6" Padding="6">
                 <StackPanel>
                   <ItemsControl ItemsSource="{Binding Swatches}">
@@ -106,7 +106,7 @@
                         </Button>
                         <DataTemplate.Triggers>
                           <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                            <Setter TargetName="Ring" Property="BorderBrush" Value="{StaticResource Brush.Text}" />
+                            <Setter TargetName="Ring" Property="BorderBrush" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                           </DataTrigger>
                         </DataTemplate.Triggers>
                       </DataTemplate>
@@ -120,7 +120,7 @@
                       <Style TargetType="Button" BasedOn="{StaticResource Btn.Ghost}">
                         <Style.Triggers>
                           <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                             <Setter Property="FontWeight" Value="SemiBold" />
                           </DataTrigger>
                         </Style.Triggers>
@@ -144,7 +144,7 @@
                     <Setter Property="Background" Value="Transparent" />
                     <Style.Triggers>
                       <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                        <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                       </Trigger>
                     </Style.Triggers>
                   </Style>
@@ -155,7 +155,7 @@
                       <Style.Triggers>
                         <!-- アーカイブ済みは淡くして、生きている行と見分けが付くようにする -->
                         <DataTrigger Binding="{Binding IsArchived}" Value="True">
-                          <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                          <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
                         </DataTrigger>
                       </Style.Triggers>
                     </Style>
@@ -190,7 +190,7 @@
             Content="{x:Static res:Strings.Close}" Margin="{StaticResource Gap.Top.4}" Click="OnCloseClick" />
     <!-- ダイアログはモーダルで裏のバナーが見えないので、失敗はここに出す -->
     <TextBlock DockPanel.Dock="Bottom" Text="{Binding ErrorMessage}" TextWrapping="Wrap"
-               Style="{StaticResource Text.Caption}" Foreground="{StaticResource Brush.Danger}"
+               Style="{StaticResource Text.Caption}" Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                Margin="{StaticResource Gap.Top.2}"
                Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
     <ScrollViewer VerticalScrollBarVisibility="Auto">

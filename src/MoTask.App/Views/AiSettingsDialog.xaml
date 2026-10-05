@@ -8,7 +8,7 @@
         mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:AiSettingsViewModel}"
         Title="{x:Static res:Strings.AiSettings}" Width="560" Height="640"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Brush.Bg}" Foreground="{StaticResource Brush.Text}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         FontFamily="{StaticResource Font.Body}" FontSize="{StaticResource FontSize.Body}"
         PreviewKeyDown="OnPreviewKeyDown">
   <Window.Resources>
@@ -23,7 +23,7 @@
         <Button Content="{x:Static res:Strings.SettingsSave}" Style="{StaticResource Btn.Primary}" Command="{Binding SaveCommand}" Margin="{StaticResource Gap.Right.4}" />
         <Button Content="{x:Static res:Strings.Close}" Click="OnCloseClick" />
       </StackPanel>
-      <TextBlock Text="{Binding ErrorMessage}" Foreground="{StaticResource Brush.Danger}" VerticalAlignment="Center" TextWrapping="Wrap"
+      <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource SystemFillColorCriticalBrush}" VerticalAlignment="Center" TextWrapping="Wrap"
                  Visibility="{Binding ErrorMessage, Converter={StaticResource NullToVisibility}}" />
       <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource Text.Caption}" VerticalAlignment="Center"
                  Visibility="{Binding StatusMessage, Converter={StaticResource NullToVisibility}}" />
@@ -45,7 +45,7 @@
 
         <TextBlock Text="{x:Static res:Strings.SettingsTerminalTemplate}" Style="{StaticResource Settings.Label}" TextWrapping="Wrap" />
         <TextBox Text="{Binding TerminalCommandTemplate, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Text="{Binding TemplateNotice}" Foreground="{StaticResource Brush.TextMuted}" TextWrapping="Wrap"
+        <TextBlock Text="{Binding TemplateNotice}" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                    Margin="{StaticResource Gap.Top.1}"
                    Visibility="{Binding TemplateNotice, Converter={StaticResource NullToVisibility}}" />
 

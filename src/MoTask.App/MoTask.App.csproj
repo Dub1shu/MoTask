@@ -6,6 +6,12 @@
     <RootNamespace>MoTask.App</RootNamespace>
     <AssemblyName>MoTask</AssemblyName>
     <ApplicationIcon>..\..\resources\motodo_icon.ico</ApplicationIcon>
+    <!--
+      WPF 同梱の Fluent テーマ（App.xaml の ThemeMode）は .NET 10 でも実験扱いで、使うと WPF0001 が出る。
+      Microsoft 製で .NET に同梱されているので、外部 OSS を足さずに Windows 11 の見た目にできる。
+      将来の .NET で細部が変わりうることは承知のうえで使う。
+    -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>
   <!--
     発行時だけ ReadyToRun で事前コンパイルし、起動時の JIT を減らす（初回描画まで約 0.7 秒短くなった）。

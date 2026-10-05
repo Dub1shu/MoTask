@@ -9,12 +9,12 @@
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              xmlns:views="clr-namespace:MoTask.App.Views"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ColumnViewModel}">
-  <Border Width="{StaticResource Size.Column}" Background="{StaticResource Brush.Surface}"
-          BorderBrush="{StaticResource Brush.Divider}" BorderThickness="1" CornerRadius="10">
+  <Border Width="{StaticResource Size.Column}" Background="{DynamicResource LayerFillColorDefaultBrush}"
+          BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10">
     <DockPanel>
       <!-- ヘッダーは列ドラッグのハンドル（DragHandler はコードビハインドで挿す）。
            Background は塗りではなくヒットテストのため: 透明でないと余白でドラッグを掴めない。 -->
-      <Border x:Name="Header" DockPanel.Dock="Top" BorderBrush="{StaticResource Brush.Divider}" BorderThickness="0,0,0,1"
+      <Border x:Name="Header" DockPanel.Dock="Top" BorderBrush="{DynamicResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
               Padding="{StaticResource Pad.Section}" Background="Transparent"
               dd:DragDropBehavior.IsDragSource="True">
         <DockPanel>
@@ -58,7 +58,7 @@
                 <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Small}">
                   <Style.Triggers>
                     <DataTrigger Binding="{Binding IsOverWip}" Value="True">
-                      <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                      <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
                       <Setter Property="FontWeight" Value="Bold" />
                     </DataTrigger>
                   </Style.Triggers>
@@ -94,7 +94,7 @@
                dd:DragDropBehavior.IsDragSource="True" dd:DragDropBehavior.IsDropTarget="True">
         <ListBox.ItemContainerStyle>
           <Style TargetType="ListBoxItem">
-            <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
             <Setter Property="Margin" Value="{StaticResource Gap.Bottom.2}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -103,20 +103,20 @@
               <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
                   <Grid>
-                    <Border x:Name="Frame" Background="{StaticResource Brush.SurfaceRaised}" BorderBrush="{StaticResource Brush.Divider}"
-                            BorderThickness="1" Padding="{StaticResource Pad.Box}" CornerRadius="8" SnapsToDevicePixels="True">
+                    <Border x:Name="Frame" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1" Padding="{StaticResource Pad.Box}" CornerRadius="{StaticResource OverlayCornerRadius}" SnapsToDevicePixels="True">
                       <ContentPresenter />
                     </Border>
-                    <Rectangle x:Name="Dashed" Stroke="{StaticResource Brush.Neutral.500}" StrokeThickness="1"
+                    <Rectangle x:Name="Dashed" Stroke="{DynamicResource ControlStrongStrokeColorDefaultBrush}" StrokeThickness="1"
                                StrokeDashArray="3 2" Visibility="Collapsed" IsHitTestVisible="False" />
                   </Grid>
                   <ControlTemplate.Triggers>
                     <Trigger Property="IsMouseOver" Value="True">
-                      <Setter TargetName="Frame" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
-                      <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Neutral.600}" />
+                      <Setter TargetName="Frame" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                      <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
                     </Trigger>
                     <Trigger Property="IsSelected" Value="True">
-                      <Setter TargetName="Frame" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                      <Setter TargetName="Frame" Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
                       <Setter TargetName="Frame" Property="BorderThickness" Value="2" />
                       <Setter TargetName="Frame" Property="Padding" Value="{StaticResource Pad.Card.Selected}" />
                     </Trigger>

@@ -39,7 +39,6 @@
   <data name="Project" xml:space="preserve"><value>プロジェクト</value></data>
   <data name="Labels" xml:space="preserve"><value>ラベル</value></data>
   <data name="DueDate" xml:space="preserve"><value>期限</value></data>
-  <data name="DueDatePlaceholder" xml:space="preserve"><value>日付の選択</value></data>
   <data name="Column" xml:space="preserve"><value>列</value></data>
   <data name="CompletedAt" xml:space="preserve"><value>完了日時</value></data>
   <data name="ManageClassifications" xml:space="preserve"><value>プロジェクトとラベル</value></data>
