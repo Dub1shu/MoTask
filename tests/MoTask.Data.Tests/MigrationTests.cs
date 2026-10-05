@@ -275,5 +275,88 @@ public class MigrationTests : IDisposable
         job.ProcessedLines.Should().Be(3, "移行前に AiJobEvents にあった行数がそのまま引き継がれる");
     }
 
+    /// <summary>AddTodayColumn の 1 つ前。ここまで当てた DB に盤面を作ってから最新まで当てる。</summary>
+    private const string BeforeToday = "20261004122914_AddProjectColor";
+
+    private async Task SeedBeforeTodayAsync(params (string Name, ColumnRole Role)[] columns)
+    {
+        await using var old = _db.CreateContext();
+        await old.Database.GetInfrastructure().GetRequiredService<IMigrator>().MigrateAsync(BeforeToday);
+        var board = new Board { Name = "b" };
+        for (var i = 0; i < columns.Length; i++)
+            board.Columns.Add(new Column { Name = columns[i].Name, Role = columns[i].Role, Order = i });
+        old.Boards.Add(board);
+        await old.SaveChangesAsync();
+    }
+
+    private async Task<List<(string, ColumnRole, int)>> ColumnsAfterMigrateAsync()
+    {
+        await using var ctx = _db.CreateContext();
+        await ctx.Database.MigrateAsync();
+        return (await ctx.Columns.OrderBy(c => c.Order).ToListAsync())
+            .Select(c => (c.Name, c.Role, c.Order)).ToList();
+    }
+
+    /// <summary>既存の DB には今日中の列を 1 度だけ、最初の未着手の右に入れる（仕様 2026-10-05-today-column §3.3）。</summary>
+    [Fact]
+    public async Task Migrate_InsertsTheTodayColumnRightAfterTheBacklog()
+    {
+        await SeedBeforeTodayAsync(
+            ("未着手", ColumnRole.Backlog), ("進行中", ColumnRole.Active),
+            ("確認待ち", ColumnRole.Review), ("完了", ColumnRole.Done));
+
+        (await ColumnsAfterMigrateAsync()).Should().Equal(
+            ("未着手", ColumnRole.Backlog, 0),
+            ("今日中", ColumnRole.Today, 1),
+            ("進行中", ColumnRole.Active, 2),
+            ("確認待ち", ColumnRole.Review, 3),
+            ("完了", ColumnRole.Done, 4));
+    }
+
+    [Fact]
+    public async Task Migrate_LeavesABoardThatAlreadyHasATodayColumn()
+    {
+        await SeedBeforeTodayAsync(
+            ("未着手", ColumnRole.Backlog), ("今日やる", ColumnRole.Today), ("完了", ColumnRole.Done));
+
+        (await ColumnsAfterMigrateAsync()).Should().Equal(
+            ("未着手", ColumnRole.Backlog, 0),
+            ("今日やる", ColumnRole.Today, 1),
+            ("完了", ColumnRole.Done, 2));
+    }
+
+    [Fact]
+    public async Task Migrate_PutsTheTodayColumnFirst_WhenThereIsNoBacklog()
+    {
+        await SeedBeforeTodayAsync(("進行中", ColumnRole.Active), ("完了", ColumnRole.Done));
+
+        (await ColumnsAfterMigrateAsync()).Should().Equal(
+            ("今日中", ColumnRole.Today, 0),
+            ("進行中", ColumnRole.Active, 1),
+            ("完了", ColumnRole.Done, 2));
+    }
+
+    [Fact]
+    public async Task Migrate_PutsTheTodayColumnAfterTheFirstOfTwoBacklogs()
+    {
+        await SeedBeforeTodayAsync(
+            ("受信箱", ColumnRole.Backlog), ("いつか", ColumnRole.Backlog), ("完了", ColumnRole.Done));
+
+        (await ColumnsAfterMigrateAsync()).Should().Equal(
+            ("受信箱", ColumnRole.Backlog, 0),
+            ("今日中", ColumnRole.Today, 1),
+            ("いつか", ColumnRole.Backlog, 2),
+            ("完了", ColumnRole.Done, 3));
+    }
+
+    [Fact]
+    public async Task Migrate_OnAnEmptyFile_AddsNoColumn()
+    {
+        await using var ctx = _db.CreateContext();
+        await ctx.Database.MigrateAsync();
+
+        (await ctx.Columns.CountAsync()).Should().Be(0, "盤面が無ければ何もしない。既定のボードは DatabaseInitializer が入れる");
+    }
+
     public void Dispose() => _db.Dispose();
 }
