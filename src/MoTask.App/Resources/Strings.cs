@@ -232,6 +232,7 @@ public static class Strings
     public static string McpPlanningRunIdRequired => Get(nameof(McpPlanningRunIdRequired));
     public static string McpPlanningPlanRequired => Get(nameof(McpPlanningPlanRequired));
     public static string McpPlanningSuggestedDueDateInvalid => Get(nameof(McpPlanningSuggestedDueDateInvalid));
+    public static string McpPlanningSuggestedLabelsInvalid => Get(nameof(McpPlanningSuggestedLabelsInvalid));
     public static string ViewArchive => Get(nameof(ViewArchive));
     public static string ArchiveEmpty => Get(nameof(ArchiveEmpty));
     public static string ArchiveDayFormat => Get(nameof(ArchiveDayFormat));
