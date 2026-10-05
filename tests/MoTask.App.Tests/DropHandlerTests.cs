@@ -307,4 +307,19 @@ public class DropHandlerTests
 
         context.NotHandled.Should().BeTrue();
     }
+
+    /// <summary>
+    /// 自動スクロールのタイマーも挿入線を引き直す。そこでもハンドラの DragOver を通して、
+    /// アーカイブ済みの行の間に線を出さない（仕様 §6）。
+    /// </summary>
+    [Fact]
+    public async Task AutoScrollInsertIndex_GoesThroughTheHandler()
+    {
+        var manage = await ManageAsync();
+        var handler = new ClassificationDropHandler(manage);
+
+        DragDropBehavior.InsertIndexFor(handler, manage.Projects[0], manage.Projects, 4).Should().Be(3);
+        DragDropBehavior.InsertIndexFor(handler, manage.Projects[0], manage.Labels, 0).Should().BeNull();
+        DragDropBehavior.InsertIndexFor(null, manage.Projects[0], manage.Projects, 4).Should().BeNull();
+    }
 }
