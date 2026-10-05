@@ -113,6 +113,31 @@ public class PlanningRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task TriageCandidate_SuggestedLabelIds_RoundTrip()
+    {
+        await InitAsync();
+        await using (var ctx = _db.CreateContext())
+        {
+            var run = NewRun(new DateOnly(2026, 9, 7));
+            ctx.PlanningRuns.Add(run);
+            await ctx.SaveChangesAsync();
+            var withLabels = NewCandidate(run.Id, "outlook:001");
+            withLabels.SuggestedLabelIds = new List<int> { 3, 1 };
+            ctx.TriageCandidates.Add(withLabels);
+            ctx.TriageCandidates.Add(NewCandidate(run.Id, "outlook:002"));
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            (await ctx.TriageCandidates.SingleAsync(c => c.ExternalId == "outlook:001"))
+                .SuggestedLabelIds.Should().Equal(3, 1);
+            (await ctx.TriageCandidates.SingleAsync(c => c.ExternalId == "outlook:002"))
+                .SuggestedLabelIds.Should().BeEmpty();
+        }
+    }
+
+    [Fact]
     public async Task ExternalId_IsUnique()
     {
         await InitAsync();

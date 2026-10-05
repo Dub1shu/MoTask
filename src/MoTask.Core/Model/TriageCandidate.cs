@@ -22,6 +22,11 @@ public sealed class TriageCandidate
     public DateTime? ReceivedAt { get; set; }
     public DateOnly? SuggestedDueDate { get; set; }
     public string SuggestedProject { get; set; } = "";
+    /// <summary>
+    /// 推薦されたラベルの id（推薦の順）。名前でなく id で持つので、登録までに改名されても外れない。
+    /// アーカイブされたものは登録時に落とす。
+    /// </summary>
+    public List<int> SuggestedLabelIds { get; set; } = new();
     public TriageAction SuggestedAction { get; set; } = TriageAction.Register;
     /// <summary>SuggestedAction が Merge のときの統合先。仕様 §8 の mergeTargetTaskId。</summary>
     public int? SuggestedMergeTaskId { get; set; }
