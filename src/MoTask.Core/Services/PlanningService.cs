@@ -366,6 +366,16 @@ public sealed class PlanningService : IPlanningService
                 if (target is null || target.IsDeleted) return Refused(Messages.CandidateMergeTargetMissing, total);
             }
 
+            // 推薦ラベルは既存のものだけ（AI にラベルを作らせない）。名前は id に直して持つ。
+            var labelIds = new List<int>();
+            if (input.SuggestedLabels is { Count: > 0 } names)
+            {
+                var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+                var resolved = SuggestedLabels.Resolve(names, labels);
+                if (!resolved.IsSuccess) return Refused(resolved.Error!, total);
+                labelIds = resolved.Value!;
+            }
+
             // 却下・登録済みの ExternalId は次の実行でまた出てきても積まない(親仕様 §9)。
             // 現行は黙って捨てていたが、ここでは理由を返す(仕様 §6)。
             var known = await _runs.GetKnownExternalIdsAsync(new[] { record.ExternalId }, ct).ConfigureAwait(false);
@@ -391,6 +401,7 @@ public sealed class PlanningService : IPlanningService
                 SuggestedProject = record.SuggestedProject,
                 SuggestedAction = record.SuggestedAction,
                 SuggestedMergeTaskId = record.MergeTargetTaskId,
+                SuggestedLabelIds = labelIds,
                 Status = TriageStatus.Pending,
             };
             _runs.AddCandidate(candidate);

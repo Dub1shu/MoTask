@@ -78,6 +78,7 @@ public static class Messages
     public static string CandidateEvidenceRequired => Get(nameof(CandidateEvidenceRequired));
     public static string CandidateActionInvalid => Get(nameof(CandidateActionInvalid));
     public static string CandidateMergeTargetMissing => Get(nameof(CandidateMergeTargetMissing));
+    public static string CandidateLabelUnknown => Get(nameof(CandidateLabelUnknown));
     public static string PlanNotAnObject => Get(nameof(PlanNotAnObject));
     public static string PlanGroupsInvalid => Get(nameof(PlanGroupsInvalid));
     public static string PlanGroupNotAnObjectFormat => Get(nameof(PlanGroupNotAnObjectFormat));

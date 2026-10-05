@@ -96,6 +96,7 @@
   <data name="CandidateEvidenceRequired" xml:space="preserve"><value>evidence が空です。元の文面から引用してください</value></data>
   <data name="CandidateActionInvalid" xml:space="preserve"><value>suggestedAction は register / merge / later / reject のどれかにしてください</value></data>
   <data name="CandidateMergeTargetMissing" xml:space="preserve"><value>mergeTargetTaskId が盤面にありません</value></data>
+  <data name="CandidateLabelUnknown" xml:space="preserve"><value>見つからないラベル: {0}。planning_get_context の labels から選ぶか、外して呼び直してください</value></data>
   <data name="PlanNotAnObject" xml:space="preserve"><value>plan は JSON オブジェクトで渡してください</value></data>
   <data name="PlanGroupsInvalid" xml:space="preserve"><value>groups が配列ではありません</value></data>
   <data name="PlanGroupNotAnObjectFormat" xml:space="preserve"><value>groups[{0}] が JSON オブジェクトではありません</value></data>
