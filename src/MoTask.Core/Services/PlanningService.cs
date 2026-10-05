@@ -94,7 +94,7 @@ public sealed class PlanningService : IPlanningService
     private sealed record Prepared(int RunNumber);
 
     /// <summary>
-    /// 盤面のスナップショット。ゲートの中から呼ぶこと(リポジトリを 3 つ引く)。
+    /// 盤面のスナップショット。ゲートの中から呼ぶこと(リポジトリを 4 つ引く)。
     /// planning_get_context が返す形はこれ 1 つ(仕様 §4)。盤面が無ければ null。
     /// </summary>
     private async Task<string?> BuildSnapshotAsync(DateOnly date, CancellationToken ct)
@@ -106,11 +106,13 @@ public sealed class PlanningService : IPlanningService
         var busy = await _jobs.GetByStatusAsync(
             new[] { AiJobStatus.Pending, AiJobStatus.Running, AiJobStatus.WaitingForInput }, ct)
             .ConfigureAwait(false);
+        var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
 
         return BoardSnapshot.Build(
             board, date,
             projects.ToDictionary(p => p.Id, p => p.Name),
-            busy.Select(j => j.TaskId).ToHashSet());
+            busy.Select(j => j.TaskId).ToHashSet(),
+            labels);
     }
 
     public async Task<Result<PlanningRun>> StartAsync(CancellationToken ct = default)

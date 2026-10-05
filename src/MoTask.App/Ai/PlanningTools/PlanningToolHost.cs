@@ -41,7 +41,8 @@ public sealed class PlanningToolHost
     private IReadOnlyList<McpTool> BuildTools() => new[]
     {
         new McpTool(GetContext,
-            "今日の対象日と現在の盤面（列・未完了タスク・プロジェクト・期日・hasActiveAiJob）を返す。"
+            "今日の対象日と現在の盤面（列・未完了タスク・プロジェクト・期日・hasActiveAiJob）と、"
+            + "候補に推薦できるラベルの一覧（labels）を返す。"
             + "統合先の推薦と今日の計画は、必ずこの結果に基づくこと。",
             new
             {

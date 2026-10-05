@@ -44,10 +44,27 @@ public class BoardSnapshotTests
 
     private static readonly Dictionary<int, string> Projects = new() { [100] = "プロジェクトQ4" };
 
+    private static readonly IReadOnlyList<Label> Labels = new[]
+    {
+        new Label { Id = 200, Name = "社内", Color = "accent-500" },
+        new Label { Id = 201, Name = "経理", Color = "green-300" },
+        new Label { Id = 202, Name = "昔の分類", Color = "red-300", Archived = true },
+    };
+
     private static JsonElement Build(Board? board = null, IReadOnlyCollection<int>? busy = null)
         => JsonDocument.Parse(BoardSnapshot.Build(
-                board ?? Sample(), new DateOnly(2026, 9, 7), Projects, busy ?? Array.Empty<int>()))
+                board ?? Sample(), new DateOnly(2026, 9, 7), Projects, busy ?? Array.Empty<int>(), Labels))
             .RootElement.Clone();
+
+    /// <summary>AI が推薦に使えるラベル。アーカイブ済みは選ばせない。</summary>
+    [Fact]
+    public void Build_ListsTheLabelsThatAreNotArchived()
+    {
+        var labels = Build().GetProperty("labels").EnumerateArray().ToList();
+
+        labels.Select(l => l.GetProperty("name").GetString()).Should().Equal("社内", "経理");
+        labels[1].GetProperty("id").GetInt32().Should().Be(201);
+    }
 
     [Fact]
     public void Build_WritesTheDateAndEveryColumn()
@@ -107,6 +124,6 @@ public class BoardSnapshotTests
 
     [Fact]
     public void Build_DoesNotEscapeJapaneseText()
-        => BoardSnapshot.Build(Sample(), new DateOnly(2026, 9, 7), Projects, Array.Empty<int>())
+        => BoardSnapshot.Build(Sample(), new DateOnly(2026, 9, 7), Projects, Array.Empty<int>(), Labels)
             .Should().Contain("今日中", "人が開いて読めるファイルにする");
 }

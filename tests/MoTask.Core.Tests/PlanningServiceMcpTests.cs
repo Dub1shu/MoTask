@@ -70,6 +70,18 @@ public class PlanningServiceMcpTests
             .Select(t => t.GetProperty("title").GetString()).Should().Equal("Q4企画書の内容を確定する");
     }
 
+    [Fact]
+    public async Task GetContext_ListsTheLabels()
+    {
+        _store.SeedLabel("経理");
+        var run = await StartAsync();
+
+        var context = await _service.GetContextAsync(run.Id);
+
+        JsonDocument.Parse(context.Value!).RootElement.GetProperty("labels").EnumerateArray()
+            .Select(l => l.GetProperty("name").GetString()).Should().Equal("経理");
+    }
+
     /// <summary>盤面が無い(論理的にありえないはずだが)なら、Claude に取り違えさせず Fail にする。</summary>
     [Fact]
     public async Task GetContext_FailsWhenThereIsNoBoard()

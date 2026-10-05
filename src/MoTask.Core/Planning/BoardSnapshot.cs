@@ -22,7 +22,8 @@ public static class BoardSnapshot
         Board board,
         DateOnly date,
         IReadOnlyDictionary<int, string> projectNames,
-        IReadOnlyCollection<int> taskIdsWithActiveAiJob)
+        IReadOnlyCollection<int> taskIdsWithActiveAiJob,
+        IReadOnlyList<Label> labels)
     {
         var ordered = board.Columns.OrderBy(c => c.Order).ToList();
         var columns = ordered.Select(c => new ColumnDto(c.Id, c.Name, c.Role.ToString())).ToList();
@@ -47,11 +48,17 @@ public static class BoardSnapshot
             }
         }
 
+        var labelDtos = labels.Where(l => !l.Archived).Select(l => new LabelDto(l.Id, l.Name)).ToList();
+
         return JsonSerializer.Serialize(
-            new SnapshotDto(date.ToString("yyyy-MM-dd"), columns, tasks), Options);
+            new SnapshotDto(date.ToString("yyyy-MM-dd"), columns, tasks, labelDtos), Options);
     }
 
-    private sealed record SnapshotDto(string Date, IReadOnlyList<ColumnDto> Columns, IReadOnlyList<TaskDto> Tasks);
+    private sealed record SnapshotDto(
+        string Date, IReadOnlyList<ColumnDto> Columns, IReadOnlyList<TaskDto> Tasks, IReadOnlyList<LabelDto> Labels);
+
+    /// <summary>候補にラベルを推薦するときに選べるもの（アーカイブ済みは入れない）。</summary>
+    private sealed record LabelDto(int Id, string Name);
 
     private sealed record ColumnDto(int Id, string Name, string Role);
 
