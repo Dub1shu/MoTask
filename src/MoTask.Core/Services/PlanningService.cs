@@ -806,6 +806,45 @@ public sealed class PlanningService : IPlanningService
     public Task<Result<BulkOutcome>> PostponeAllAsync(int runId, CancellationToken ct = default)
         => RunBulkAsync(runId, candidate => PostponeAsync(candidate.Id, ct), ct);
 
+    public async Task<Result<int>> MoveTodayToColumnAsync(int runId, CancellationToken ct = default)
+    {
+        // 選ぶところまではゲートの中で、移すのはゲートの外で（IBoardService は同じゲートを取る）。
+        var picked = await _gate.RunAsync(async () =>
+        {
+            var run = await _runs.GetRunAsync(runId, ct).ConfigureAwait(false);
+            if (run is null) return null;
+            var board = await _boards.GetBoardAsync(ct).ConfigureAwait(false);
+            var candidates = await _runs.GetCandidatesOfRunAsync(runId, ct).ConfigureAwait(false);
+            var plan = PlanResolver.Resolve(run.PlanJson, candidates, board, _ => null);
+            var target = TodayMove.TargetOf(board);
+            return new
+            {
+                TargetId = target?.Id,
+                TaskIds = target is null ? Array.Empty<int>() : TodayMove.TasksToMove(plan),
+            };
+        }, ct).ConfigureAwait(false);
+        if (picked is null) return Result.Fail<int>(Messages.PlanningRunNotFound);
+        if (picked.TargetId is not int targetId || picked.TaskIds.Count == 0) return Result.Ok(0);
+
+        var moved = 0;
+        var warnings = new List<string>();
+        foreach (var taskId in picked.TaskIds)
+        {
+            // position は末尾に丸められる（BoardService.MoveTaskAsync が Clamp する）
+            var result = await _boardService.MoveTaskAsync(taskId, targetId, int.MaxValue, ct).ConfigureAwait(false);
+            if (!result.IsSuccess)
+            {
+                warnings.Add(result.Error!);
+                continue;
+            }
+            moved++;
+            foreach (var warning in result.Warnings)
+                if (!warnings.Contains(warning)) warnings.Add(warning);
+        }
+        if (moved > 0) BoardChanged?.Invoke(this, EventArgs.Empty);
+        return Result.Ok(moved, warnings);
+    }
+
     private async Task<Result> RegisterBySuggestionAsync(TriageCandidate candidate, int columnId, CancellationToken ct)
         => await RegisterAsync(new CandidateDecision(
             candidate.Id, candidate.Title, candidate.SuggestedDueDate, candidate.SuggestedProject, columnId), ct)

@@ -74,4 +74,11 @@ public interface IPlanningService
     Task<Result<BulkOutcome>> ApplySuggestionsAsync(int runId, int registerColumnId, CancellationToken ct = default);
     /// <summary>キューの候補をすべて「あとで」にする。</summary>
     Task<Result<BulkOutcome>> PostponeAllAsync(int runId, CancellationToken ct = default);
+
+    /// <summary>
+    /// 計画の「今日中」グループのうち未着手の列にあるタスクを、今日中の列（役割 Today の先頭）の末尾へ
+    /// 計画の並び順で移す（仕様 2026-10-05-today-column §5）。値は移した件数。今日中の列が無ければ 0。
+    /// 1 件の失敗では止めず、理由を警告に入れる。WIP 超過も警告に入る。
+    /// </summary>
+    Task<Result<int>> MoveTodayToColumnAsync(int runId, CancellationToken ct = default);
 }
