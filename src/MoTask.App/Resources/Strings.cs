@@ -37,6 +37,7 @@ public static class Strings
     public static string RoleReview => Get(nameof(RoleReview));
     public static string RoleDone => Get(nameof(RoleDone));
     public static string CompleteTask => Get(nameof(CompleteTask));
+    public static string MoveToTop => Get(nameof(MoveToTop));
     public static string Delete => Get(nameof(Delete));
     public static string Restore => Get(nameof(Restore));
     public static string Close => Get(nameof(Close));

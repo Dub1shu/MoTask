@@ -358,6 +358,52 @@ public class BoardViewModelTests
         Ids(_vm.Columns[2]).Should().Equal(10);
     }
 
+    /// <summary>右クリックの「先頭へ移動」。同じ列の 0 番目へ動かし、列は移らない。</summary>
+    [Fact]
+    public async Task MoveCardToTop_MovesTheCardToTheTopOfItsColumn()
+    {
+        var backlog = _board.Columns[0];
+        _service.OnMoveTask = call =>
+        {
+            if (call is { TaskId: 11, ToColumnId: 1 }) TestBoards.Move(backlog, backlog, taskId: 11, position: call.Position);
+            return Task.FromResult(Result.Ok());
+        };
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards.Single(c => c.Id == 11);
+
+        _vm.MoveCardToTopCommand.CanExecute(card).Should().BeTrue();
+        await _vm.MoveCardToTopCommand.ExecuteAsync(card);
+
+        _service.MoveTaskCalls.Should().ContainSingle().Which.Should().Be(new MoveTaskCall(11, 1, 0));
+        Ids(_vm.Columns[0]).Should().Equal(11, 10);
+    }
+
+    [Fact]
+    public async Task MoveCardToTop_DoesNothing_WhenTheCardIsAlreadyAtTheTop()
+    {
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].Cards[0];
+
+        _vm.MoveCardToTopCommand.CanExecute(card).Should().BeFalse();
+        await _vm.MoveCardToTopCommand.ExecuteAsync(card);
+
+        _service.MoveTaskCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task MoveCardToTop_DoesNothing_WhenTheCardIsDeleted()
+    {
+        TestBoards.SeedDeletedInTheMiddle(_board.Columns[0]);
+        await _vm.LoadAsync();
+        var card = _vm.Columns[0].AllCards.Single(c => c.Id == 11);
+        card.IsDeleted.Should().BeTrue();
+
+        _vm.MoveCardToTopCommand.CanExecute(card).Should().BeFalse();
+        await _vm.MoveCardToTopCommand.ExecuteAsync(card);
+
+        _service.MoveTaskCalls.Should().BeEmpty();
+    }
+
     /// <summary><see cref="TestBoards.Sample"/> の完了列(3)に既に終わったカード 20 を 1 枚置く。</summary>
     private Column SeedDoneCard()
     {

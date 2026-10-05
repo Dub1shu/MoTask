@@ -37,6 +37,13 @@ public partial class ColumnView : UserControl
         }
     }
 
+    /// <summary>
+    /// 「先頭へ移動」の押せる／押せないはカードの並びで変わるが、RelayCommand はそれを知らせない。
+    /// 開くたびに問い直して、D&amp;D の後に開いても今の並びで判定させる。
+    /// </summary>
+    private void CardMenu_Opened(object sender, RoutedEventArgs e)
+        => Vm?.Board.MoveCardToTopCommand.NotifyCanExecuteChanged();
+
     private void NewTaskBox_KeyDown(object sender, KeyEventArgs e)
     {
         if (Vm is null) return;
