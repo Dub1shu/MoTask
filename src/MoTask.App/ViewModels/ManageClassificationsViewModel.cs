@@ -8,12 +8,13 @@ using MoTask.Core.Model;
 namespace MoTask.App.ViewModels;
 
 /// <summary>
-/// プロジェクトとラベルの管理ダイアログ。一覧・使用件数のほか、追加・名前の変更・ラベルの色の変更・
-/// アーカイブ／復元を扱う。完全削除は持たない（過去のタスクの表示と履歴を壊さないため）。
+/// プロジェクトとラベルの管理ダイアログ。一覧・使用件数のほか、追加・名前の変更・色の変更・
+/// プロジェクトの作業フォルダ・アーカイブ／復元を扱う。完全削除は持たない（過去のタスクの表示と履歴を壊さないため）。
 /// </summary>
 public sealed partial class ManageClassificationsViewModel : ObservableObject
 {
     private readonly BoardViewModel _board;
+    private readonly string? _defaultWorkingDirectory;
 
     public ObservableCollection<ClassificationRow> Projects { get; } = new();
     public ObservableCollection<ClassificationRow> Labels { get; } = new();
@@ -30,9 +31,11 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
     /// <summary>テストが操作の完了を待つためのハンドル（詳細パネルと同じ作法）。</summary>
     public Task PendingChange { get; private set; } = Task.CompletedTask;
 
-    public ManageClassificationsViewModel(BoardViewModel board)
+    /// <param name="defaultWorkingDirectory">作業フォルダが未設定のプロジェクトに添えて出す、設定の既定フォルダ。</param>
+    public ManageClassificationsViewModel(BoardViewModel board, string? defaultWorkingDirectory = null)
     {
         _board = board;
+        _defaultWorkingDirectory = defaultWorkingDirectory;
         Refresh();
     }
 
@@ -46,7 +49,7 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
         foreach (var p in _board.Projects.OrderBy(p => p.Name, StringComparer.CurrentCulture))
         {
             Projects.Add(new ClassificationRow(ClassificationKind.Project, p.Id, p.Name, p.Color,
-                live.Count(t => t.ProjectId == p.Id), p.Archived));
+                live.Count(t => t.ProjectId == p.Id), p.Archived, p.WorkingDirectory, _defaultWorkingDirectory));
         }
 
         Labels.Clear();
@@ -125,6 +128,21 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
             ? _board.SetProjectColorAsync(swatch.Row.Id, swatch.Color)
             : _board.SetLabelColorAsync(swatch.Row.Id, swatch.Color!));
     }
+
+    // ---------- 作業フォルダ ----------
+
+    /// <summary>フォルダの選択ダイアログで選ばれたパスを保存する（ダイアログを開くのはビュー側）。今と同じなら何もしない。</summary>
+    public void SetWorkingDirectory(ClassificationRow row, string path)
+    {
+        ErrorMessage = null;
+        if (string.Equals(path, row.WorkingDirectory, StringComparison.OrdinalIgnoreCase)) return;
+        PendingChange = Run(() => _board.SetProjectWorkingDirectoryAsync(row.Id, path));
+    }
+
+    /// <summary>作業フォルダを消して、設定の既定フォルダを使う状態に戻す。</summary>
+    [RelayCommand]
+    private void ClearWorkingDirectory(ClassificationRow row)
+        => PendingChange = Run(() => _board.SetProjectWorkingDirectoryAsync(row.Id, null));
 
     // ---------- 追加 ----------
 
@@ -207,7 +225,8 @@ public enum ClassificationKind
 /// <summary>管理ダイアログの1行。プロジェクトとラベルで同じ形（「色なし」の見本はプロジェクトだけ）。</summary>
 public sealed partial class ClassificationRow : ObservableObject
 {
-    public ClassificationRow(ClassificationKind kind, int id, string name, string? color, int usageCount, bool isArchived)
+    public ClassificationRow(ClassificationKind kind, int id, string name, string? color, int usageCount, bool isArchived,
+        string? workingDirectory = null, string? defaultWorkingDirectory = null)
     {
         Kind = kind;
         Id = id;
@@ -215,6 +234,8 @@ public sealed partial class ClassificationRow : ObservableObject
         Color = color;
         UsageCount = usageCount;
         IsArchived = isArchived;
+        WorkingDirectory = workingDirectory;
+        _defaultWorkingDirectory = defaultWorkingDirectory;
         Swatches = LabelPalette.Colors.Select(c => new PaletteSwatch(this, c,
             string.Equals(c, color, StringComparison.OrdinalIgnoreCase))).ToList();
         // ラベルは必ず色を持つ。プロジェクトは既定が色なしなので、そこへ戻る見本を置く
@@ -230,6 +251,15 @@ public sealed partial class ClassificationRow : ObservableObject
     public bool IsArchived { get; }
     public IReadOnlyList<PaletteSwatch> Swatches { get; }
     public PaletteSwatch? NoColorSwatch { get; }
+
+    public bool IsProject => Kind == ClassificationKind.Project;
+    /// <summary>AI ジョブを動かすフォルダ。null なら設定の既定フォルダを使う。プロジェクトだけが持つ。</summary>
+    public string? WorkingDirectory { get; }
+    public bool HasWorkingDirectory => WorkingDirectory is not null;
+    private readonly string? _defaultWorkingDirectory;
+
+    public string WorkingDirectoryText => WorkingDirectory
+        ?? string.Format(CultureInfo.CurrentCulture, Strings.ManageDefaultWorkingDirectoryFormat, _defaultWorkingDirectory);
 
     [ObservableProperty] private bool _isEditing;
     [ObservableProperty] private string _editName = "";

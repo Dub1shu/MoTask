@@ -30,8 +30,6 @@ public sealed partial class TaskDetailViewModel : ObservableObject
     [ObservableProperty] private string _newLabelName = "";
     [ObservableProperty] private bool _isAddingProject;
     [ObservableProperty] private bool _isAddingLabel;
-    [ObservableProperty] private string? _projectWorkingDirectory;
-    [ObservableProperty] private bool _hasProject;
     [ObservableProperty] private bool _canComplete;
 
     /// <summary>AI セクション。仕様 §10: 詳細パネルが子として持つ。</summary>
@@ -71,7 +69,6 @@ public sealed partial class TaskDetailViewModel : ObservableObject
                 Projects.Add(new ProjectOption(p.Id, p.Name));
             }
             SelectedProject = Projects.FirstOrDefault(o => o.Id == m.ProjectId) ?? Projects[0];
-            SyncProjectWorkingDirectory();
 
             DueDate = m.DueDate?.ToDateTime(TimeOnly.MinValue);
             SelectedColumn = _board.Columns.FirstOrDefault(c => c.Id == m.ColumnId);
@@ -112,31 +109,7 @@ public sealed partial class TaskDetailViewModel : ObservableObject
         {
             return;
         }
-        // 保存の前に作業フォルダ欄を切り替える。_loading を立てて欄の変更が保存扱いにならないようにする。
-        _loading = true;
-        try
-        {
-            SyncProjectWorkingDirectory();
-        }
-        finally
-        {
-            _loading = false;
-        }
         QueueSave();
-    }
-
-    partial void OnProjectWorkingDirectoryChanged(string? value)
-    {
-        if (_loading || SelectedProject?.Id is not int projectId) return;
-        PendingSave = _board.SetProjectWorkingDirectoryAsync(projectId, value);
-    }
-
-    /// <summary>選択中プロジェクトの作業フォルダを欄に写す。呼び出し側が _loading を立てておく。</summary>
-    private void SyncProjectWorkingDirectory()
-    {
-        var project = SelectedProject?.Id is int id ? _board.Projects.FirstOrDefault(p => p.Id == id) : null;
-        HasProject = project is not null;
-        ProjectWorkingDirectory = project?.WorkingDirectory;
     }
 
     partial void OnSelectedColumnChanged(ColumnViewModel? value)

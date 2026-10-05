@@ -282,29 +282,6 @@ public class TaskDetailViewModelTests
         _vm.SelectedCard.Should().BeNull();
     }
 
-    [Fact]
-    public async Task ProjectWorkingDirectory_IsShownForTheSelectedProject_AndSavedOnChange()
-    {
-        var detail = await OpenAsync(10);
-
-        detail.HasProject.Should().BeTrue();
-        detail.ProjectWorkingDirectory.Should().BeNull();
-
-        detail.ProjectWorkingDirectory = @"C:\work\a";
-        await detail.PendingSave;
-
-        _service.SetProjectWorkingDirectoryCalls.Should().ContainSingle()
-            .Which.Should().Be(new SetProjectWorkingDirectoryCall(100, @"C:\work\a"));
-        _service.UpdateTaskCalls.Should().BeEmpty();
-    }
-
-    [Fact]
-    public async Task ProjectWorkingDirectory_IsHiddenWithoutAProject()
-    {
-        var detail = await OpenAsync(11);
-        detail.HasProject.Should().BeFalse();
-    }
-
     // ---- 新しいプロジェクト／ラベルの入力欄は「＋」で開いたときだけ出す ----
 
     [Fact]

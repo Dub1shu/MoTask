@@ -56,6 +56,10 @@ public static class Strings
     public static string ManageAddProject => Get(nameof(ManageAddProject));
     public static string ManageAddLabel => Get(nameof(ManageAddLabel));
     public static string ManageChangeColor => Get(nameof(ManageChangeColor));
+    public static string ManageDefaultWorkingDirectoryFormat => Get(nameof(ManageDefaultWorkingDirectoryFormat));
+    public static string ManageWorkingDirectoryHint => Get(nameof(ManageWorkingDirectoryHint));
+    public static string ManageChooseWorkingDirectory => Get(nameof(ManageChooseWorkingDirectory));
+    public static string ManageResetWorkingDirectory => Get(nameof(ManageResetWorkingDirectory));
     public static string ManageRenameHint => Get(nameof(ManageRenameHint));
     public static string ManageNoColor => Get(nameof(ManageNoColor));
     public static string ManageArchive => Get(nameof(ManageArchive));
@@ -145,8 +149,6 @@ public static class Strings
     public static string AiStopTracking => Get(nameof(AiStopTracking));
     public static string AiStopTrackingHint => Get(nameof(AiStopTrackingHint));
     public static string AiResult => Get(nameof(AiResult));
-    public static string ProjectWorkingDirectory => Get(nameof(ProjectWorkingDirectory));
-    public static string ProjectWorkingDirectoryHint => Get(nameof(ProjectWorkingDirectoryHint));
     public static string AiSettings => Get(nameof(AiSettings));
     public static string SettingsDefaultWorkingDirectory => Get(nameof(SettingsDefaultWorkingDirectory));
     public static string SettingsClaudePath => Get(nameof(SettingsClaudePath));

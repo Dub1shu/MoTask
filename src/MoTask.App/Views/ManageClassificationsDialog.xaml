@@ -173,6 +173,29 @@
                          Margin="{StaticResource Gap.Left.2}"
                          Visibility="{Binding IsArchived, Converter={StaticResource BoolToVisibility}}" />
             </StackPanel>
+            <!-- 作業フォルダ（AI ジョブの cwd）。プロジェクトの行だけ。未設定なら既定のフォルダを淡く出す -->
+            <DockPanel Margin="2,2,0,0" Visibility="{Binding IsProject, Converter={StaticResource BoolToVisibility}}"
+                       ToolTip="{x:Static res:Strings.ManageWorkingDirectoryHint}">
+              <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
+                      Content="{x:Static res:Strings.ManageResetWorkingDirectory}"
+                      Command="{Binding DataContext.ClearWorkingDirectoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                      CommandParameter="{Binding}"
+                      Visibility="{Binding HasWorkingDirectory, Converter={StaticResource BoolToVisibility}}" />
+              <Button DockPanel.Dock="Right" Style="{StaticResource Btn.Ghost}" VerticalAlignment="Center"
+                      Content="{x:Static res:Strings.ManageChooseWorkingDirectory}" Click="OnChooseWorkingDirectoryClick" />
+              <TextBlock Text="{Binding WorkingDirectoryText}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
+                <TextBlock.Style>
+                  <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Caption}">
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <Style.Triggers>
+                      <DataTrigger Binding="{Binding HasWorkingDirectory}" Value="False">
+                        <Setter Property="Foreground" Value="{DynamicResource TextFillColorTertiaryBrush}" />
+                      </DataTrigger>
+                    </Style.Triggers>
+                  </Style>
+                </TextBlock.Style>
+              </TextBlock>
+            </DockPanel>
           </StackPanel>
         </DockPanel>
       </Border>
