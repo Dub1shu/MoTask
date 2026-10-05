@@ -14,9 +14,10 @@ public static class DefaultBoard
         Columns =
         {
             new Column { Name = Messages.DefaultColumnBacklog, Order = 0, Role = ColumnRole.Backlog },
-            new Column { Name = Messages.DefaultColumnActive, Order = 1, Role = ColumnRole.Active },
-            new Column { Name = Messages.DefaultColumnReview, Order = 2, Role = ColumnRole.Review },
-            new Column { Name = Messages.DefaultColumnDone, Order = 3, Role = ColumnRole.Done },
+            new Column { Name = Messages.DefaultColumnToday, Order = 1, Role = ColumnRole.Today },
+            new Column { Name = Messages.DefaultColumnActive, Order = 2, Role = ColumnRole.Active },
+            new Column { Name = Messages.DefaultColumnReview, Order = 3, Role = ColumnRole.Review },
+            new Column { Name = Messages.DefaultColumnDone, Order = 4, Role = ColumnRole.Done },
         },
     };
 }

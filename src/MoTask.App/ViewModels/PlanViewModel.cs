@@ -113,6 +113,12 @@ public sealed partial class PlanViewModel : ObservableObject
     /// 右カラムを隠せない(finding I3)。ここは「見せる」側の値として持つ。
     /// </summary>
     [ObservableProperty] private bool _hasPlanView;
+    /// <summary>「今日中の列へ移す」を押せるか。今日中の列があり、今日中グループに未着手のタスクがあるとき。</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(MoveTodayToColumnCommand))]
+    private bool _canMoveToday;
+    /// <summary>ボタンの説明。押せない理由（今日中の列が無い）もここで伝える。</summary>
+    [ObservableProperty] private string _moveTodayToolTip = "";
     /// <summary>計画未生成のときの「前回: 9/5」（仕様 §11）。無ければ空文字。</summary>
     [ObservableProperty] private string _lastRunText = "";
     /// <summary>実行中の進捗。ターン数と直近のツール使用（仕様 §11）。</summary>
@@ -229,6 +235,11 @@ public sealed partial class PlanViewModel : ObservableObject
         _summary = plan.Summary;
         FirstThing.Update(plan);
         for (var i = 0; i < Sections.Count; i++) Sections[i].Update(plan.Groups[i]);
+        var target = TodayMove.TargetOf(_board);
+        CanMoveToday = target is not null && TodayMove.TasksToMove(plan).Count > 0;
+        MoveTodayToolTip = target is null
+            ? Strings.PlanMoveTodayNoColumn
+            : string.Format(CultureInfo.CurrentCulture, Strings.PlanMoveTodayToolTipFormat, target.Name);
     }
 
     /// <summary>タスク行はボードへ、候補行は候補キューの選択へ。</summary>
@@ -453,6 +464,27 @@ public sealed partial class PlanViewModel : ObservableObject
         var summary = outcome.Skipped.Count == 0
             ? string.Format(Strings.PlanBulkAppliedFormat, outcome.Applied)
             : string.Format(Strings.PlanBulkResultFormat, outcome.Applied, outcome.Skipped.Count, string.Join(" / ", outcome.Skipped));
+        WarningMessage = result.Warnings.Count > 0 ? summary + " / " + string.Join(" / ", result.Warnings) : summary;
+        await ReloadQueueAsync().ConfigureAwait(true);
+        UpdateCounters();
+    }
+
+    /// <summary>
+    /// 計画の「今日中」の未着手タスクを今日中の列へ（仕様 2026-10-05-today-column §5.2）。
+    /// ボード上ですぐ戻せるので確認は出さない。件数を警告バナーへ出し、盤面と計画を読み直す。
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanMoveToday))]
+    private async Task MoveTodayToColumnAsync()
+    {
+        if (_run is null) return;
+        ClearBanners();
+        var result = await _service.MoveTodayToColumnAsync(_run.Id).ConfigureAwait(true);
+        if (!result.IsSuccess)
+        {
+            ErrorMessage = result.Error;
+            return;
+        }
+        var summary = string.Format(CultureInfo.CurrentCulture, Strings.PlanMoveTodayDoneFormat, result.Value);
         WarningMessage = result.Warnings.Count > 0 ? summary + " / " + string.Join(" / ", result.Warnings) : summary;
         await ReloadQueueAsync().ConfigureAwait(true);
         UpdateCounters();

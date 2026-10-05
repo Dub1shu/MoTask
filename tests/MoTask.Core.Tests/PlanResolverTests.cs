@@ -53,6 +53,7 @@ public class PlanResolverTests
         row.ProjectName.Should().Be("プロジェクトQ4");
         row.DueDate.Should().Be(new DateOnly(2026, 9, 8));
         row.ColumnName.Should().Be("今日中");
+        row.ColumnRole.Should().Be(ColumnRole.Active);
         row.IsDone.Should().BeFalse();
         row.Origin.Should().Be(TaskRowOrigin.None);
     }

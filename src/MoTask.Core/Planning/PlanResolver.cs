@@ -151,7 +151,7 @@ public static class PlanResolver
             var (task, column) = found;
             return new TaskRow(
                 task.Id, task.Title, _projectName(task.ProjectId), task.DueDate,
-                column.Name, column.Role == ColumnRole.Done, origin);
+                column.Name, column.Role, origin);
         }
     }
 }

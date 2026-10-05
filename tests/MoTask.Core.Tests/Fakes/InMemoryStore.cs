@@ -82,8 +82,14 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
     public Task<Column?> GetColumnAsync(int columnId, CancellationToken ct = default)
         => Task.FromResult(Board.Columns.FirstOrDefault(c => c.Id == columnId));
 
+    /// <summary>GetTaskAsync の直前に呼ばれる。処理の途中で別の操作が割り込んだ状態をテストで作る。</summary>
+    public Action<int>? OnGetTask { get; set; }
+
     public Task<TaskItem?> GetTaskAsync(int taskId, CancellationToken ct = default)
-        => Task.FromResult(AllTasks.FirstOrDefault(t => t.Id == taskId));
+    {
+        OnGetTask?.Invoke(taskId);
+        return Task.FromResult(AllTasks.FirstOrDefault(t => t.Id == taskId));
+    }
 
     public Task<Project?> GetProjectAsync(int projectId, CancellationToken ct = default)
         => Task.FromResult(Projects.FirstOrDefault(p => p.Id == projectId));
