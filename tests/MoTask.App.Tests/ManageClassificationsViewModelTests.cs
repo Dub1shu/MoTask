@@ -50,10 +50,24 @@ public class ManageClassificationsViewModelTests
     private async Task<ManageClassificationsViewModel> OpenAsync()
     {
         await _vm.LoadAsync();
-        return new ManageClassificationsViewModel(_vm, DefaultFolder);
+        return new ManageClassificationsViewModel(_vm, ClassificationKind.Project, DefaultFolder);
     }
 
     private const string DefaultFolder = @"C:\Users\me\MoTask";
+
+    /// <summary>プロジェクト設定とラベル設定は同じダイアログを種別で出し分ける。題名と出す一覧が種別に従う。</summary>
+    [Theory]
+    [InlineData(ClassificationKind.Project, true)]
+    [InlineData(ClassificationKind.Label, false)]
+    public async Task Kind_DecidesTitleAndShownList(ClassificationKind kind, bool isProjects)
+    {
+        await _vm.LoadAsync();
+        var manage = new ManageClassificationsViewModel(_vm, kind, DefaultFolder);
+
+        manage.IsProjects.Should().Be(isProjects);
+        manage.IsLabels.Should().Be(!isProjects);
+        manage.Title.Should().Be(isProjects ? Strings.ManageProjects : Strings.ManageLabels);
+    }
 
     /// <summary>使用件数は読み込み済みのボードから数える。論理削除済みのタスクは含めない。</summary>
     [Fact]

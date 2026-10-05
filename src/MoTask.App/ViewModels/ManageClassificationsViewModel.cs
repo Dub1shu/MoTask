@@ -8,8 +8,8 @@ using MoTask.Core.Model;
 namespace MoTask.App.ViewModels;
 
 /// <summary>
-/// プロジェクトとラベルの管理ダイアログ。一覧・使用件数のほか、追加・名前の変更・色の変更・
-/// プロジェクトの作業フォルダ・アーカイブ／復元を扱う。完全削除は持たない（過去のタスクの表示と履歴を壊さないため）。
+/// プロジェクト設定／ラベル設定のダイアログ。開くときの種別で片方だけを出す。一覧・使用件数のほか、追加・名前の変更・
+/// 色の変更・プロジェクトの作業フォルダ・アーカイブ／復元を扱う。完全削除は持たない（過去のタスクの表示と履歴を壊さないため）。
 /// </summary>
 public sealed partial class ManageClassificationsViewModel : ObservableObject
 {
@@ -31,13 +31,20 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
     /// <summary>テストが操作の完了を待つためのハンドル（詳細パネルと同じ作法）。</summary>
     public Task PendingChange { get; private set; } = Task.CompletedTask;
 
+    /// <param name="kind">どちらの設定として開くか。ダイアログの題名と、出す一覧を決める。</param>
     /// <param name="defaultWorkingDirectory">作業フォルダが未設定のプロジェクトに添えて出す、設定の既定フォルダ。</param>
-    public ManageClassificationsViewModel(BoardViewModel board, string? defaultWorkingDirectory = null)
+    public ManageClassificationsViewModel(BoardViewModel board, ClassificationKind kind, string? defaultWorkingDirectory = null)
     {
         _board = board;
+        Kind = kind;
         _defaultWorkingDirectory = defaultWorkingDirectory;
         Refresh();
     }
+
+    public ClassificationKind Kind { get; }
+    public bool IsProjects => Kind == ClassificationKind.Project;
+    public bool IsLabels => Kind == ClassificationKind.Label;
+    public string Title => IsProjects ? Strings.ManageProjects : Strings.ManageLabels;
 
     /// <summary>ボードの現在の一覧から行を組み直す。使用件数もここで数える。</summary>
     public void Refresh()

@@ -49,16 +49,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnManageProjectsClick(object sender, RoutedEventArgs e) => ShowManageDialog(ClassificationKind.Project);
+
+    private void OnManageLabelsClick(object sender, RoutedEventArgs e) => ShowManageDialog(ClassificationKind.Label);
+
     /// <summary>
-    /// プロジェクトとラベルの管理ダイアログを開く。アーカイブに伴うフィルタと詳細パネルの
+    /// プロジェクト設定／ラベル設定のダイアログを開く。アーカイブに伴うフィルタと詳細パネルの
     /// 更新は BoardViewModel 側で完結しているので、ここは開いて閉じるだけ。
     /// </summary>
-    private void OnManageClassificationsClick(object sender, RoutedEventArgs e)
+    private void ShowManageDialog(ClassificationKind kind)
     {
         var dialog = new ManageClassificationsDialog
         {
             Owner = this,
-            DataContext = new ManageClassificationsViewModel(_vm, _settings.Load().DefaultWorkingDirectory),
+            DataContext = new ManageClassificationsViewModel(_vm, kind, _settings.Load().DefaultWorkingDirectory),
         };
         dialog.ShowDialog();
     }
