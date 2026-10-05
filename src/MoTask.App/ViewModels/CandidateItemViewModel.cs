@@ -26,6 +26,7 @@ public sealed class CandidateItemViewModel
     public DateOnly? SuggestedDueDate => _candidate.SuggestedDueDate;
     public TriageAction SuggestedAction => _candidate.SuggestedAction;
     public int? SuggestedMergeTaskId => _candidate.SuggestedMergeTaskId;
+    public IReadOnlyList<int> SuggestedLabelIds => _candidate.SuggestedLabelIds;
 
     /// <summary>統合先が推薦されているか。候補キューの「統合が推奨」バッジに使う（統合できるかは TriagePanelViewModel.CanMerge）。</summary>
     public bool IsMergeSuggested => _candidate.SuggestedMergeTaskId is not null;

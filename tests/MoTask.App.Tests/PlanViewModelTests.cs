@@ -34,6 +34,20 @@ public class PlanViewModelTests
         _vm.Triage.EditColumnId.Should().Be(1, "既定は先頭の列");
     }
 
+    [Fact]
+    public async Task Load_OffersTheLabelsThatAreNotArchived()
+    {
+        _boards.Labels = new[]
+        {
+            new Label { Id = 200, Name = "至急" },
+            new Label { Id = 201, Name = "昔の分類", Archived = true },
+        };
+
+        await _vm.LoadAsync();
+
+        _vm.Triage.LabelChoices.Select(l => l.Id).Should().Equal(200);
+    }
+
     private TriageCandidate Candidate(int id = 1, TriageAction suggested = TriageAction.Register)
         => new()
         {
@@ -146,7 +160,8 @@ public class PlanViewModelTests
 
         await _vm.Triage.RegisterCommand.ExecuteAsync(null);
 
-        _service.LastDecision.Should().Be(new CandidateDecision(1, "書き換えた題名",
+        // LabelIds は一覧なので record の等値に乗らない。外して比べる
+        (_service.LastDecision! with { LabelIds = null }).Should().Be(new CandidateDecision(1, "書き換えた題名",
             new DateOnly(2026, 9, 10), "別プロジェクト", 2));
         _vm.Candidates.Should().ContainSingle();
         _vm.Selected!.CandidateId.Should().Be(2);
@@ -325,6 +340,31 @@ public class PlanViewModelTests
         await _vm.PendingLoad;
 
         _vm.Candidates.Should().ContainSingle();
+    }
+
+    /// <summary>
+    /// AI が候補を積むたびにキューは読み直される。表示中の候補が同じなら、人が切り替えたチップを
+    /// 推薦の状態へ戻さない（戻すと外したラベルを付けて登録してしまう）。
+    /// </summary>
+    [Fact]
+    public async Task RunChanged_KeepsTheLabelsThePersonToggled_OnTheSameCandidate()
+    {
+        _boards.Labels = new[] { new Label { Id = 200, Name = "至急" }, new Label { Id = 201, Name = "経理" } };
+        var run = IngestedRun();
+        _service.Current = run;
+        var candidate = Candidate();
+        candidate.SuggestedLabelIds = new List<int> { 201 };
+        _service.Candidates.Add(candidate);
+        await _vm.LoadAsync();
+        _vm.Triage.LabelChoices.Single(l => l.Id == 201).IsSelected = false;
+        _vm.Triage.LabelChoices.Single(l => l.Id == 200).IsSelected = true;
+
+        _service.Candidates.Add(Candidate(id: 2));
+        _service.Raise(run, candidates: true);
+        await _vm.PendingLoad;
+
+        _vm.Selected!.CandidateId.Should().Be(1);
+        _vm.Triage.LabelChoices.Where(l => l.IsSelected).Select(l => l.Id).Should().Equal(200);
     }
 
     [Fact]

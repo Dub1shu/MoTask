@@ -245,6 +245,7 @@
   <data name="McpPlanningRunIdRequired" xml:space="preserve"><value>runId（整数）を渡してください。instruction.md に書いてある値です</value></data>
   <data name="McpPlanningPlanRequired" xml:space="preserve"><value>plan（JSON オブジェクト）を渡してください</value></data>
   <data name="McpPlanningSuggestedDueDateInvalid" xml:space="preserve"><value>suggestedDueDate が日付として読めません。YYYY-MM-DD で書いてください</value></data>
+  <data name="McpPlanningSuggestedLabelsInvalid" xml:space="preserve"><value>suggestedLabels はラベル名（文字列）の配列で書いてください</value></data>
   <data name="ViewArchive" xml:space="preserve"><value>アーカイブ</value></data>
   <data name="ArchiveEmpty" xml:space="preserve"><value>アーカイブはまだありません</value></data>
   <data name="ArchiveDayFormat" xml:space="preserve"><value>M/d（ddd）</value></data>

@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MoTask.Data;
 
@@ -10,9 +11,11 @@ using MoTask.Data;
 namespace MoTask.Data.Migrations
 {
     [DbContext(typeof(MoTaskDbContext))]
-    partial class MoTaskDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005215141_AddCandidateSuggestedLabels")]
+    partial class AddCandidateSuggestedLabels
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -182,9 +185,6 @@ namespace MoTask.Data.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("Order")
-                        .HasColumnType("INTEGER");
-
                     b.HasKey("Id");
 
                     b.ToTable("Labels", (string)null);
@@ -263,9 +263,6 @@ namespace MoTask.Data.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("TEXT");
-
-                    b.Property<int>("Order")
-                        .HasColumnType("INTEGER");
 
                     b.Property<string>("WorkingDirectory")
                         .HasColumnType("TEXT");

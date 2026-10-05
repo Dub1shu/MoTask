@@ -161,6 +161,36 @@ public class MigrationTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// 推薦ラベルの列を足す前からある候補の行は、空の一覧として読めること。既定値が '' だと
+    /// JSON として読めずに例外になる。
+    /// </summary>
+    [Fact]
+    public async Task Migrate_LeavesOlderCandidatesWithNoSuggestedLabels()
+    {
+        await using (var old = _db.CreateContext())
+        {
+            await old.Database.GetInfrastructure().GetRequiredService<IMigrator>().MigrateAsync("20261004122914_AddProjectColor");
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO PlanningRuns (Id, Date, Status, SessionId, Instruction, JobFolder, PlanJson, StartedAt, ProcessedLines) " +
+                "VALUES (1, '2026-10-04', 'Ingested', '00000000-0000-0000-0000-000000000001', 'i', 'C:\\w', '', '2026-10-04 00:00:00', 0)");
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO TriageCandidates (PlanningRunId, ExternalId, Source, \"From\", Title, Evidence, Link, Reasoning, " +
+                "SuggestedProject, SuggestedAction, Status) " +
+                "VALUES (1, 'outlook:001', 'Outlook', '', 't', 'e', '', '', '', 'Register', 'Pending')");
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            (await ctx.TriageCandidates.SingleAsync()).SuggestedLabelIds.Should().BeEmpty();
+        }
+    }
+
     [Fact]
     public void DbPaths_SettingsSitNextToTheDatabase()
     {

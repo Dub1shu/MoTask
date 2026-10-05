@@ -48,11 +48,11 @@ public class PlanningServiceMcpTests
 
     private static CandidateInput Candidate(
         string externalId = "outlook:001", string evidence = "「9月8日までに」",
-        string action = "register", int? mergeTarget = null)
+        string action = "register", int? mergeTarget = null, IReadOnlyList<string>? labels = null)
         => new(externalId, "Outlook", "請求先情報を更新する", evidence,
             From: "山本さん", Link: "", Reasoning: "依頼が明確", ReceivedAt: null,
             SuggestedDueDate: null, SuggestedProject: "", SuggestedAction: action,
-            MergeTargetTaskId: mergeTarget);
+            MergeTargetTaskId: mergeTarget, SuggestedLabels: labels);
 
     // ---- planning_get_context ----
 
@@ -68,6 +68,18 @@ public class PlanningServiceMcpTests
         root.GetProperty("date").GetString().Should().Be("2026-09-07");
         root.GetProperty("tasks").EnumerateArray()
             .Select(t => t.GetProperty("title").GetString()).Should().Equal("Q4企画書の内容を確定する");
+    }
+
+    [Fact]
+    public async Task GetContext_ListsTheLabels()
+    {
+        _store.SeedLabel("経理");
+        var run = await StartAsync();
+
+        var context = await _service.GetContextAsync(run.Id);
+
+        JsonDocument.Parse(context.Value!).RootElement.GetProperty("labels").EnumerateArray()
+            .Select(l => l.GetProperty("name").GetString()).Should().Equal("経理");
     }
 
     /// <summary>盤面が無い(論理的にありえないはずだが)なら、Claude に取り違えさせず Fail にする。</summary>
@@ -168,6 +180,68 @@ public class PlanningServiceMcpTests
 
         result.Value!.Accepted.Should().BeFalse();
         result.Value.Reason.Should().Be(Messages.CandidateMergeTargetMissing);
+    }
+
+    // ---- 推薦ラベル ----
+
+    [Fact]
+    public async Task AddCandidate_StoresTheSuggestedLabelsAsIds()
+    {
+        var billing = _store.SeedLabel("経理");
+        var urgent = _store.SeedLabel("至急");
+        var run = await StartAsync();
+
+        var result = await _service.AddCandidateAsync(run.Id, Candidate(labels: new[] { "至急", "経理" }));
+
+        result.Value!.Accepted.Should().BeTrue(result.Value.Reason);
+        _store.Candidates.Single().SuggestedLabelIds.Should().Equal(urgent.Id, billing.Id);
+    }
+
+    [Fact]
+    public async Task AddCandidate_MatchesLabelNamesIgnoringCaseAndSpaces_AndDropsDuplicates()
+    {
+        var review = _store.SeedLabel("Review");
+        var run = await StartAsync();
+
+        await _service.AddCandidateAsync(run.Id, Candidate(labels: new[] { "  review ", "REVIEW", "" }));
+
+        _store.Candidates.Single().SuggestedLabelIds.Should().Equal(review.Id);
+    }
+
+    /// <summary>AI にラベルを作らせない。見つからない名前は候補ごと断り、直して呼び直させる。</summary>
+    [Fact]
+    public async Task AddCandidate_RefusesUnknownLabelNames_AndNamesThem()
+    {
+        _store.SeedLabel("経理");
+        var run = await StartAsync();
+
+        var result = await _service.AddCandidateAsync(run.Id, Candidate(labels: new[] { "経理", "請求", "総務" }));
+
+        result.Value!.Accepted.Should().BeFalse();
+        result.Value.Reason.Should().Be(string.Format(Messages.CandidateLabelUnknown, "請求、総務"));
+        _store.Candidates.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddCandidate_TreatsAnArchivedLabelAsUnknown()
+    {
+        _store.SeedLabel("昔の分類").Archived = true;
+        var run = await StartAsync();
+
+        var result = await _service.AddCandidateAsync(run.Id, Candidate(labels: new[] { "昔の分類" }));
+
+        result.Value!.Accepted.Should().BeFalse();
+        result.Value.Reason.Should().Be(string.Format(Messages.CandidateLabelUnknown, "昔の分類"));
+    }
+
+    [Fact]
+    public async Task AddCandidate_WithoutLabels_StoresAnEmptyList()
+    {
+        var run = await StartAsync();
+
+        await _service.AddCandidateAsync(run.Id, Candidate());
+
+        _store.Candidates.Single().SuggestedLabelIds.Should().BeEmpty();
     }
 
     /// <summary>現行は取り込み時に黙って捨てていた。ここでは理由を返す（仕様 §6）。</summary>

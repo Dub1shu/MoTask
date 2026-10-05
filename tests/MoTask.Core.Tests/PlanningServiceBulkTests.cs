@@ -139,4 +139,16 @@ public class PlanningServiceBulkTests
         carried.Status.Should().Be(TriageStatus.Later);
         _store.AllTasks.Should().ContainSingle("タスクは作らない");
     }
+
+    [Fact]
+    public async Task ApplySuggestions_AttachesTheSuggestedLabels()
+    {
+        var label = _store.SeedLabel("経理");
+        var register = Candidate("a", TriageAction.Register);
+        register.SuggestedLabelIds = new List<int> { label.Id };
+
+        await WithinLimitAsync(_service.ApplySuggestionsAsync(_run.Id, _backlog.Id));
+
+        _store.AllTasks.Single(t => t.Id == register.ResultTaskId).Labels.Select(l => l.Name).Should().Equal("経理");
+    }
 }

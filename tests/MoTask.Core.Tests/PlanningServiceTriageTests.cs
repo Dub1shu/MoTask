@@ -115,6 +115,88 @@ public class PlanningServiceTriageTests
         _store.Projects.Should().ContainSingle();
     }
 
+    // ---- 登録：ラベル ----
+
+    private TaskItem Stored(TaskItem task) => _store.AllTasks.Single(t => t.Id == task.Id);
+
+    [Fact]
+    public async Task Register_AttachesTheChosenLabels()
+    {
+        var billing = _store.SeedLabel("経理");
+        var urgent = _store.SeedLabel("至急");
+        var candidate = Candidate();
+
+        var created = await WithinLimitAsync(_service.RegisterAsync(new CandidateDecision(
+            candidate.Id, "請求先情報を更新する", null, "", _backlog.Id, new[] { urgent.Id, billing.Id })));
+
+        created.IsSuccess.Should().BeTrue(created.Error);
+        Stored(created.Value!).Labels.Select(l => l.Name).Should().BeEquivalentTo("経理", "至急");
+    }
+
+    /// <summary>推薦は id で持つので、登録までに改名されても付く（Review Focus 1）。</summary>
+    [Fact]
+    public async Task Register_StillAttachesALabelRenamedAfterTheSuggestion()
+    {
+        var label = _store.SeedLabel("経理");
+        var candidate = Candidate();
+        candidate.SuggestedLabelIds = new List<int> { label.Id };
+        label.Name = "経理・請求";
+
+        var created = await WithinLimitAsync(_service.RegisterAsync(new CandidateDecision(
+            candidate.Id, "請求先情報を更新する", null, "", _backlog.Id, candidate.SuggestedLabelIds)));
+
+        Stored(created.Value!).Labels.Select(l => l.Name).Should().Equal("経理・請求");
+    }
+
+    /// <summary>登録までにアーカイブされたラベルは黙って落とし、登録自体は通す（Review Focus 2）。</summary>
+    [Fact]
+    public async Task Register_DropsArchivedAndMissingLabels_AndStillRegisters()
+    {
+        var kept = _store.SeedLabel("経理");
+        var archived = _store.SeedLabel("昔の分類");
+        archived.Archived = true;
+        var candidate = Candidate();
+
+        var created = await WithinLimitAsync(_service.RegisterAsync(new CandidateDecision(
+            candidate.Id, "請求先情報を更新する", null, "", _backlog.Id, new[] { kept.Id, archived.Id, 9999 })));
+
+        created.IsSuccess.Should().BeTrue(created.Error);
+        created.Warnings.Should().BeEmpty("もともと登録欄で選べなかったラベルなので知らせない");
+        Stored(created.Value!).Labels.Select(l => l.Name).Should().Equal("経理");
+    }
+
+    [Fact]
+    public async Task Register_WithoutLabels_LeavesNoLabelHistory()
+    {
+        var candidate = Candidate();
+
+        var created = await WithinLimitAsync(_service.RegisterAsync(
+            new CandidateDecision(candidate.Id, "請求先情報を更新する", null, "", _backlog.Id)));
+
+        Stored(created.Value!).Labels.Should().BeEmpty();
+        _store.History.Where(h => h.TaskId == created.Value!.Id && h.Detail.Contains("Labels"))
+            .Should().BeEmpty("ラベルを選んでいなければ SetTaskLabelsAsync を呼ばない");
+    }
+
+    [Fact]
+    public async Task Register_DeletesTheTask_WhenLabelsCannotBeAttached()
+    {
+        var label = _store.SeedLabel("経理");
+        var gate = new OperationGate();
+        var boardService = new FailingBoardService(new BoardService(_store, _store, _store, _clock, gate)) { FailSetLabels = true };
+        var service = new PlanningService(_store, _store, _store, _store, _store, _clock, gate,
+            _launcher, _folder, _events, _settings, boardService);
+        var candidate = Candidate();
+
+        var created = await WithinLimitAsync(service.RegisterAsync(new CandidateDecision(
+            candidate.Id, "請求先情報を更新する", null, "", _backlog.Id, new[] { label.Id })));
+
+        created.IsSuccess.Should().BeFalse();
+        created.Error.Should().Be("テスト用のラベル失敗");
+        candidate.Status.Should().Be(TriageStatus.Pending);
+        _store.AllTasks.Where(t => !t.IsDeleted && t.Title == "請求先情報を更新する").Should().BeEmpty();
+    }
+
     [Fact]
     public async Task Register_RefusesABlankTitle()
     {
@@ -153,7 +235,7 @@ public class PlanningServiceTriageTests
     {
         var gate = new OperationGate();
         var realBoardService = new BoardService(_store, _store, _store, _clock, gate);
-        var boardService = new UpdateFailingBoardService(realBoardService);
+        var boardService = new FailingBoardService(realBoardService) { FailUpdate = true };
         var service = new PlanningService(_store, _store, _store, _store, _store, _clock, gate,
             _launcher, _folder, _events, _settings, boardService);
         var candidate = Candidate();
@@ -168,14 +250,20 @@ public class PlanningServiceTriageTests
             .BeEmpty("作りかけのタスクを列に残さない(残すと再登録で二重にできてしまう)");
     }
 
-    /// <summary>UpdateTaskAsync だけを失敗させ、それ以外はそのまま本物へ委譲する。</summary>
-    private sealed class UpdateFailingBoardService : IBoardService
+    /// <summary>指定した操作だけを失敗させ、それ以外はそのまま本物へ委譲する。</summary>
+    private sealed class FailingBoardService : IBoardService
     {
         private readonly IBoardService _inner;
-        public UpdateFailingBoardService(IBoardService inner) => _inner = inner;
+        public FailingBoardService(IBoardService inner) => _inner = inner;
+
+        public bool FailUpdate { get; init; }
+        public bool FailSetLabels { get; init; }
 
         public Task<Result> UpdateTaskAsync(TaskUpdate update, CancellationToken ct = default)
-            => Task.FromResult(Result.Fail("テスト用の更新失敗"));
+            => FailUpdate ? Task.FromResult(Result.Fail("テスト用の更新失敗")) : _inner.UpdateTaskAsync(update, ct);
+
+        public Task<Result> SetTaskLabelsAsync(int taskId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default)
+            => FailSetLabels ? Task.FromResult(Result.Fail("テスト用のラベル失敗")) : _inner.SetTaskLabelsAsync(taskId, labelIds, ct);
 
         public Task<Result<Board>> GetBoardAsync(CancellationToken ct = default) => _inner.GetBoardAsync(ct);
         public Task<IReadOnlyList<HistoryEntry>> GetHistoryAsync(int taskId, CancellationToken ct = default) => _inner.GetHistoryAsync(taskId, ct);
@@ -185,7 +273,6 @@ public class PlanningServiceTriageTests
         public Task<Result> MoveTaskAsync(int taskId, int toColumnId, int position, CancellationToken ct = default) => _inner.MoveTaskAsync(taskId, toColumnId, position, ct);
         public Task<Result> DeleteTaskAsync(int taskId, CancellationToken ct = default) => _inner.DeleteTaskAsync(taskId, ct);
         public Task<Result> RestoreTaskAsync(int taskId, CancellationToken ct = default) => _inner.RestoreTaskAsync(taskId, ct);
-        public Task<Result> SetTaskLabelsAsync(int taskId, IReadOnlyCollection<int> labelIds, CancellationToken ct = default) => _inner.SetTaskLabelsAsync(taskId, labelIds, ct);
         public Task<Result<Column>> AddColumnAsync(string name, ColumnRole role = ColumnRole.Active, CancellationToken ct = default) => _inner.AddColumnAsync(name, role, ct);
         public Task<Result> RenameColumnAsync(int columnId, string name, CancellationToken ct = default) => _inner.RenameColumnAsync(columnId, name, ct);
         public Task<Result> SetColumnRoleAsync(int columnId, ColumnRole role, CancellationToken ct = default) => _inner.SetColumnRoleAsync(columnId, role, ct);

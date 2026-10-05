@@ -41,7 +41,8 @@ public sealed class PlanningToolHost
     private IReadOnlyList<McpTool> BuildTools() => new[]
     {
         new McpTool(GetContext,
-            "今日の対象日と現在の盤面（列・未完了タスク・プロジェクト・期日・hasActiveAiJob）を返す。"
+            "今日の対象日と現在の盤面（列・未完了タスク・プロジェクト・期日・hasActiveAiJob）と、"
+            + "候補に推薦できるラベルの一覧（labels）を返す。"
             + "統合先の推薦と今日の計画は、必ずこの結果に基づくこと。",
             new
             {
@@ -86,6 +87,13 @@ public sealed class PlanningToolHost
                     receivedAt = new { type = "string", description = "受信日時。ISO8601（オフセット付きでよい）。" },
                     suggestedDueDate = new { type = "string", description = "推薦する期日。YYYY-MM-DD。" },
                     suggestedProject = new { type = "string", description = "推薦するプロジェクト名。" },
+                    suggestedLabels = new
+                    {
+                        type = "array",
+                        items = new { type = "string" },
+                        description = "推薦するラベル名。planning_get_context の labels にあるものだけ。"
+                            + "無い名前があると候補ごと受け付けない。ラベルは作られない。",
+                    },
                 },
                 required = new[] { "runId", "externalId", "source", "title", "evidence", "suggestedAction" },
             },
