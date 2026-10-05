@@ -43,7 +43,7 @@ public sealed partial class ArchiveItemViewModel : ObservableObject
         CompletedAtText = HistoryFormatter.Timestamp(CompletedAt, timeZone);
         CreatedAtText = HistoryFormatter.Timestamp(task.CreatedAt, timeZone);
         Labels = task.Labels
-            .OrderBy(l => l.Name, StringComparer.CurrentCulture)
+            .InDisplayOrder()
             .Select(l => new LabelChip(l.Id, l.Name, l.Color))
             .ToList();
     }

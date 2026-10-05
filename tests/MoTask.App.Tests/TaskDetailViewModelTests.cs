@@ -431,4 +431,25 @@ public class TaskDetailViewModelTests
         detail.Labels.Select(l => l.Id).Should().Contain(300);
         detail.Projects.Select(p => p.Id).Should().Contain(102);
     }
+
+    [Fact]
+    public async Task Detail_ListsLabelsInDisplayOrder_IncludingArchivedOnesTheTaskHas()
+    {
+        _service.Projects = new[]
+        {
+            new Project { Id = 100, Name = "顧客A対応", Order = 1 },
+            new Project { Id = 101, Name = "B案件", Order = 0 },
+        };
+        _service.Labels = new[]
+        {
+            new Label { Id = 200, Name = "至急", Color = "accent-500", Order = 1, Archived = true },
+            new Label { Id = 201, Name = "z", Order = 2 },
+            new Label { Id = 202, Name = "y", Order = 0 },
+        };
+
+        var detail = await OpenAsync(10);
+
+        detail.Projects.Skip(1).Select(p => p.Name).Should().Equal("B案件", "顧客A対応"); // 先頭は「なし」
+        detail.Labels.Select(l => l.Name).Should().Equal("y", "至急", "z");
+    }
 }

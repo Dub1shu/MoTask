@@ -64,7 +64,7 @@ public sealed partial class TaskDetailViewModel : ObservableObject
 
             Projects.Clear();
             Projects.Add(new ProjectOption(null, Strings.NoProject));
-            foreach (var p in _board.Projects.Where(p => !p.Archived || p.Id == m.ProjectId).OrderBy(p => p.Name))
+            foreach (var p in _board.Projects.Where(p => !p.Archived || p.Id == m.ProjectId).InDisplayOrder())
             {
                 Projects.Add(new ProjectOption(p.Id, p.Name));
             }
@@ -81,7 +81,7 @@ public sealed partial class TaskDetailViewModel : ObservableObject
             Labels.Clear();
             // アーカイブ済みは選択肢から外すが、このタスクが既に持っているものは残す
             // （プロジェクトのドロップダウンと同じ規則）
-            foreach (var l in _board.Labels.Where(l => !l.Archived || m.Labels.Any(x => x.Id == l.Id)).OrderBy(l => l.Name))
+            foreach (var l in _board.Labels.Where(l => !l.Archived || m.Labels.Any(x => x.Id == l.Id)).InDisplayOrder())
             {
                 Labels.Add(new LabelToggleViewModel(l, m.Labels.Any(x => x.Id == l.Id), OnLabelToggled));
             }

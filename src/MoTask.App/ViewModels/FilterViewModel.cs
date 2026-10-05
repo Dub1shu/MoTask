@@ -51,7 +51,7 @@ public sealed partial class FilterViewModel : ObservableObject
         var keep = SelectedProject?.Id;
         Projects.Clear();
         Projects.Add(new ProjectOption(null, Strings.FilterAllProjects));
-        foreach (var p in projects.Where(p => !p.Archived).OrderBy(p => p.Name, StringComparer.CurrentCulture))
+        foreach (var p in projects.Where(p => !p.Archived).InDisplayOrder())
         {
             Projects.Add(new ProjectOption(p.Id, p.Name));
         }
@@ -63,7 +63,7 @@ public sealed partial class FilterViewModel : ObservableObject
         var keep = Labels.Where(l => l.IsSelected).Select(l => l.Id).ToHashSet();
         Labels.Clear();
         // アーカイブ済みは絞り込みの選択肢から外す（プロジェクトと同じ扱い）
-        foreach (var l in labels.Where(l => !l.Archived).OrderBy(l => l.Name, StringComparer.CurrentCulture))
+        foreach (var l in labels.Where(l => !l.Archived).InDisplayOrder())
         {
             Labels.Add(new LabelFilterItem(l, OnLabelSelectionChanged) { IsSelected = keep.Contains(l.Id) });
         }

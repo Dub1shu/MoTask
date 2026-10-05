@@ -47,7 +47,7 @@ public sealed partial class TaskCardViewModel : ObservableObject
         DueStatus = DueStatuses.Of(Model, today);
         IsDeleted = Model.IsDeleted;
         Labels.Clear();
-        foreach (var label in Model.Labels.OrderBy(l => l.Name, StringComparer.CurrentCulture))
+        foreach (var label in Model.Labels.InDisplayOrder())
         {
             Labels.Add(new LabelChip(label.Id, label.Name, label.Color));
         }

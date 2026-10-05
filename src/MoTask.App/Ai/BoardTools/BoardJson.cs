@@ -49,7 +49,7 @@ public static class BoardJson
             ["title"] = task.Title,
             ["column"] = column.Name,
             ["project"] = task.ProjectId is int pid && projectNames.TryGetValue(pid, out var name) ? name : null,
-            ["labels"] = task.Labels.Select(l => l.Name).ToArray(),
+            ["labels"] = task.Labels.InDisplayOrder().Select(l => l.Name).ToArray(),
             ["dueDate"] = Date(task.DueDate),
             ["completedAt"] = Timestamp(task.CompletedAt),
             ["description"] = Truncate(task.Description, DescriptionLimit),
