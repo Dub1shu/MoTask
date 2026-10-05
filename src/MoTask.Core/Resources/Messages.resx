@@ -80,6 +80,8 @@
    一度片づけた候補を二度出さないための鍵である。
    accepted:false が返ったら reason を読み、直せるなら直して呼び直す。
    直せないなら、その候補は諦めて次へ進んでよい。
+   suggestedLabels には planning_get_context の labels にある名前だけを入れること。
+   ふさわしいラベルが無ければ付けなくてよい。新しいラベルは作られない。
 3. mcp__motask__planning_submit_plan({{"runId":{1},"plan":{{...}}}}) で計画を出す。
    plan の groups[].key は today / ifTime / aiReady / waiting のいずれかにする。
    aiReady には、planning_get_context の hasActiveAiJob が false で AI に任せられるものを入れる。
@@ -97,6 +99,7 @@
   <data name="CandidateEvidenceRequired" xml:space="preserve"><value>evidence が空です。元の文面から引用してください</value></data>
   <data name="CandidateActionInvalid" xml:space="preserve"><value>suggestedAction は register / merge / later / reject のどれかにしてください</value></data>
   <data name="CandidateMergeTargetMissing" xml:space="preserve"><value>mergeTargetTaskId が盤面にありません</value></data>
+  <data name="CandidateLabelUnknown" xml:space="preserve"><value>見つからないラベル: {0}。planning_get_context の labels から選ぶか、外して呼び直してください</value></data>
   <data name="PlanNotAnObject" xml:space="preserve"><value>plan は JSON オブジェクトで渡してください</value></data>
   <data name="PlanGroupsInvalid" xml:space="preserve"><value>groups が配列ではありません</value></data>
   <data name="PlanGroupNotAnObjectFormat" xml:space="preserve"><value>groups[{0}] が JSON オブジェクトではありません</value></data>

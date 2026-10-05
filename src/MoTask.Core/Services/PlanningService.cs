@@ -94,7 +94,7 @@ public sealed class PlanningService : IPlanningService
     private sealed record Prepared(int RunNumber);
 
     /// <summary>
-    /// 盤面のスナップショット。ゲートの中から呼ぶこと(リポジトリを 3 つ引く)。
+    /// 盤面のスナップショット。ゲートの中から呼ぶこと(リポジトリを 4 つ引く)。
     /// planning_get_context が返す形はこれ 1 つ(仕様 §4)。盤面が無ければ null。
     /// </summary>
     private async Task<string?> BuildSnapshotAsync(DateOnly date, CancellationToken ct)
@@ -106,11 +106,13 @@ public sealed class PlanningService : IPlanningService
         var busy = await _jobs.GetByStatusAsync(
             new[] { AiJobStatus.Pending, AiJobStatus.Running, AiJobStatus.WaitingForInput }, ct)
             .ConfigureAwait(false);
+        var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
 
         return BoardSnapshot.Build(
             board, date,
             projects.ToDictionary(p => p.Id, p => p.Name),
-            busy.Select(j => j.TaskId).ToHashSet());
+            busy.Select(j => j.TaskId).ToHashSet(),
+            labels);
     }
 
     public async Task<Result<PlanningRun>> StartAsync(CancellationToken ct = default)
@@ -364,6 +366,16 @@ public sealed class PlanningService : IPlanningService
                 if (target is null || target.IsDeleted) return Refused(Messages.CandidateMergeTargetMissing, total);
             }
 
+            // 推薦ラベルは既存のものだけ（AI にラベルを作らせない）。名前は id に直して持つ。
+            var labelIds = new List<int>();
+            if (input.SuggestedLabels is { Count: > 0 } names)
+            {
+                var labels = await _boards.GetLabelsAsync(ct).ConfigureAwait(false);
+                var resolved = SuggestedLabels.Resolve(names, labels);
+                if (!resolved.IsSuccess) return Refused(resolved.Error!, total);
+                labelIds = resolved.Value!;
+            }
+
             // 却下・登録済みの ExternalId は次の実行でまた出てきても積まない(親仕様 §9)。
             // 現行は黙って捨てていたが、ここでは理由を返す(仕様 §6)。
             var known = await _runs.GetKnownExternalIdsAsync(new[] { record.ExternalId }, ct).ConfigureAwait(false);
@@ -389,6 +401,7 @@ public sealed class PlanningService : IPlanningService
                 SuggestedProject = record.SuggestedProject,
                 SuggestedAction = record.SuggestedAction,
                 SuggestedMergeTaskId = record.MergeTargetTaskId,
+                SuggestedLabelIds = labelIds,
                 Status = TriageStatus.Pending,
             };
             _runs.AddCandidate(candidate);
@@ -664,6 +677,14 @@ public sealed class PlanningService : IPlanningService
             return Result.Fail<TaskItem>(updated.Error!);
         }
 
+        var labeled = await AttachLabelsAsync(task.Id, decision.LabelIds, ct).ConfigureAwait(false);
+        if (!labeled.IsSuccess)
+        {
+            // 仕上げの書き込みが失敗したときと同じ理由で、作ったタスクを残さない。
+            await _boardService.DeleteTaskAsync(task.Id, ct).ConfigureAwait(false);
+            return Result.Fail<TaskItem>(labeled.Error!);
+        }
+
         BoardChanged?.Invoke(this, EventArgs.Empty);
 
         var warning = await DecideAsync(candidate, TriageStatus.Registered, task.Id,
@@ -784,6 +805,23 @@ public sealed class PlanningService : IPlanningService
         return created.IsSuccess ? Result.Ok<int?>(created.Value!.Id) : Result.Fail<int?>(created.Error!);
     }
 
+    /// <summary>
+    /// 登録したタスクにラベルを付ける。アーカイブ済みや見つからない id は黙って落とす(登録欄では
+    /// もともと選べないもの)。付けるものが無ければ何もしない(履歴を増やさない)。
+    /// ゲートの外から呼ぶこと(IBoardService を使う)。
+    /// </summary>
+    private async Task<Result> AttachLabelsAsync(int taskId, IReadOnlyList<int>? labelIds, CancellationToken ct)
+    {
+        if (labelIds is not { Count: > 0 }) return Result.Ok();
+
+        var labels = await _boardService.GetLabelsAsync(ct).ConfigureAwait(false);
+        var active = labels.Where(l => !l.Archived).Select(l => l.Id).ToHashSet();
+        var keep = labelIds.Where(active.Contains).Distinct().ToList();
+        if (keep.Count == 0) return Result.Ok();
+
+        return await _boardService.SetTaskLabelsAsync(taskId, keep, ct).ConfigureAwait(false);
+    }
+
     // ---------- 一括 ----------
 
     /// <summary>
@@ -865,7 +903,8 @@ public sealed class PlanningService : IPlanningService
 
     private async Task<Result> RegisterBySuggestionAsync(TriageCandidate candidate, int columnId, CancellationToken ct)
         => await RegisterAsync(new CandidateDecision(
-            candidate.Id, candidate.Title, candidate.SuggestedDueDate, candidate.SuggestedProject, columnId), ct)
+            candidate.Id, candidate.Title, candidate.SuggestedDueDate, candidate.SuggestedProject, columnId,
+            candidate.SuggestedLabelIds), ct)
             .ConfigureAwait(false);
 
     private async Task<Result<BulkOutcome>> RunBulkAsync(

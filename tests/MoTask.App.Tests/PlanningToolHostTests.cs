@@ -96,7 +96,7 @@ public class PlanningToolHostTests
              "evidence":"「9月8日までに」","suggestedAction":"merge","mergeTargetTaskId":45,
              "from":"山本さん","link":"https://x","reasoning":"依頼が明確",
              "receivedAt":"2026-09-13T07:42:00+09:00","suggestedDueDate":"2026-09-14",
-             "suggestedProject":"顧客A"}
+             "suggestedProject":"顧客A","suggestedLabels":["経理","至急"]}
             """);
 
         isError.Should().BeFalse();
@@ -118,6 +118,7 @@ public class PlanningToolHostTests
         input.ReceivedAt.Should().Be(new DateTime(2026, 9, 12, 22, 42, 0, DateTimeKind.Utc));
         input.SuggestedDueDate.Should().Be(new DateOnly(2026, 9, 14));
         input.SuggestedProject.Should().Be("顧客A");
+        input.SuggestedLabels.Should().Equal("経理", "至急");
     }
 
     [Fact]
@@ -136,6 +137,37 @@ public class PlanningToolHostTests
         input.ReceivedAt.Should().BeNull();
         input.SuggestedDueDate.Should().BeNull();
         input.MergeTargetTaskId.Should().BeNull();
+        input.SuggestedLabels.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddCandidate_TreatsNullSuggestedLabelsAsNone()
+    {
+        _service.AddCandidateResult = Result.Ok(new CandidateOutcome(true, null, 1, 1));
+
+        await CallAsync(PlanningToolHost.AddCandidate, """
+            {"runId":7,"externalId":"x","source":"S","title":"T","evidence":"E",
+             "suggestedAction":"register","suggestedLabels":null}
+            """);
+
+        _service.AddCandidateCalls[^1].Input.SuggestedLabels.Should().BeEmpty();
+    }
+
+    /// <summary>名前の配列でなければ、黙って捨てずに reason で伝える（suggestedDueDate と同じ扱い）。</summary>
+    [Theory]
+    [InlineData("\"経理\"")]
+    [InlineData("[1,2]")]
+    [InlineData("{\"name\":\"経理\"}")]
+    public async Task AddCandidate_ReportsUnreadableSuggestedLabels_WithoutCallingTheService(string value)
+    {
+        var (json, isError, _) = await CallAsync(PlanningToolHost.AddCandidate,
+            "{\"runId\":7,\"externalId\":\"x\",\"source\":\"S\",\"title\":\"T\",\"evidence\":\"E\","
+            + "\"suggestedAction\":\"register\",\"suggestedLabels\":" + value + "}");
+
+        isError.Should().BeFalse();
+        json.GetProperty("accepted").GetBoolean().Should().BeFalse();
+        json.GetProperty("reason").GetString().Should().Be(Strings.McpPlanningSuggestedLabelsInvalid);
+        _service.AddCandidateCalls.Should().BeEmpty();
     }
 
     /// <summary>不備はツールエラーにせず、理由を通常の結果で返す（仕様 §3）。</summary>

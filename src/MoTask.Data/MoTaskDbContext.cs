@@ -114,6 +114,8 @@ public sealed class MoTaskDbContext : DbContext
             e.Property(x => x.Link).IsRequired().HasDefaultValue("");
             e.Property(x => x.Reasoning).IsRequired().HasDefaultValue("");
             e.Property(x => x.SuggestedProject).IsRequired().HasDefaultValue("");
+            // JSON の 1 列（EF の primitive collection）。列を足す前の行が空の一覧として読めるよう既定値を '[]' にする。
+            e.PrimitiveCollection(x => x.SuggestedLabelIds).IsRequired().HasDefaultValueSql("'[]'");
             e.Property(x => x.SuggestedAction).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             // 却下した候補を次の実行でまた拾わないための鍵（仕様 §9）

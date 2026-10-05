@@ -3,13 +3,16 @@ using MoTask.Core.Planning;
 
 namespace MoTask.Core.Services;
 
-/// <summary>候補を登録するときに人が確定した内容(編集後の値)。</summary>
+/// <summary>
+/// 候補を登録するときに人が確定した内容(編集後の値)。LabelIds は付けるラベル。null は空と同じ。
+/// </summary>
 public sealed record CandidateDecision(
     int CandidateId,
     string Title,
     DateOnly? DueDate,
     string ProjectName,
-    int ColumnId);
+    int ColumnId,
+    IReadOnlyList<int>? LabelIds = null);
 
 public interface IPlanningService
 {
