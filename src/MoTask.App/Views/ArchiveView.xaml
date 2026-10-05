@@ -6,6 +6,41 @@
              xmlns:res="clr-namespace:MoTask.App.Resources"
              xmlns:vm="clr-namespace:MoTask.App.ViewModels"
              mc:Ignorable="d" d:DataContext="{d:DesignInstance vm:ArchiveViewModel}">
+  <UserControl.Resources>
+    <!-- 完了日ごとの行。カードと同じ面・枠・角丸で、選んでいる行は枠をアクセント色にする。
+         Fluent の Button を土台にしないのは、ホバー時の枠色を Fluent がテンプレートのトリガで当てるため。
+         テンプレートのトリガは派生スタイルの DataTrigger より強く、選択中の行がホバー中だけ枠を失う。 -->
+    <Style x:Key="Archive.Row" TargetType="Button">
+      <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+      <Setter Property="FontSize" Value="{StaticResource FontSize.Body}" />
+      <Setter Property="FocusVisualStyle" Value="{StaticResource DefaultControlFocusVisualStyle}" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}" Padding="{TemplateBinding Padding}"
+                    CornerRadius="{StaticResource OverlayCornerRadius}" SnapsToDevicePixels="True">
+              <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+      <Style.Triggers>
+        <Trigger Property="IsMouseOver" Value="True">
+          <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />
+        </Trigger>
+        <!-- ホバーより後に置き、選択中はホバーでも枠を保つ -->
+        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+          <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+        </DataTrigger>
+      </Style.Triggers>
+    </Style>
+  </UserControl.Resources>
   <DockPanel Margin="{StaticResource Pad.Board}">
 
     <!-- 読み込みの失敗。PlanView のバナーと同じ形。 -->
@@ -47,17 +82,8 @@
                       <Button Command="{Binding DataContext.SelectCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                               CommandParameter="{Binding}"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                              Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}">
-                        <Button.Style>
-                          <!-- 選んでいる行は枠をアクセント色にする。既定の Button スタイルを土台にする。 -->
-                          <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                            <Style.Triggers>
-                              <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                              </DataTrigger>
-                            </Style.Triggers>
-                          </Style>
-                        </Button.Style>
+                              Padding="{StaticResource Pad.Box}" Margin="{StaticResource Gap.Top.2}"
+                              Style="{StaticResource Archive.Row}">
                         <DockPanel>
                           <TextBlock DockPanel.Dock="Right" Text="{Binding CompletedOnText}"
                                      Style="{StaticResource Text.Caption}" VerticalAlignment="Top"

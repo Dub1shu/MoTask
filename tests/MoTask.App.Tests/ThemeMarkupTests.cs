@@ -160,6 +160,24 @@ public class ThemeMarkupTests
         ((string?)dashed.Attribute("Stroke")).Should().Be("{DynamicResource ControlStrongStrokeColorDefaultBrush}");
     }
 
+    [Fact]
+    public void ArchiveRow_KeepsTheSelectedBorderWhileHovered()
+    {
+        // Fluent の Button はホバー時の枠色をテンプレートのトリガで当てる。テンプレートのトリガは派生スタイルの
+        // DataTrigger より強いので、Fluent の Button を土台にすると選択中の行がホバー中だけアクセントの枠を失う。
+        // 行は自前のテンプレートを持ち、選択中の枠をスタイルのトリガで当てる。
+        var row = Load(Path.Combine("Views", "ArchiveView.xaml")).Descendants(Presentation + "Style")
+            .Single(s => (string?)s.Attribute(X + "Key") == "Archive.Row");
+
+        row.Attribute("BasedOn").Should().BeNull("Fluent の Button のテンプレートを持ち込まない");
+        row.Elements(Presentation + "Setter").Select(s => (string?)s.Attribute("Property")).Should().Contain("Template");
+        var selected = row.Descendants(Presentation + "DataTrigger")
+            .Single(t => (string?)t.Attribute("Binding") == "{Binding IsSelected}");
+        selected.Elements(Presentation + "Setter")
+            .Should().Contain(s => (string?)s.Attribute("Property") == "BorderBrush"
+                                   && (string?)s.Attribute("Value") == "{DynamicResource AccentFillColorDefaultBrush}");
+    }
+
     private static IEnumerable<XElement> ImplicitStyles(XDocument doc)
         => doc.Root!.Elements(Presentation + "Style").Where(s => s.Attribute(X + "Key") is null);
 
