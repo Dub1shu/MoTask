@@ -275,5 +275,28 @@ public class MigrationTests : IDisposable
         job.ProcessedLines.Should().Be(3, "移行前に AiJobEvents にあった行数がそのまま引き継がれる");
     }
 
+    /// <summary>既存の行は Order = 0 のまま。並べ方の規則で今までの名前順が保たれる（仕様 §3）。</summary>
+    [Fact]
+    public async Task Migration_LeavesExistingRowsAtZero_SoTheyKeepNameOrder()
+    {
+        await using (var old = _db.CreateContext())
+        {
+            await old.Database.GetInfrastructure().GetRequiredService<IMigrator>().MigrateAsync("20261004122914_AddProjectColor");
+            await old.Database.ExecuteSqlRawAsync(
+                "INSERT INTO Projects (Name, Archived) VALUES ('B', 0), ('A', 0); " +
+                "INSERT INTO Labels (Name, Color, Archived) VALUES ('y', 'accent-300', 0), ('x', 'accent-300', 0)");
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+            var repo = new MoTask.Data.Repositories.BoardRepository(ctx);
+            var projects = await repo.GetProjectsAsync();
+            projects.Select(p => p.Order).Should().AllBeEquivalentTo(0);
+            projects.Select(p => p.Name).Should().Equal("A", "B");
+            (await repo.GetLabelsAsync()).Select(l => l.Name).Should().Equal("x", "y");
+        }
+    }
+
     public void Dispose() => _db.Dispose();
 }

@@ -95,5 +95,29 @@ public class RepositoryTests : IDisposable
         }
     }
 
+    [Fact]
+    public async Task GetProjectsAndLabels_ReturnInDisplayOrder()
+    {
+        await using (var ctx = _db.CreateContext())
+        {
+            await ctx.Database.MigrateAsync();
+            ctx.Projects.AddRange(
+                new Project { Name = "A", Order = 1 },
+                new Project { Name = "B", Order = 0 },
+                new Project { Name = "C", Order = 0 });
+            ctx.Labels.AddRange(
+                new Label { Name = "x", Order = 5 },
+                new Label { Name = "y", Order = 2 });
+            await ctx.SaveChangesAsync();
+        }
+
+        await using (var ctx = _db.CreateContext())
+        {
+            var repo = new BoardRepository(ctx);
+            (await repo.GetProjectsAsync()).Select(p => p.Name).Should().Equal("B", "C", "A");
+            (await repo.GetLabelsAsync()).Select(l => l.Name).Should().Equal("y", "x");
+        }
+    }
+
     public void Dispose() => _db.Dispose();
 }
