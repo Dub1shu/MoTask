@@ -53,19 +53,23 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
         var live = _board.Columns.SelectMany(c => c.AllCards).Select(c => c.Model).Where(t => !t.IsDeleted).ToList();
 
         Projects.Clear();
-        foreach (var p in _board.Projects.OrderBy(p => p.Name, StringComparer.CurrentCulture))
+        foreach (var p in LiveThenArchived(_board.Projects))
         {
             Projects.Add(new ClassificationRow(ClassificationKind.Project, p.Id, p.Name, p.Color,
                 live.Count(t => t.ProjectId == p.Id), p.Archived, p.WorkingDirectory, _defaultWorkingDirectory));
         }
 
         Labels.Clear();
-        foreach (var l in _board.Labels.OrderBy(l => l.Name, StringComparer.CurrentCulture))
+        foreach (var l in LiveThenArchived(_board.Labels))
         {
             Labels.Add(new ClassificationRow(ClassificationKind.Label, l.Id, l.Name, l.Color,
                 live.Count(t => t.Labels.Any(x => x.Id == l.Id)), l.Archived));
         }
     }
+
+    /// <summary>ドラッグで並べ替えるのは生きている行だけなので、アーカイブ済みは下にまとめる（仕様 §6）。</summary>
+    private static IEnumerable<T> LiveThenArchived<T>(IEnumerable<T> items) where T : IClassification
+        => items.Where(x => !x.Archived).InDisplayOrder().Concat(items.Where(x => x.Archived).InDisplayOrder());
 
     public async Task ArchiveProjectAsync(ClassificationRow row)
     {
@@ -150,6 +154,18 @@ public sealed partial class ManageClassificationsViewModel : ObservableObject
     [RelayCommand]
     private void ClearWorkingDirectory(ClassificationRow row)
         => PendingChange = Run(() => _board.SetProjectWorkingDirectoryAsync(row.Id, null));
+
+    // ---------- 並べ替え ----------
+
+    /// <summary>ドロップで決まった、生きている行の並び。行は保存後の Refresh で組み直す。</summary>
+    public void Reorder(IReadOnlyList<ClassificationRow> liveOrder)
+    {
+        if (liveOrder.Count == 0) return;
+        var ids = liveOrder.Select(r => r.Id).ToList();
+        PendingChange = Run(() => liveOrder[0].Kind == ClassificationKind.Project
+            ? _board.ReorderProjectsAsync(ids)
+            : _board.ReorderLabelsAsync(ids));
+    }
 
     // ---------- 追加 ----------
 

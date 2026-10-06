@@ -155,4 +155,17 @@ public class BoardJsonTests
     public void Serialize_LeavesJapaneseUnescaped()
         => BoardJson.Serialize(new Dictionary<string, object?> { ["name"] = "進行中" }, Array.Empty<string>())
             .Should().Contain("進行中");
+
+    [Fact]
+    public void TaskSummary_ListsLabelsInDisplayOrder()
+    {
+        var column = new Column { Id = 1, Name = "未着手" };
+        var task = new TaskItem { Id = 1, Title = "t", ColumnId = 1 };
+        task.Labels.Add(new Label { Id = 1, Name = "A", Order = 1 });
+        task.Labels.Add(new Label { Id = 2, Name = "B", Order = 0 });
+
+        var json = BoardJson.TaskSummary(task, column, new Dictionary<int, string>());
+
+        ((string[])json["labels"]!).Should().Equal("B", "A");
+    }
 }

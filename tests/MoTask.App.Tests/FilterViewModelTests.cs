@@ -123,4 +123,16 @@ public class FilterViewModelTests
         vm.SelectedLabelCount.Should().Be(0);
         vm.SelectedLabelsPreview.Should().BeEmpty();
     }
+
+    [Fact]
+    public void ProjectsAndLabels_FollowDisplayOrder()
+    {
+        var vm = new FilterViewModel();
+
+        vm.SetProjects(new[] { new Project { Id = 1, Name = "A", Order = 1 }, new Project { Id = 2, Name = "B", Order = 0 } });
+        vm.SetLabels(new[] { new Label { Id = 1, Name = "x", Order = 1 }, new Label { Id = 2, Name = "y", Order = 0 } });
+
+        vm.Projects.Skip(1).Select(p => p.Name).Should().Equal("B", "A"); // 先頭は「すべて」
+        vm.Labels.Select(l => l.Name).Should().Equal("y", "x");
+    }
 }

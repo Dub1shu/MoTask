@@ -35,4 +35,34 @@ public class ManageClassificationsDialogMarkupTests
         trigger!.Descendants(Presentation + "Setter").Should().Contain(s =>
             (string?)s.Attribute("Property") == "IsHitTestVisible" && (string?)s.Attribute("Value") == "False");
     }
+
+    private static XDocument Dialog()
+        => XDocument.Load(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ManageClassificationsDialog.xaml"));
+
+    private static readonly XNamespace Dd = "clr-namespace:MoTask.App.DragDrop";
+
+    /// <summary>2 つの一覧はどちらもドラッグ元でありドロップ先。ハンドラはコードビハインドで挿す。</summary>
+    [Theory]
+    [InlineData("ProjectList")]
+    [InlineData("LabelList")]
+    public void Lists_AreDragSourcesAndDropTargets(string name)
+    {
+        var list = Dialog().Descendants(Presentation + "ItemsControl").Single(e => (string?)e.Attribute(X + "Name") == name);
+
+        ((string?)list.Attribute(Dd + "DragDropBehavior.IsDragSource")).Should().Be("True");
+        ((string?)list.Attribute(Dd + "DragDropBehavior.IsDropTarget")).Should().Be("True");
+    }
+
+    /// <summary>アーカイブ済みと名前の編集中の行は掴めない。</summary>
+    [Theory]
+    [InlineData("IsArchived")]
+    [InlineData("IsEditing")]
+    public void Row_IgnoresDragWhile(string property)
+    {
+        var row = Dialog().Descendants(Presentation + "DataTemplate").Single(e => (string?)e.Attribute(X + "Key") == "Manage.Row");
+        var trigger = row.Descendants(Presentation + "DataTrigger").Where(t => (string?)t.Attribute("Binding") == $"{{Binding {property}}}");
+
+        trigger.Should().Contain(t => t.Descendants(Presentation + "Setter").Any(s =>
+            (string?)s.Attribute("Property") == "dd:DragDropBehavior.DragSourceIgnore" && (string?)s.Attribute("Value") == "True"));
+    }
 }

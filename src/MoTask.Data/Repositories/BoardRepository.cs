@@ -32,14 +32,15 @@ public sealed class BoardRepository : IBoardRepository
     public Task<Project?> GetProjectAsync(int projectId, CancellationToken ct = default)
         => _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId, ct);
 
+    // 名前は CurrentCulture で比べたいので、並べるのは読み出した後（件数は数十件）
     public async Task<IReadOnlyList<Project>> GetProjectsAsync(CancellationToken ct = default)
-        => await _db.Projects.OrderBy(p => p.Name).ToListAsync(ct);
+        => (await _db.Projects.ToListAsync(ct)).InDisplayOrder().ToList();
 
     public Task<Label?> GetLabelAsync(int labelId, CancellationToken ct = default)
         => _db.Labels.FirstOrDefaultAsync(l => l.Id == labelId, ct);
 
     public async Task<IReadOnlyList<Label>> GetLabelsAsync(CancellationToken ct = default)
-        => await _db.Labels.OrderBy(l => l.Name).ToListAsync(ct);
+        => (await _db.Labels.ToListAsync(ct)).InDisplayOrder().ToList();
 
     public void AddColumn(Column column) => _db.Columns.Add(column);
     public void RemoveColumn(Column column) => _db.Columns.Remove(column);

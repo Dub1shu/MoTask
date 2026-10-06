@@ -1263,4 +1263,16 @@ public class BoardViewModelTests
     }
 
     private TaskCardViewModel Card(int id) => _vm.Columns.SelectMany(c => c.AllCards).Single(c => c.Id == id);
+
+    [Fact]
+    public async Task CardLabels_FollowDisplayOrder()
+    {
+        var later = new Label { Id = 201, Name = "A", Order = 5 };
+        _urgent.Order = 1;
+        _board.Columns[0].Tasks.Single(t => t.Id == 10).Labels.Add(later);
+
+        await _vm.LoadAsync();
+
+        _vm.Columns[0].Cards.Single(c => c.Id == 10).Labels.Select(l => l.Name).Should().Equal("至急", "A");
+    }
 }

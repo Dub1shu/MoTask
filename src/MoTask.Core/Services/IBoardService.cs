@@ -47,4 +47,8 @@ public interface IBoardService
     Task<Result> RenameLabelAsync(int labelId, string name, CancellationToken ct = default);
     /// <summary>LabelPalette の色だけを受け付ける。</summary>
     Task<Result> SetLabelColorAsync(int labelId, string color, CancellationToken ct = default);
+    /// <summary>アーカイブしていないプロジェクトの ID を全件、並べたい順に渡す。アーカイブ済みの位置は変えない。</summary>
+    Task<Result> ReorderProjectsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default);
+    /// <summary>アーカイブしていないラベルの ID を全件、並べたい順に渡す。アーカイブ済みの位置は変えない。</summary>
+    Task<Result> ReorderLabelsAsync(IReadOnlyList<int> orderedLiveIds, CancellationToken ct = default);
 }

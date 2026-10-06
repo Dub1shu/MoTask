@@ -5,6 +5,7 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
+using MoTask.App.DragDrop;
 using MoTask.App.ViewModels;
 
 namespace MoTask.App.Views;
@@ -15,6 +16,19 @@ public partial class ManageClassificationsDialog : Window
     public ManageClassificationsDialog()
     {
         InitializeComponent();
+        DataContextChanged += (_, _) => AttachDragDrop();
+    }
+
+    /// <summary>
+    /// D&amp;D のハンドラはここで挿す（ColumnView と同じく、ViewModels を DragDrop に依存させない）。
+    /// 2 つの一覧に同じハンドラを挿し、別の一覧へのドロップはハンドラが断る。
+    /// </summary>
+    private void AttachDragDrop()
+    {
+        if (DataContext is not ManageClassificationsViewModel vm) return;
+        var handler = new ClassificationDropHandler(vm);
+        DragDropBehavior.SetDropHandler(ProjectList, handler);
+        DragDropBehavior.SetDropHandler(LabelList, handler);
     }
 
     private ManageClassificationsViewModel Vm => (ManageClassificationsViewModel)DataContext;

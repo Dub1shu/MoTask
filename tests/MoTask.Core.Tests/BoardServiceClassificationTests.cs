@@ -332,4 +332,104 @@ public class BoardServiceClassificationTests
     {
         (await _service.CreateProjectAsync("新案件")).Value!.Color.Should().BeNull();
     }
+
+    private async Task<string[]> ProjectNames() => (await _service.GetProjectsAsync()).Select(p => p.Name).ToArray();
+
+    [Fact]
+    public async Task ReorderProjects_FromAllZero_SavesTheGivenOrder()
+    {
+        var a = _store.SeedProject("A");
+        var b = _store.SeedProject("B");
+        var c = _store.SeedProject("C");
+
+        var result = await _service.ReorderProjectsAsync(new[] { c.Id, a.Id, b.Id });
+
+        result.IsSuccess.Should().BeTrue();
+        (await ProjectNames()).Should().Equal("C", "A", "B");
+    }
+
+    /// <summary>アーカイブ済みは並べ替えに巻き込まれず、復元するとアーカイブ前の場所に戻る（仕様 §4）。</summary>
+    [Fact]
+    public async Task ReorderProjects_KeepsArchivedInPlace_AndRestoreReturnsThere()
+    {
+        var a = _store.SeedProject("A");
+        var b = _store.SeedProject("B");
+        var c = _store.SeedProject("C");
+        var d = _store.SeedProject("D");
+        b.Archived = true;
+
+        (await _service.ReorderProjectsAsync(new[] { d.Id, c.Id, a.Id })).IsSuccess.Should().BeTrue();
+        (await _service.UnarchiveProjectAsync(b.Id)).IsSuccess.Should().BeTrue();
+
+        (await ProjectNames()).Should().Equal("D", "B", "C", "A");
+    }
+
+    [Theory]
+    [InlineData(new[] { 0, 1 })]          // 足りない
+    [InlineData(new[] { 0, 1, 2, 3 })]    // アーカイブ済みまで含む
+    [InlineData(new[] { 0, 0, 1 })]       // 重複
+    [InlineData(new[] { 0, 1, 999 })]     // 知らない ID
+    public async Task ReorderProjects_NotExactlyTheLiveSet_IsRejected(int[] picks)
+    {
+        var live = new[] { _store.SeedProject("A"), _store.SeedProject("B"), _store.SeedProject("C") };
+        var archived = _store.SeedProject("Z");
+        archived.Archived = true;
+        var all = live.Append(archived).ToArray();
+        var ids = picks.Select(i => i == 999 ? 999 : all[i].Id).ToArray();
+
+        var result = await _service.ReorderProjectsAsync(ids);
+
+        result.Error.Should().Be(Messages.ReorderMustIncludeAllProjects);
+        all.Select(p => p.Order).Should().AllBeEquivalentTo(0);
+    }
+
+    [Fact]
+    public async Task CreateProject_GoesToTheEnd_EvenIfItsNameSortsFirst()
+    {
+        var a = _store.SeedProject("A");
+        var b = _store.SeedProject("B");
+        await _service.ReorderProjectsAsync(new[] { b.Id, a.Id });
+
+        await _service.CreateProjectAsync("0");
+
+        (await ProjectNames()).Should().Equal("B", "A", "0");
+    }
+
+    [Fact]
+    public async Task CreateProject_RestoringAnArchivedOne_KeepsItsPlace()
+    {
+        var a = _store.SeedProject("A");
+        var b = _store.SeedProject("B");
+        var c = _store.SeedProject("C");
+        await _service.ReorderProjectsAsync(new[] { c.Id, b.Id, a.Id });
+        b.Archived = true;
+
+        await _service.CreateProjectAsync("B");
+
+        (await ProjectNames()).Should().Equal("C", "B", "A");
+    }
+
+    [Fact]
+    public async Task ReorderLabels_KeepsArchivedInPlace_AndNewOnesGoToTheEnd()
+    {
+        var x = _store.SeedLabel("X");
+        var y = _store.SeedLabel("Y");
+        var z = _store.SeedLabel("Z");
+        y.Archived = true;
+
+        (await _service.ReorderLabelsAsync(new[] { z.Id, x.Id })).IsSuccess.Should().BeTrue();
+        await _service.CreateLabelAsync("A", Label.DefaultColor);
+        await _service.UnarchiveLabelAsync(y.Id);
+
+        (await _service.GetLabelsAsync()).Select(l => l.Name).Should().Equal("Z", "Y", "X", "A");
+    }
+
+    [Fact]
+    public async Task ReorderLabels_NotExactlyTheLiveSet_IsRejected()
+    {
+        var x = _store.SeedLabel("X");
+        _store.SeedLabel("Y");
+
+        (await _service.ReorderLabelsAsync(new[] { x.Id })).Error.Should().Be(Messages.ReorderMustIncludeAllLabels);
+    }
 }

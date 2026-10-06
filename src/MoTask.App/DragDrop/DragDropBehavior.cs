@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Documents;
@@ -510,7 +511,8 @@ public static class DragDropBehavior
             var items = target as ItemsControl;
             var cursor = target.PointFromScreen(new Point(point.X, point.Y));
             var index = InsertIndexCalculator.Calculate(RealizedContainers(items, target), cursor, OrientationOf(items));
-            ShowInsertion(target, index);
+            if (InsertIndexFor(GetDropHandler(target), _payload, items?.ItemsSource, index) is int adjusted) ShowInsertion(target, adjusted);
+            else RemoveInsertion();
         }
         catch (InvalidOperationException)
         {
@@ -518,6 +520,18 @@ public static class DragDropBehavior
             // タイマーから例外を投げるとアプリごと落ちるので、静かにスクロールをやめる。
             StopAutoScroll();
         }
+    }
+
+    /// <summary>
+    /// 自動スクロール中に挿入線を引き直す位置。DragOver と同じくハンドラに尋ね、ハンドラが動かした位置を使う
+    /// （管理ダイアログはアーカイブ済みの行の手前で止める）。受けないなら null。
+    /// </summary>
+    public static int? InsertIndexFor(IDropHandler? handler, object? payload, IEnumerable? source, int index)
+    {
+        if (handler is null) return null;
+        var context = new DropContext(payload, source, index);
+        handler.DragOver(context);
+        return context.NotHandled ? null : context.InsertIndex;
     }
 
     private static void StopAutoScroll()

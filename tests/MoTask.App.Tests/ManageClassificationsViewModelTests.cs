@@ -469,4 +469,53 @@ public class ManageClassificationsViewModelTests
         manage.ErrorMessage.Should().Contain(Messages.ProjectNotFound);
         manage.Projects.Single(r => r.Id == 100).HasWorkingDirectory.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Rows_LiveInDisplayOrder_ThenArchived()
+    {
+        _projectA.Order = 1;
+        _unused.Order = 0;
+        _urgent.Order = 0;
+        _urgent.Archived = true;
+        _spare.Order = 1;
+
+        var manage = await OpenAsync();
+
+        manage.Projects.Select(r => r.Id).Should().Equal(101, 100);
+        manage.Labels.Select(r => r.Id).Should().Equal(201, 200); // アーカイブ済みの至急は Order が小さくても下
+    }
+
+    [Fact]
+    public async Task Reorder_SavesTheIdsAndRebuildsTheRows()
+    {
+        var manage = await OpenAsync();
+        _service.OnReorderProjects = call =>
+        {
+            _projectA.Order = call.OrderedIds.ToList().IndexOf(_projectA.Id);
+            _unused.Order = call.OrderedIds.ToList().IndexOf(_unused.Id);
+            return Task.FromResult(Result.Ok());
+        };
+        var rows = manage.Projects.ToList();
+
+        manage.Reorder(new[] { rows.Single(r => r.Id == 101), rows.Single(r => r.Id == 100) });
+        await manage.PendingChange;
+
+        _service.ReorderProjectsCalls.Single().OrderedIds.Should().Equal(101, 100);
+        manage.Projects.Select(r => r.Id).Should().Equal(101, 100);
+        manage.ErrorMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Reorder_Failure_ShowsErrorAndKeepsTheRows()
+    {
+        var manage = await OpenAsync();
+        _service.OnReorderLabels = _ => Task.FromResult(Result.Fail(Messages.ReorderMustIncludeAllLabels));
+        var before = manage.Labels.Select(r => r.Id).ToList();
+
+        manage.Reorder(manage.Labels.Reverse().ToList());
+        await manage.PendingChange;
+
+        manage.ErrorMessage.Should().NotBeNull();
+        manage.Labels.Select(r => r.Id).Should().Equal(before);
+    }
 }

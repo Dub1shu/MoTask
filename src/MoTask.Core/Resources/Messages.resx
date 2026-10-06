@@ -18,6 +18,8 @@
   <data name="DoneColumnCannotBeDeleted" xml:space="preserve"><value>完了の列は削除できません</value></data>
   <data name="ColumnHasTasks" xml:space="preserve"><value>タスクが残っている列は削除できません（削除済みのタスクも含みます）</value></data>
   <data name="ReorderMustIncludeAllColumns" xml:space="preserve"><value>並び替えにはすべての列を含めてください</value></data>
+  <data name="ReorderMustIncludeAllProjects" xml:space="preserve"><value>並び替えにはアーカイブしていないすべてのプロジェクトを含めてください</value></data>
+  <data name="ReorderMustIncludeAllLabels" xml:space="preserve"><value>並び替えにはアーカイブしていないすべてのラベルを含めてください</value></data>
   <data name="WipLimitMustBePositive" xml:space="preserve"><value>カードの上限は 1 以上の整数にしてください</value></data>
   <data name="ProjectNameRequired" xml:space="preserve"><value>プロジェクト名を入力してください</value></data>
   <data name="LabelNameRequired" xml:space="preserve"><value>ラベル名を入力してください</value></data>

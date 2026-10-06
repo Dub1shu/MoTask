@@ -95,13 +95,13 @@ public sealed class InMemoryStore : IBoardRepository, IHistoryRepository, IUnitO
         => Task.FromResult(Projects.FirstOrDefault(p => p.Id == projectId));
 
     public Task<IReadOnlyList<Project>> GetProjectsAsync(CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<Project>>(Projects.OrderBy(p => p.Name).ToList());
+        => Task.FromResult<IReadOnlyList<Project>>(Projects.InDisplayOrder().ToList());
 
     public Task<Label?> GetLabelAsync(int labelId, CancellationToken ct = default)
         => Task.FromResult(Labels.FirstOrDefault(l => l.Id == labelId));
 
     public Task<IReadOnlyList<Label>> GetLabelsAsync(CancellationToken ct = default)
-        => Task.FromResult<IReadOnlyList<Label>>(Labels.OrderBy(l => l.Name).ToList());
+        => Task.FromResult<IReadOnlyList<Label>>(Labels.InDisplayOrder().ToList());
 
     public void AddColumn(Column column) { if (column.Id == 0) column.Id = _nextId++; }
 
