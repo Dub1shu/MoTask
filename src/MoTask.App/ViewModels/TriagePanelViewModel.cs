@@ -101,18 +101,19 @@ public sealed partial class TriagePanelViewModel : ObservableObject
     /// <summary>候補を 1 件見せる。推薦された統合先が一覧にあれば初期選択にする。</summary>
     public void Show(CandidateItemViewModel? candidate, int index, int count)
     {
-        // キューの読み直しでは同じ候補が新しいインスタンスで来る。そのときチップは SetChoices が
-        // 引き継いだ人の選択のままにする（推薦へ戻すと、外したラベルを付けて登録してしまう）。
+        // キューの読み直し（「計画」で戻ったときなど）では同じ候補が新しいインスタンスで来る。
+        // そのときは人が書き換えた値を推薦へ戻さない（戻すと編集が黙って消え、外したラベルも付いてしまう）。
+        // チップは SetChoices が人の選択を引き継ぎ、統合先は盤面から消えていれば SetChoices が外す。
         var sameCandidate = candidate is not null && candidate.CandidateId == Selected?.CandidateId;
         Selected = candidate;
-        EditTitle = candidate?.Title ?? "";
-        EditDueDate = candidate?.SuggestedDueDate?.ToDateTime(TimeOnly.MinValue);
-        EditProjectName = candidate?.SuggestedProject ?? "";
-        EditMergeTargetId = candidate?.SuggestedMergeTaskId is int suggested && MergeTargets.Any(t => t.Id == suggested)
-            ? suggested
-            : null;
         if (!sameCandidate)
         {
+            EditTitle = candidate?.Title ?? "";
+            EditDueDate = candidate?.SuggestedDueDate?.ToDateTime(TimeOnly.MinValue);
+            EditProjectName = candidate?.SuggestedProject ?? "";
+            EditMergeTargetId = candidate?.SuggestedMergeTaskId is int suggested && MergeTargets.Any(t => t.Id == suggested)
+                ? suggested
+                : null;
             var suggestedLabels = candidate?.SuggestedLabelIds ?? Array.Empty<int>();
             foreach (var label in LabelChoices) label.IsSelected = suggestedLabels.Contains(label.Id);
         }
