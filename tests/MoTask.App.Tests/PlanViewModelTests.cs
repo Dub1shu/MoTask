@@ -146,6 +146,21 @@ public class PlanViewModelTests
         _service.Calls.Should().Equal("Start");
     }
 
+    /// <summary>ボードへ移って「計画」で戻ると読み直しが走る。書き換えた題名を推薦へ戻さない。</summary>
+    [Fact]
+    public async Task Load_Again_KeepsTheEditsOnTheSameCandidate()
+    {
+        _service.Current = IngestedRun();
+        _service.Candidates.Add(Candidate());
+        await _vm.LoadAsync();
+        _vm.Triage.EditTitle = "書き換えた題名";
+
+        await _vm.LoadAsync();
+
+        _vm.Selected!.CandidateId.Should().Be(1);
+        _vm.Triage.EditTitle.Should().Be("書き換えた題名");
+    }
+
     [Fact]
     public async Task Register_PassesTheEditedValues_AndMovesToTheNextCandidate()
     {

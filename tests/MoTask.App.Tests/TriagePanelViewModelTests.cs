@@ -63,6 +63,41 @@ public class TriagePanelViewModelTests
         SelectedLabelIds().Should().Equal(200);
     }
 
+    /// <summary>
+    /// 「計画」で戻ると同じ候補が新しいインスタンスで来る。人が書き換えた値は推薦へ戻さない。
+    /// 位置の表示だけは件数が変わりうるので更新する。
+    /// </summary>
+    [Fact]
+    public void Show_KeepsTheEdits_WhenTheSameCandidateIsShownAgain()
+    {
+        _panel.Show(Candidate(), 0, 1);
+        _panel.EditTitle = "書き換えた題名";
+        _panel.EditDueDate = new DateTime(2026, 9, 10);
+        _panel.EditProjectName = "別プロジェクト";
+        _panel.EditMergeTargetId = 12;
+
+        _panel.Show(Candidate(), 1, 3);
+
+        _panel.EditTitle.Should().Be("書き換えた題名");
+        _panel.EditDueDate.Should().Be(new DateTime(2026, 9, 10));
+        _panel.EditProjectName.Should().Be("別プロジェクト");
+        _panel.EditMergeTargetId.Should().Be(12);
+        _panel.PositionText.Should().Be("2 / 3");
+    }
+
+    [Fact]
+    public void Show_RefillsFromTheSuggestion_WhenAnotherCandidateIsShown()
+    {
+        _panel.Show(Candidate(), 0, 2);
+        _panel.EditTitle = "書き換えた題名";
+        _panel.EditProjectName = "別プロジェクト";
+
+        _panel.Show(Candidate(id: 2), 1, 2);
+
+        _panel.EditTitle.Should().Be("請求先情報を更新する");
+        _panel.EditProjectName.Should().Be("顧客A");
+    }
+
     /// <summary>読み直しで同じ候補が新しいインスタンスで来ても、人の切り替えは推薦へ戻さない。</summary>
     [Fact]
     public void Show_KeepsTheToggledLabels_WhenTheSameCandidateIsShownAgain()
